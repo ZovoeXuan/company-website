@@ -2,7 +2,7 @@
 
 日期：2026-11-02
 范围：三工程骨架、Flyway 迁移基线、统一响应与异常、健康检查
-结论：**通过**（在真实 MySQL 8.0.46 实例上执行，非内存库）
+结论：**通过**（在真实 MySQL 实例上执行，非内存库；初始验证在 8.0.46，升级到 8.4.13 后已复验，见第 9 节）
 
 ## 1. 验证环境
 
@@ -13,7 +13,7 @@
 | Spring Boot | 4.1.2（内置 Tomcat 11.0.27、Spring Framework 7.0.10） |
 | Spring Session | 4.1.1 |
 | Jackson | 3.1.7（`tools.jackson`） |
-| MySQL | 8.0.46，默认端口 3306，服务名 MySQL80 |
+| MySQL | 8.4.13 LTS，默认端口 3306，InnoDB，`utf8mb4_0900_ai_ci` |
 | Node / npm | 22.22.2 / 10.9.7 |
 | Vue / Vite / TypeScript | 3.5.44 / 8.3.5 / 6.0.3 |
 
@@ -124,3 +124,25 @@ curl -i http://127.0.0.1:18080/api/admin/auth/me
 # 数据库对象
 mysql -h 127.0.0.1 -P 3306 -u root -p cms_dev -e "SHOW TABLES;"
 ```
+
+## 9. 升级到 MySQL 8.4.13 LTS 后的复验
+
+2026-11-02 将本机 MySQL 从 8.0.46 升级到 8.4.13 LTS（原地升级，端口仍为 3306）。升级后复核结果：
+
+| 检查项 | 结果 |
+|---|---|
+| 版本 | `8.4.13`，InnoDB `8.4.13`，`utf8mb4` / `utf8mb4_0900_ai_ci` |
+| 数据留存 | 12 张表齐全；`cms_content` 2 条、`cms_media` 2 条、`sys_user` 2 个 |
+| Flyway | `Successfully validated 2 migrations`，`Schema cms_dev is up to date`，无新增迁移 |
+| 应用启动 | `Started CmsApplication`，`Database: ... (MySQL 8.4)` |
+| 接口 | `/actuator/health` UP；公开产品列表、登录、内容列表均正常 |
+| CHECK 约束 | 非法角色仍被 `ck_user_role` 拒绝；无快照改成已发布仍被 `ck_config_snapshot_state` 拒绝 |
+| 生成列 | `active_published_name` 仍为 `STORED GENERATED` |
+| 账号插件 | `cms_app`、`cms_migrator` 均为 `caching_sha2_password`（8.4 默认，可用） |
+| 四字节字符 | 通过接口创建分类「测试🚀四字节」并回读一致，emoji 往返正常 |
+
+注意事项：
+
+- 8.4 默认禁用 `mysql_native_password`，新建账号不要指定该插件，否则无法登录。
+- 升级不可回退，生产环境升级前必须做全量备份与恢复演练。
+- 本次复验的约束与字符集检查走的是应用链路（JDBC + JSON），控制台直接执行含 emoji 的 SQL 会因终端编码显示乱码，不代表数据库问题。

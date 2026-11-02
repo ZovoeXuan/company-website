@@ -28,7 +28,7 @@ db/00-init-env.sql         本地建库与账号脚本（一次性，用 root �
 | Spring Boot | 4.1.2 | 文档要求 4.1.x，取当前稳定版 |
 | Spring Session JDBC | 4.1.1 | 由 Boot BOM 管理 |
 | Jackson | 3.1.7（`tools.jackson`） | Boot 4 已从 Jackson 2 迁移，**包名不同** |
-| MySQL | 8.0.46 | 文档基线为 8.4 LTS，本地按 8.0.46 验证，差异见第 6 节 |
+| MySQL | 8.4.13 LTS | 与文档基线一致；InnoDB、`utf8mb4_0900_ai_ci` |
 | Node / npm | 22.22.2 / 10.9.7 | 满足 Vite 8 要求 |
 | Vue / Vite / TS | 3.5.44 / 8.3.5 / 6.0.3 | 由 create-vite 生成 |
 | Element Plus | 2.14.7 | 仅后台使用 |
@@ -95,7 +95,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.0.46 验证通过（见 `docs/stage1-verification.md`） |
+| 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.4.13 验证通过（见 `docs/stage1-verification.md`） |
 | 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
 | 3 | 素材、分类、产品纵向闭环 | 接口、发布链路与后台页面均完成（`docs/stage3-verification.md`） |
 | 4 | 方案、案例、新闻、客户标识 | 后端未开始；官网对应页面已完成（mock 数据） |
@@ -144,7 +144,7 @@ CMS_INIT_USERNAME=admin CMS_INIT_PASSWORD='至少12位的密码' ./mvnw spring-b
 
 1. **Jackson 3**：Spring Boot 4 使用 `tools.jackson.databind.ObjectMapper`，`com.fasterxml.jackson.databind` 已不在类路径。迁移代码时不要照抄 Boot 3 示例。
 2. **TypeScript 6**：`baseUrl` 已废弃，路径别名改用 `paths` 相对 `tsconfig` 的写法。
-3. **MySQL 8.0.46 代替 8.4 LTS**：`schema.sql` 用到的 CHECK 约束、生成列、`utf8mb4_0900_ai_ci` 在 8.0.46 均可用；交付说明需记录该偏差。
+3. **MySQL 已升级到 8.4.13 LTS**：升级后复核了迁移校验、CHECK 约束、生成列、`cms_*` 账号认证插件与四字节字符往返，均正常；原先「8.0.46 代替 8.4」的偏差已消除。注意 8.4 默认禁用 `mysql_native_password`，新建账号必须使用 `caching_sha2_password`。
 4. **产品详情按 P0 做图文正文**：参考站的模块化区块（硬件卡片、角色价值拆分）列入二期，不在首版范围。
 5. **咨询表单内嵌在产品/方案/案例详情页**，与参考站「按钮跳转联系页」不同，属于本项目改进。
 6. **后台首版全量引入 Element Plus**，构建产物约 1 MB；上线前可改为按需引入。
