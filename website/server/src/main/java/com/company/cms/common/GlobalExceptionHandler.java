@@ -28,6 +28,22 @@ public class GlobalExceptionHandler {
         return build(ex.code(), ex.getMessage(), ex.fieldErrors(), request);
     }
 
+    /**
+     * 方法级权限拒绝（@PreAuthorize）发生在 Controller 调用中，不会经过安全过滤器的
+     * AccessDeniedHandler，必须在这里转成 403，否则会被兜底处理成 500。
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex, HttpServletRequest request) {
+        return build(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.defaultMessage(), null, request);
+    }
+
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(
+            org.springframework.security.core.AuthenticationException ex, HttpServletRequest request) {
+        return build(ErrorCode.UNAUTHENTICATED, "登录状态已失效，请重新登录", null, request);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleBeanValidation(MethodArgumentNotValidException ex,
                                                                  HttpServletRequest request) {

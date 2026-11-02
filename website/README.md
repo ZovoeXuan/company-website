@@ -96,7 +96,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.0.46 验证通过（见 `docs/stage1-verification.md`） |
-| 2 | 登录、CSRF、角色、账号、审计 | 未开始 |
+| 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
 | 3 | 素材、分类、产品纵向闭环 | 未开始 |
 | 4 | 方案、案例、新闻、客户标识 | 未开始 |
 | 5 | 站点配置、导航、首页、单页 | 未开始 |
@@ -112,6 +112,24 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 - 每个响应带 `X-Request-Id` 头；异常日志按该 ID 可追踪
 - `/api/public/**` 允许匿名；`/api/admin/**` 除 `auth/csrf`、`auth/login` 外需要登录
 - 未登录返回 401 JSON，CSRF 失败返回 403 `CSRF_INVALID`，不返回 HTML 登录页
+
+### 认证流程（阶段 2）
+
+1. `GET /api/admin/auth/csrf` 取原始令牌（头名 `X-CSRF-TOKEN`）。
+2. `POST /api/admin/auth/login`，表单 `username/password` + 请求头带令牌。
+3. 登录成功后**必须重新获取令牌**：会话固定保护会轮换 CSRF 令牌，沿用旧令牌的写请求会被拒绝。
+4. 之后所有写请求带 `X-CSRF-TOKEN`；`GET /api/admin/auth/me` 取当前用户。
+5. 连续登录失败达到阈值返回 429，带 `Retry-After`；锁定期内不再比对密码。
+
+### 初始管理员
+
+账号表为空且提供以下环境变量时，启动会创建一次管理员，无固定默认密码：
+
+```bash
+CMS_INIT_USERNAME=admin CMS_INIT_PASSWORD='至少12位的密码' ./mvnw spring-boot:run
+```
+
+创建成功后应从运行环境移除这两个变量。`sys_user` 非空时初始化逻辑直接跳过。
 
 ## 6. 已知偏差与决定
 

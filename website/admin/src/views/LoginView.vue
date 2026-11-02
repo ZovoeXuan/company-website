@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ApiError, clearCsrf, request } from '@/api/http'
+import { ApiError } from '@/api/http'
+import { useAuth } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const { login } = useAuth()
 
 const form = ref({ username: '', password: '' })
 const submitting = ref(false)
 const errorText = ref('')
-
-const title = computed(() => String(route.meta.title ?? ''))
 
 async function submit() {
   if (submitting.value) return
@@ -22,12 +22,9 @@ async function submit() {
   }
   submitting.value = true
   try {
-    await request('/api/admin/auth/login', {
-      method: 'POST',
-      form: { username: form.value.username.trim(), password: form.value.password },
-    })
-    clearCsrf()
-    await router.replace('/dashboard')
+    await login(form.value.username.trim(), form.value.password)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+    await router.replace(redirect)
   } catch (error) {
     const apiError = error instanceof ApiError ? error : null
     errorText.value = apiError?.message ?? '登录失败，请稍后重试'
@@ -51,7 +48,7 @@ async function submit() {
         </div>
       </div>
 
-      <h1>{{ title || '登录' }}</h1>
+      <h1>登录</h1>
 
       <form class="form" @submit.prevent="submit">
         <label class="field">
@@ -70,9 +67,7 @@ async function submit() {
         </button>
       </form>
 
-      <p class="hint">
-        登录接口在阶段 2 接入。当前提交会得到后端真实返回的错误，便于联调时确认链路是否打通。
-      </p>
+      <p class="hint">账号由管理员创建，不提供自助注册与找回密码。连续失败会被临时限制登录。</p>
     </div>
   </div>
 </template>

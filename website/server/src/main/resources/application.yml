@@ -30,6 +30,7 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true
   session:
+    timeout: 30m
     jdbc:
       initialize-schema: never
   jackson:
@@ -53,3 +54,13 @@ logging:
   level:
     root: INFO
     com.company.cms: INFO
+
+cms:
+  security:
+    login:
+      max-failures: 5
+      window-minutes: 5
+      lock-minutes: 10
+  init:
+    username: "${CMS_INIT_USERNAME:}"
+    password: "${CMS_INIT_PASSWORD:}"

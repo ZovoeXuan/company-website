@@ -16,6 +16,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "请求方法不支持"),
     VERSION_CONFLICT(HttpStatus.CONFLICT, "内容已被他人修改，请刷新后重试"),
     REFERENCED(HttpStatus.CONFLICT, "该内容仍被其他位置引用"),
+    LAST_ADMIN_PROTECTED(HttpStatus.CONFLICT, "系统必须保留至少一个启用的管理员"),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "重复提交的内容与首次不一致"),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "文件超出大小限制"),
     UNSUPPORTED_MEDIA(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "文件类型不支持"),
