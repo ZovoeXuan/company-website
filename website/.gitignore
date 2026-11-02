@@ -1,0 +1,24 @@
+# 依赖与构建产物
+node_modules/
+dist/
+target/
+*.class
+
+# 本地环境与密钥，禁止提交
+.env
+.env.local
+*.local
+server/src/main/resources/application-local.yml
+
+# 日志与临时文件
+logs/
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Maven wrapper 下载的发行包不需要忽略，wrapper 配置需要提交

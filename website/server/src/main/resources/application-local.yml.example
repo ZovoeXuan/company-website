@@ -1,0 +1,9 @@
+# 复制为 application-local.yml 后填入本地数据库密码。
+# 真实文件已在 .gitignore 中排除，不要提交。
+spring:
+  datasource:
+    username: cms_app
+    password: 你的应用账号密码
+  flyway:
+    user: cms_migrator
+    password: 你的迁移账号密码

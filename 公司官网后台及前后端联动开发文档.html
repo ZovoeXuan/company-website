@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>公司官网后台及前后端联动开发文档</title><style>
+    :root { color-scheme: light; }
+    body { margin:0; color:#202b36; background:#eaf0f5; font:16px/1.75 'Microsoft YaHei','PingFang SC',sans-serif; }
+    main { box-sizing:border-box; max-width:1120px; padding:48px 56px; margin:32px auto; background:white; box-shadow:0 3px 24px #18384d12; }
+    h1,h2,h3,h4 { color:#164e70; line-height:1.45; break-after:avoid; }
+    h1 { font-size:30px; border-bottom:3px solid #164e70; padding-bottom:18px; }
+    h2 { margin-top:42px; border-bottom:1px solid #cbd8e2; padding-bottom:8px; font-size:24px; }
+    h3 { margin-top:28px; font-size:19px; }
+    p { margin:10px 0; overflow-wrap:anywhere; }
+    a { color:#126292; text-underline-offset:3px; }
+    .table-scroll { overflow-x:auto; margin:16px 0; }
+    table { width:100%; border-collapse:collapse; table-layout:auto; font-size:14px; line-height:1.6; }
+    td,th { border:1px solid #c8d5df; padding:8px 10px; vertical-align:top; overflow-wrap:anywhere; }
+    th { background:#e6eff5; text-align:left; }
+    tr:nth-child(even) td { background:#f7f9fb; }
+    code { font-family:Consolas,'Microsoft YaHei',monospace; font-size:.88em; color:#263f57; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#f2f5f8; padding:14px; line-height:1.55; font-size:13px; }
+    pre code { font-size:inherit; }
+    blockquote { border-left:3px solid #95b4c8; margin:16px 0; padding:8px 18px; background:#f4f8fb; }
+    nav { padding:16px 24px; margin-top:28px; border:1px solid #cbd8e2; background:#f7f9fb; }
+    nav ol { list-style:none; padding-left:0; margin:0; columns:2; column-gap:30px; }
+    nav li { break-inside:avoid; margin:4px 0; }
+    @media(max-width:700px) { main { margin:0; padding:24px 18px; } body { font-size:15px; } table { min-width:600px; } }
+    @page { size:A4; margin:18mm; }
+    @media print { body { background:white; font-size:10.5pt; } main { margin:0; padding:0; max-width:none; box-shadow:none; } h2 { break-before:page; } h2:first-of-type { break-before:auto; } table { font-size:9pt; } thead { display:table-header-group; } .table-scroll { overflow:visible; } a { color:inherit; text-decoration:none; } }
+    </style></head><body><main>
+<h1 id="section_0000">公司官网后台及前后端联动开发文档</h1>
+<p>版本：V1.0｜适用对象：开发实习生、带教开发、测试及内容运营｜编制日期：2026-10-31</p>
+<p>技术约束：Java 后端、Vue 前端、MySQL 数据库。参考网站：https://www.g7.com.cn/ 。</p>
+<p>本文是首版开发与验收基线。公司名称、品牌色、图片、产品名称和联系信息暂用公司提供的正式素材替换；这些资料不影响先按本文开发。本文规定的后台、接口和数据模型是为本项目设计的方案，并非对参考网站内部系统的描述。</p>
+<h2 id="section_0004">阅读顺序与交付文件</h2>
+<p>实习生先阅读第 1～5 章理解范围与发布规则，再按第 6～10 章实现表单和接口，最后按第 11～18 章联调、测试及交付。不要只实现后台页面而遗漏官网取数。</p>
+<div class="table-scroll"><table><thead><tr><th>文件</th><th>用途</th></tr></thead><tbody><tr><td>本文 Markdown / 同名 Word 文档</td><td>完整需求、字段、交互、数据模型、接口契约和执行计划</td></tr><tr><td><code>schema.sql</code></td><td>MySQL 8.4 业务表初始化脚本；具体执行前阅读脚本说明</td></tr><tr><td><code>schema-notes.md</code></td><td>建表脚本使用说明、字段补充及框架会话表说明</td></tr><tr><td><code>acceptance-checklist.md</code></td><td>供带教和测试逐项执行的验收记录</td></tr></tbody></table></div>
+<p>文中“必须”属于首版验收项；“建议”可以在不改变业务行为的前提下由带教调整；“二期”不进入首版验收。数据库与接口字段均采用本文命名，不能分别实现成几套含义相同的字段。</p>
+<nav aria-label="文档目录"><p><strong>目录（点击标题跳转）</strong></p><ol><li><a href="#section_0004">阅读顺序与交付文件</a></li><li><a href="#section_0008">1. 项目目标与范围</a></li><li><a href="#section_0022">2. 参考网站分析与本项目页面结构</a></li><li><a href="#section_0031">3. 技术架构与工程约定</a></li><li><a href="#section_0041">4. 角色、登录和后台通用交互</a></li><li><a href="#section_0057">5. 草稿、发布、下线与预览：核心规则</a></li><li><a href="#section_0075">6. 后台模块的详细开发要求</a></li><li><a href="#section_0148">7. 咨询线索：从官网到后台的完整闭环</a></li><li><a href="#section_0168">8. 数据库设计与快照字段约束</a></li><li><a href="#section_0190">9. 接口通用契约</a></li><li><a href="#section_0209">10. 接口清单与请求示例</a></li><li><a href="#section_0239">11. 官网 Vue 如何使用后台内容</a></li><li><a href="#section_0258">12. 安全、数据校验和异常处理</a></li><li><a href="#section_0268">13. 开发步骤、任务拆解和带教检查点</a></li><li><a href="#section_0276">14. 联调数据和关键验收用例</a></li><li><a href="#section_0286">15. 部署、配置与恢复要求</a></li><li><a href="#section_0303">16. 运营人员常用操作示例</a></li><li><a href="#section_0314">17. 交付物与最终完成标准</a></li><li><a href="#section_0318">18. 开工与上线前由公司确认的资料</a></li><li><a href="#section_0322">附录：实现前应核对的官方资料</a></li></ol></nav>
+<h2 id="section_0008">1. 项目目标与范围</h2>
+<h3 id="section_0009">1.1 最终应交付的结果</h3>
+<p>交付一个可公开访问的公司官网，以及供公司内部人员登录的内容管理后台。运营人员可以不修改代码完成：更换首屏图、调整文案和导航、维护产品及方案、发布案例和新闻、调整首页推荐、更换联系信息，以及查看处理访客咨询。</p>
+<p>完整链路必须成立：后台录入 → 保存草稿 → 登录预览 → 管理员发布 → 官网从公开接口读取发布版 → 访客浏览/咨询 → 管理员处理咨询。只做静态官网，或后台保存后官网仍使用写死的数据，都不算完成。</p>
+<h3 id="section_0012">1.2 首版假设</h3>
+<p class="list-item" style="margin-left:0.6em">• 一个公司、一个中文站点、两个内部角色；官网访客不需要注册或登录。</p>
+<p class="list-item" style="margin-left:0.6em">• 官网和管理后台均使用 Vue，分别构建；Java 单体应用提供两组 API，MySQL 存业务数据。</p>
+<p class="list-item" style="margin-left:0.6em">• 页面模板、模块顺序、布局、颜色和响应式行为由前端代码固定；运营在后台维护模块内容和开关。</p>
+<p class="list-item" style="margin-left:0.6em">• 桌面和移动端共用同一份业务数据；首屏图片允许分别上传两种尺寸。</p>
+<p class="list-item" style="margin-left:0.6em">• 详情 URL 使用稳定 ID，例如 <code>/products/101</code>，首版不实现可编辑 slug。</p>
+<p class="list-item" style="margin-left:0.6em">• 不接入公司的订单、物流、财务等业务系统。参考站涉及的业务产品在本项目中只是展示内容。</p>
+<h3 id="section_0019">1.3 范围优先级</h3>
+<div class="table-scroll"><table><thead><tr><th>优先级</th><th>内容</th><th>完成要求</th></tr></thead><tbody><tr><td>P0，首版必须</td><td>登录权限、站点设置、导航、首页、产品、方案、案例、新闻、客户标识、关于、联系、隐私说明、素材、咨询、账号、操作日志</td><td>所有模块完成后台与官网联动，并通过验收</td></tr><tr><td>P1，完善体验</td><td>图片压缩提示、后台筛选体验、发布影响提示、表单定位、性能优化</td><td>在 P0 功能内完成可用体验，不扩展新业务</td></tr><tr><td>P2，二期</td><td>多语言、站内全局搜索、招聘、下载中心、视频库、在线客服、短信验证、通知、线索导出、定时发布、复杂审批、版本历史回滚、SSR/预渲染</td><td>本次不实现；有新增要求时单独估时</td></tr></tbody></table></div>
+<p>后台不提供任意 HTML 页面模板、脚本注入、拖拽建站、微服务、多租户、动态权限设计器。上述能力对首版内容维护没有必要。</p>
+<h2 id="section_0022">2. 参考网站分析与本项目页面结构</h2>
+<h3 id="section_0023">2.1 参考依据</h3>
+<p>已查阅参考站的<a href="https://www.g7.com.cn/">首页</a>、<a href="https://www.g7.com.cn/Customer-case.html">客户案例</a>、<a href="https://www.g7.com.cn/News-center.html">新闻中心</a>、<a href="https://www.g7.com.cn/about.html">关于页面</a>及<a href="https://www.g7.com.cn/iot/g7-protect.html">产品详情示例</a>。公开页面可见多级导航、首屏宣传、企业指标、服务介绍、客户故事、客户标识、新闻、咨询入口及页脚；列表页有分类和分页。以这些栏目与内容组织方式作为本项目参考。</p>
+<p>本项目的色值、具体尺寸和动效以最终视觉稿为准；本文尺寸为实现建议，并非对参考站的像素测量。公司介绍、业务数据、Logo、客户标识、图片、备案信息均使用本公司获准使用的资料，不直接复用参考站素材。</p>
+<h3 id="section_0026">2.2 官网路由</h3>
+<div class="table-scroll"><table><thead><tr><th>页面</th><th>路由</th><th>页面内容</th></tr></thead><tbody><tr><td>首页</td><td><code>/</code></td><td>首屏、指标、服务分组、案例、客户标识、动态、咨询</td></tr><tr><td>产品列表 / 详情</td><td><code>/products</code>、<code>/products/:id</code></td><td>分类、卡片、产品能力、正文、关联案例、咨询</td></tr><tr><td>方案列表 / 详情</td><td><code>/solutions</code>、<code>/solutions/:id</code></td><td>分类、行业方案、关联产品、咨询</td></tr><tr><td>案例列表 / 详情</td><td><code>/cases</code>、<code>/cases/:id</code></td><td>行业筛选、客户故事、成果、相关产品和方案</td></tr><tr><td>新闻列表 / 详情</td><td><code>/news</code>、<code>/news/:id</code></td><td>分类、关键字、分页、正文、来源、上一篇/下一篇</td></tr><tr><td>关于我们</td><td><code>/about</code></td><td>企业介绍、历程、资质</td></tr><tr><td>联系我们</td><td><code>/contact</code></td><td>电话、邮箱、地址、二维码、咨询表单</td></tr><tr><td>隐私说明</td><td><code>/privacy</code></td><td>当前发布的隐私说明正文</td></tr><tr><td>未找到</td><td><code>/404</code>及无效路由</td><td>返回首页/列表入口</td></tr></tbody></table></div>
+<h3 id="section_0028">2.3 后台菜单</h3>
+<pre data-language="text"><code>工作台（内容数量、待处理咨询、最近发布）
+站点管理：全站设置 / 导航与页脚链接
+首页管理：首屏 / 企业指标 / 服务分组 / 案例推荐 / 客户推荐 / 新闻推荐 / 咨询区
+内容管理：产品 / 解决方案 / 客户案例 / 新闻 / 客户标识 / 内容分类
+单页管理：关于我们 / 联系我们 / 隐私说明
+素材管理：图片上传、预览、查询引用、删除
+咨询管理：列表 / 详情 / 处理
+系统管理：账号管理 / 操作日志
+个人设置：修改密码 / 退出登录</code></pre>
+<p>首页管理可以分标签编辑，但统一保存为 HOME 草稿、统一发布。不得让某个标签在保存时绕过首页发布。</p>
+<h2 id="section_0031">3. 技术架构与工程约定</h2>
+<h3 id="section_0032">3.1 推荐技术基线</h3>
+<div class="table-scroll"><table><thead><tr><th>层</th><th>首版选择</th><th>约束</th></tr></thead><tbody><tr><td>Java</td><td>JDK 21</td><td>开发、测试、生产保持一致</td></tr><tr><td>服务端</td><td>Spring Boot 4.1.x、Spring MVC、Spring Security、Spring JDBC</td><td>依赖优先使用 Boot BOM 管理；开工时锁定补丁版本并构建验证</td></tr><tr><td>登录态</td><td>Spring Session JDBC + Cookie</td><td>会话存在 MySQL；不额外部署 Redis</td></tr><tr><td>数据访问</td><td>JdbcTemplate + 参数化 SQL</td><td>Repository 封装 SQL，Service 管理事务，不在 Controller 写 SQL</td></tr><tr><td>数据库</td><td>MySQL 8.4 LTS、InnoDB、utf8mb4</td><td>表结构通过 Flyway 等迁移工具维护</td></tr><tr><td>官网</td><td>Vue 3、Vue Router、TypeScript、Vite</td><td>独立项目或 workspace 子项目</td></tr><tr><td>后台</td><td>Vue 3、Vue Router、TypeScript、Element Plus</td><td>与官网分构建，共享请求类型可以单独提取</td></tr><tr><td>构建</td><td>Maven Wrapper、Node.js 与包管理锁文件</td><td>Node 按 Vue/Vite 要求选择兼容版本，写入 README；固定依赖锁文件</td></tr><tr><td>部署</td><td>Nginx + Java jar + MySQL + 受控素材目录</td><td>首版单实例，应用 JSON 接口不加业务缓存</td></tr></tbody></table></div>
+<p>版本选择依据：<a href="https://docs.spring.io/spring-boot/system-requirements.html">Spring Boot 系统要求</a>、<a href="https://vuejs.org/guide/quick-start.html">Vue 项目创建说明</a>、<a href="https://dev.mysql.com/doc/refman/8.4/en/mysql-releases.html">MySQL LTS 说明</a>。这些资料用于兼容性核对，项目版本最终写入构建文件；不要在开发中随意升级。</p>
+<h3 id="section_0035">3.2 请求与数据流</h3>
+<pre data-language="text"><code>官网 Vue ── /api/public/* ──┐
+                           ├─ Java Controller → Service → Repository → MySQL
+后台 Vue ── /api/admin/* ───┘                      └─ 受控图片存储
+                  │
+                  └─ Session 身份认证、角色校验、CSRF、操作审计
+
+后台保存 → draft_json
+管理员发布 → 事务复制为 published_json + 更新发布查询字段与引用
+官网读取 → 只读取有效 published_json → 转成公开 DTO → Vue 组件渲染</code></pre>
+<p>后台 API 与官网 API 使用独立 Controller 和 DTO。可以复用 Service 中的校验、链接解析等能力，禁止直接把数据库实体、草稿 JSON 和后台详情响应返回给官网。</p>
+<h3 id="section_0038">3.3 目录建议</h3>
+<pre data-language="text"><code>website/
+  server/                   Java 工程
+    .../auth/               登录、角色、会话
+    .../cms/                配置、内容、分类、发布与预览
+    .../media/              上传、资源引用与文件读取
+    .../lead/               咨询与处理
+    .../system/             账号与审计
+    .../common/             响应、异常、参数校验、时间
+    src/main/resources/db/migration/
+  web/                      官网 Vue
+  admin/                    管理后台 Vue
+  docs/                     接口、部署、操作与验收说明</code></pre>
+<p>每个业务包内部再区分 controller、dto、service、repository。无需拆成多个 Java 服务。使用版本控制；每个可演示功能形成一次清晰提交。</p>
+<h2 id="section_0041">4. 角色、登录和后台通用交互</h2>
+<h3 id="section_0042">4.1 权限矩阵</h3>
+<div class="table-scroll"><table><thead><tr><th>能力</th><th>ADMIN 管理员</th><th>EDITOR 编辑</th></tr></thead><tbody><tr><td>查看业务内容、筛选、保存草稿、上传图片、预览</td><td>是</td><td>是</td></tr><tr><td>发布、下线、删除内容/分类，发布配置</td><td>是</td><td>否</td></tr><tr><td>删除无引用图片</td><td>是</td><td>否</td></tr><tr><td>查看、处理咨询</td><td>是</td><td>否</td></tr><tr><td>账号管理、日志</td><td>是</td><td>否</td></tr><tr><td>修改本人密码、退出</td><td>是</td><td>是</td></tr></tbody></table></div>
+<p>菜单和按钮按权限显示，服务端对每个操作再次校验。直接调用接口也必须得到相同限制。访客只允许读公开内容、提交咨询，不得读后台配置或咨询记录。</p>
+<h3 id="section_0045">4.2 登录规则</h3>
+<p class="list-item" style="margin-left:0.6em">• 账号 4～50 个英文字符、数字、下划线、连字符；数据库唯一；登录前后去除账号首尾空格，密码不得自动去空格。</p>
+<p class="list-item" style="margin-left:0.6em">• 密码建议至少 12 位，允许较长口令，最长 128 字符。使用 Spring Security PasswordEncoder 的单向哈希；不保存明文或可逆密码。</p>
+<p class="list-item" style="margin-left:0.6em">• 登录失败统一提示“账号或密码错误”；按账号/IP 组合限制尝试次数，例如 5 分钟内失败 5 次后暂缓 10 分钟，参数可配置。</p>
+<p class="list-item" style="margin-left:0.6em">• 登录成功轮换会话 ID；30 分钟无操作失效。生产 Cookie 设置 HttpOnly、Secure、SameSite=Lax。</p>
+<p class="list-item" style="margin-left:0.6em">• 退出、禁用账号、重置密码后撤销该用户所有相关会话；修改本人密码后也要求重新登录。</p>
+<p class="list-item" style="margin-left:0.6em">• 不开放自助注册和找回密码。管理员可重置编辑账号；初始管理员通过部署时一次性初始化创建，无固定生产默认密码。</p>
+<p class="list-item" style="margin-left:0.6em">• 禁止禁用或降级最后一个启用的管理员；并发操作时需要数据库事务锁住管理员集合进行检查。</p>
+<h3 id="section_0053">4.3 所有管理列表与表单的共同行为</h3>
+<p>列表有关键字、发布状态、是否有未发布修改、分类、时间筛选及分页；显示标题、封面、类型、线上状态、草稿版本、发布版本、最后修改时间和操作。</p>
+<p>编辑页显示“保存草稿”“预览”“发布”及当前版本。编辑角色不显示发布按钮。发布前列出缺失字段和引用问题；成功提示版本与官网查看入口。未保存离开时提醒，保存失败保留输入；提交中禁用重复点击。</p>
+<p>删除、下线、禁用账号必须二次确认，提示具体对象和影响位置。批量发布、批量删除不进入首版。图片和关联内容选择器必须可搜索，并显示资源状态，不能要求运营自己查 ID 后输入。</p>
+<h2 id="section_0057">5. 草稿、发布、下线与预览：核心规则</h2>
+<h3 id="section_0058">5.1 状态模型</h3>
+<p>官网状态使用 <code>UNPUBLISHED</code>（未发布）、<code>PUBLISHED</code>（已发布）、<code>OFFLINE</code>（已下线）。另外维护 <code>draftVersion</code>、<code>publishedVersion</code>、<code>lockVersion</code>。已发布内容可以同时有未发布修改，后台显示两个标记，例如“已发布 / 有未发布修改”。</p>
+<p><code>hasUnpublishedChanges = publishedVersion 为空，或 draftVersion != publishedVersion</code>。不要用“保存草稿”把一条已发布内容的线上状态改成未发布。</p>
+<div class="table-scroll"><table><thead><tr><th>操作</th><th>草稿</th><th>线上快照</th><th>官网结果</th></tr></thead><tbody><tr><td>新建并保存</td><td>新增、版本为 1</td><td>空</td><td>列表无记录，详情 404</td></tr><tr><td>已发布内容保存修改</td><td>更新，草稿版本加 1</td><td>保持原样</td><td>保持原发布内容</td></tr><tr><td>发布当前草稿</td><td>不改变已保存草稿含义</td><td>完整替换，记录版本/发布人</td><td>新请求使用新发布内容</td></tr><tr><td>下线</td><td>保留</td><td>保留供追溯，状态 OFFLINE</td><td>从公开列表和推荐移除，详情 404</td></tr><tr><td>重新发布</td><td>发布当前保存的草稿</td><td>生成当前快照</td><td>重新公开；有修改时清楚提示本次发布哪一版</td></tr><tr><td>删除</td><td>逻辑删除</td><td>不再公开</td><td>只允许未发布/已下线且无引用的内容</td></tr></tbody></table></div>
+<p>配置 SITE、NAVIGATION、HOME、ABOUT、CONTACT、PRIVACY 是固定单例，不允许新增未知键或删除；通过发布其中模块开关控制显示。SITE、HOME、CONTACT、PRIVACY 等基础配置不提供整体下线按钮。</p>
+<h3 id="section_0063">5.2 保存与发布的校验强度</h3>
+<p>保存草稿允许尚未填完标题、摘要等业务字段，但必须校验 JSON 类型、文本最大长度、数组上限、资源存在性、安全链接、富文本安全和权限。发布时再完整校验必填项、当前资源可用性、分类类型及关联对象是否已发布。接口返回所有已发现字段错误，避免运营一次只能修改一个问题。</p>
+<p>发布提交 <code>expectedLockVersion</code> 和 <code>expectedDraftVersion</code>。保存、发布、下线、删除均必须使用数据库条件更新或行锁保证原子比较；不能先查询版本再无条件写入。版本不匹配返回 409，提示刷新后重新核对。</p>
+<p>发布事务按顺序完成：读取来源与关联候选集合 → 按第 8.4 节统一锁顺序锁定来源及目标 → 重读并核对版本和角色 → 按固定 DTO 校验并清洗 → 校验引用 → 将 draft_json 复制为 published_json → 提取发布查询字段 → 更新发布引用 → 设置发布版本、状态、时间和操作人 → 写成功审计 → 提交。任一步失败全部回滚。</p>
+<p>首版只有单个配置/内容的发布事务，没有“整个官网一键原子发布”。上线顺序为：素材 → 分类 → 产品/方案/案例/新闻/客户标识 → 站点及单页 → 导航与首页。跨对象更新期间由公开接口过滤失效关联。</p>
+<h3 id="section_0068">5.3 下线、引用与删除</h3>
+<p>内容被首页、导航、其他内容关联时允许下线，操作前展示影响；公开接口读取时自动剔除无效关联，不能输出可点击的死链接。父导航过滤后无子项且无有效目标时隐藏。首页模块过滤后无数据则整块隐藏。</p>
+<p>删除仍有 DRAFT/PUBLISHED 引用的内容或图片必须返回 409，并列出“首页/案例推荐”等位置。先解除引用，再删除。下线的来源对象保留快照，引用也保留用于追溯和删除检查；公开媒体是否可读还需核对来源当前是否有效。</p>
+<p>分类如仍有已发布内容使用，禁止下线或删除；若只有草稿引用，允许下线但禁止删除，并提示相关草稿发布前需要重新选择分类。</p>
+<h3 id="section_0072">5.4 预览与生效时间</h3>
+<p>预览使用后台登录会话和 <code>/api/admin/preview/*</code>，页面标明“草稿预览”。不得通过给公开 URL 增加 <code>preview=true</code> 返回草稿，不提供免登录预览链接。首版预览本对象的草稿，关联对象使用各自最新发布版，并在预览页说明此规则。</p>
+<p>公开 JSON API 使用 <code>Cache-Control: no-store</code>；官网不长期写入 localStorage，不在 Service Worker 缓存 CMS 响应。发布或下线成功后，重新加载官网应在 5 秒内看到变化；已经打开的页面以刷新更新，不实现主动推送。数据库中的新闻展示日期不承担定时发布功能。</p>
+<h2 id="section_0075">6. 后台模块的详细开发要求</h2>
+<h3 id="section_0076">6.1 统一字段和链接规范</h3>
+<p>所有长度指服务端统一校验的字符长度，前端采用相同计数方法。普通字段 trim 后校验，正文保留必要换行。排序字段 <code>sortOrder</code> 为 0～9999 整数，数值越小越靠前；配置数组同值按稳定 <code>key</code> 字典序，内容同值按 ID 倒序。所有重复条目有稳定 <code>key</code>，不以数组下标作为永久标识。新条目请求不传 key，由服务端生成并在保存响应的规范化 draft 中返回；修改已有条目原样保留 key，服务端核对其属于当前对象。</p>
+<p>重复内容的共用字段如下；除客户标识特例外，发布时均需检查。</p>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>类型/长度</th><th>发布规则</th><th>官网用途</th></tr></thead><tbody><tr><td><code>title</code></td><td>string，1～120</td><td>必填</td><td>列表、详情、选择器</td></tr><tr><td><code>summary</code></td><td>string，0～300</td><td>产品/方案/案例必填，新闻可选</td><td>卡片和详情导语</td></tr><tr><td><code>coverMediaId</code></td><td>ID string</td><td>产品/方案/案例/新闻必填</td><td>卡片封面</td></tr><tr><td><code>coverAlt</code></td><td>string，0～120</td><td>未填用标题</td><td>图片替代文字</td></tr><tr><td><code>categoryId</code></td><td>ID string</td><td>新闻/案例必填，产品/方案可选</td><td>分类筛选；必须与内容类型一致</td></tr><tr><td><code>sortOrder</code></td><td>integer</td><td>默认 100</td><td>非新闻内容默认排序</td></tr><tr><td><code>seo.title</code></td><td>string，0～80</td><td>可选，未填用内容标题</td><td>页面 title</td></tr><tr><td><code>seo.description</code></td><td>string，0～200</td><td>可选，未填用摘要</td><td>meta description</td></tr><tr><td><code>bodyHtml</code></td><td>string，最多 100000</td><td>有正文的详情必填；服务端清洗</td><td>详情富文本</td></tr></tbody></table></div>
+<p>统一动作对象 <code>link</code> 只能使用下表之一，禁止直接保存任意 Vue 路由字符串或 HTML。</p>
+<div class="table-scroll"><table><thead><tr><th><code>type</code></th><th>草稿输入字段</th><th>发布校验</th><th>官网动作</th></tr></thead><tbody><tr><td><code>NONE</code></td><td>无</td><td>仅允许纯展示项/有子项的导航父节点</td><td>无链接</td></tr><tr><td><code>PAGE</code></td><td><code>pageCode</code></td><td>白名单 HOME/PRODUCTS/SOLUTIONS/CASES/NEWS/ABOUT/CONTACT/PRIVACY</td><td>RouterLink 到固定页面</td></tr><tr><td><code>CONTENT</code></td><td><code>contentType</code>、<code>contentId</code></td><td>PRODUCT/SOLUTION/CASE/NEWS；目标已发布</td><td>解析为稳定 ID 详情 URL</td></tr><tr><td><code>EXTERNAL</code></td><td><code>url</code>、<code>newWindow</code></td><td>只允许绝对 http/https URL，最长 500</td><td>普通 a 链接；新窗口加 noopener noreferrer</td></tr><tr><td><code>CONSULT</code></td><td>可选 <code>contentType</code>、<code>contentId</code></td><td>表单已开启；上下文仅 PRODUCT/SOLUTION/CASE，目标已发布</td><td>打开咨询弹窗，自动带入公开内容上下文</td></tr><tr><td><code>ANCHOR</code></td><td><code>anchorCode</code></td><td>白名单 metrics/services/cases/customers/news/consultation；目标模块启用且过滤后可渲染</td><td>跳到首页固定锚点</td></tr></tbody></table></div>
+<p>同一对象只能具备该类型所需字段。未知类型、<code>javascript:</code>、<code>data:</code>、协议相对 URL、站外伪造站内路径均拒绝。服务端将动作解析为安全 URL/动作 DTO，官网不根据数据库表名自行拼地址。内容下线或表单关闭后，依赖其动作的条目需再次过滤或去掉按钮，不能继续提供无效操作。锚点也按最终可展示模块二次解析；启用但无有效条目而隐藏的模块，不得保留指向它的按钮/导航叶子。</p>
+<h3 id="section_0083">6.2 全站设置 SITE</h3>
+<p>后台路径：站点管理 → 全站设置。固定单例，字段分为品牌、SEO、页脚。</p>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>发布要求</th><th>官网展示</th></tr></thead><tbody><tr><td><code>siteName</code></td><td>1～60，必填</td><td>浏览器标题后缀、站点名称</td></tr><tr><td><code>logoMediaId</code> / <code>logoAlt</code></td><td>Logo 必填，alt 默认站点名</td><td>顶部与页脚 Logo；点击返回首页</td></tr><tr><td><code>faviconMediaId</code></td><td>可选，首版使用 PNG，小于 200KB</td><td>浏览器图标</td></tr><tr><td><code>defaultSeo.title</code> / <code>description</code></td><td>1～80 / 1～200，必填</td><td>无独立 SEO 配置时兜底</td></tr><tr><td><code>copyrightText</code></td><td>1～120，必填</td><td>页脚版权文案，完整展示输入内容</td></tr><tr><td><code>icpText</code> / <code>icpUrl</code></td><td>0～80 / 合法外链，成对填写</td><td>有值才显示备案链接</td></tr><tr><td><code>policeText</code> / <code>policeUrl</code></td><td>同上，可选</td><td>对应展示文字与链接</td></tr><tr><td><code>footerGroups[]</code></td><td>最多 4 组，每组标题 1～20、最多 10 个链接</td><td>页脚分组；空组隐藏</td></tr></tbody></table></div>
+<p>电话、邮箱、地址只在 CONTACT 维护，SITE 页给出跳转入口，避免各页面各写一套。隐私正文只在 PRIVACY 维护。首版没有自定义脚本、统计代码、任意 CSS 输入框。</p>
+<h3 id="section_0087">6.3 导航管理 NAVIGATION</h3>
+<p>每项字段：<code>key</code>、<code>label</code>（1～20）、<code>enabled</code>、<code>sortOrder</code>、<code>link</code>、<code>children[]</code>。顶层最多 8 项，每项最多 10 个子项，只允许两级；同一父级名称不得完全相同。</p>
+<p>后台支持新增、编辑、移除、调整顺序、启停、预览、发布。发布时叶子导航必须有有效 link；有子项的父节点可用 NONE，桌面悬停/点击展开，手机点击展开。管理员不得把导航名配置为组件名或 SQL 字段。</p>
+<p>官网根据解析后的有效导航生成菜单、高亮与移动端抽屉。导航目标被下线时自动隐藏该叶子节点；父节点既无目标又无有效子项时隐藏。固定“首页”入口与 Logo 返回首页始终可用。</p>
+<h3 id="section_0091">6.4 首页管理 HOME</h3>
+<p>首页顺序固定：hero → metrics → services → cases → customers → news → consultation。hero 为固定必显模块，不提供模块总开关；其余区块有 <code>enabled</code>，有标题的区块含 <code>title</code>（最多 40）、<code>subtitle</code>（最多 200）。区块关停、改文案、改推荐都要发布 HOME 后生效。未明确提供 sortOrder 的数组按保存的数组顺序展示，不另加隐含排序。</p>
+<p><strong>A. 首屏 hero</strong></p>
+<p><code>items[]</code> 最多 5 条。每项字段如下。</p>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>规则</th><th>说明</th></tr></thead><tbody><tr><td><code>key</code>、<code>enabled</code>、<code>sortOrder</code></td><td>稳定 key，开关，排序</td><td>单条管理，不单独发布</td></tr><tr><td><code>title</code> / <code>subtitle</code></td><td>1～40 / 0～100</td><td>标题为独立 HTML 文本层，可普通换行，不允许富文本</td></tr><tr><td><code>desktopMediaId</code></td><td>启用项发布必填</td><td>建议 1920×800；图片格式/大小硬校验，比例仅提示</td></tr><tr><td><code>mobileMediaId</code></td><td>可选</td><td>建议 750×1000；无值回退桌面图</td></tr><tr><td><code>imageAlt</code></td><td>0～120</td><td>未填用首屏标题</td></tr><tr><td><code>buttonText</code> / <code>link</code></td><td>文案 1～12，配置按钮时成对填写</td><td>无按钮则两者均为空</td></tr></tbody></table></div>
+<p>正式上线 HOME 必须至少有 1 个有效首屏。有效条目 1 个时不显示切换控件，2～5 个时支持手动切换；默认不自动播放，后续增加自动播放须提供暂停。图片独立于文字，不能要求运营把标题做进图片后才能显示。</p>
+<p><strong>B. 企业指标 metrics</strong></p>
+<p><code>items[]</code> 最多 8 条，每条：<code>key</code>、<code>displayValue</code>（1～16）、<code>unit</code>（0～8）、<code>label</code>（1～20）、<code>description</code>（0～80）、<code>sortOrder</code>。数值按字符串保存，支持“1000”“10万”“99.9%”；前端不解析成浮点数、不自行计算增长。该区块展示公司的已确认宣传指标，并不连接实时经营数据。</p>
+<p><strong>C. 产品服务 services</strong></p>
+<p><code>groups[]</code> 最多 3 组，字段：<code>key</code>、<code>title</code>（1～30）、<code>description</code>（0～200）、<code>imageMediaId</code>（可选）、<code>sortOrder</code>、<code>contentIds[]</code>（1～6 个）、<code>moreLink</code>（可选）。每组内容只能全部为 PRODUCT 或全部为 SOLUTION，另存 <code>contentType</code>；不得混入新闻或客户标识。后台选择器只提供已发布的对应类型。</p>
+<p>官网显示分组标题、说明、配图与解析后的卡片；卡片名称、摘要、封面来自目标内容最新发布版，首页不重复保存这些文案。组内按 contentIds 数组顺序；失效引用过滤后整组为空则隐藏。服务模块所有分组均空则隐藏整个模块。</p>
+<p><strong>D. 客户案例 cases</strong></p>
+<p><code>contentIds[]</code> 最多 6 个 CASE，按数组顺序展示；卡片取案例发布版的标题、封面、客户名、摘要和可选成果。点击进入案例详情。“更多案例”链接固定 <code>/cases</code>。</p>
+<p><strong>E. 客户标识 customers</strong></p>
+<p><code>contentIds[]</code> 最多 30 个 CUSTOMER，按数组顺序显示客户名和 Logo；有合法客户网址才可点击。图片以 contain 显示，不能拉伸。首页不再独立录入另一份客户名称。</p>
+<p><strong>F. 新闻动态 news</strong></p>
+<p>字段：<code>mode=SELECTED|LATEST</code>，默认 SELECTED；<code>limit</code> 1～6，默认 3；<code>contentIds[]</code> 最多 6 个 NEWS。</p>
+<p class="list-item" style="margin-left:0.6em">• SELECTED：按手选 ID 顺序取前 limit 条有效新闻；不足时按实际条数显示，不自动补位。</p>
+<p class="list-item" style="margin-left:0.6em">• LATEST：忽略 contentIds，按已发布新闻的 <code>displayTime DESC, id DESC</code> 取 limit 条；仅后台确认选择该模式后使用。</p>
+<p class="list-item" style="margin-left:0.6em">• 两种模式不能混合排序；首页推荐和新闻列表是不同展示规则。首页无需请求每条新闻正文。</p>
+<p><strong>G. 咨询区 consultation</strong></p>
+<p>字段：<code>title</code>、<code>subtitle</code>、<code>buttonText</code>（1～12）、<code>link</code>。仅允许 CONSULT 或指向 CONTACT 的 PAGE。联系方式和表单开关以 CONTACT 的发布版为准；表单关闭后可显示联系页入口，不再弹出可提交表单。</p>
+<h3 id="section_0113">6.5 产品管理 PRODUCT</h3>
+<p>后台列表：按标题、分类、线上状态、有无未发布修改筛选。表单：通用字段、<code>heroMediaId</code>（可选，未填用 cover）、<code>features[]</code>（最多 8 条，标题 1～30、说明 0～200、可选图标 MediaId）、<code>relatedCaseIds[]</code>（最多 6）及正文。</p>
+<p>详情固定模板：标题与摘要/大图 → 能力列表 → 正文 → 相关案例 → 咨询。没有能力/相关案例时不留空白区。案例关联发布时必须有效；初次创建可以不选，待案例发布后再补充。点击咨询自动记录该产品 ID 和详情来源。</p>
+<h3 id="section_0116">6.6 解决方案管理 SOLUTION</h3>
+<p>通用字段，另有 <code>industry</code>（0～60）、<code>heroMediaId</code>（可选）、<code>pains[]</code>、<code>benefits[]</code>（分别最多 6 条，标题 1～30、说明 0～200）、<code>relatedProductIds[]</code>（最多 6）。详情为标题/摘要/配图 → 业务痛点 → 方案正文 → 价值说明 → 相关产品 → 咨询。非必填区块无数据自动隐藏。</p>
+<h3 id="section_0118">6.7 客户案例管理 CASE</h3>
+<p>通用字段，另有 <code>customerName</code>（1～60）、<code>industry</code>（0～60）、<code>outcomes[]</code>（最多 4 条，displayValue 1～20、label 1～40）、<code>quoteText</code>（0～300）、<code>quoteAuthor</code>（0～60）、<code>relatedProductIds[]</code>、<code>relatedSolutionIds[]</code>（各最多 6）。引用语和作者成对填写。</p>
+<p>正文应组织为客户背景、问题、实施方案和结果；这是编辑内容要求，不做复杂的案例流程系统。成果数据须由业务负责人确认。公开表单中不录入客户联系人手机号等内部 CRM 信息。</p>
+<p>详情显示封面、标题、客户名、行业、正文、成果、引用语及关联内容。首页、列表与详情复用同一条案例的发布版。</p>
+<h3 id="section_0122">6.8 新闻管理 NEWS</h3>
+<p>通用字段，另有 <code>author</code>（0～50）、<code>displayTime</code>（日期时间，必填）、<code>sourceName</code>（0～100）、<code>sourceUrl</code>（可选外链，填链接必须填来源名）。首版不提供评论、点赞和阅读量统计。</p>
+<p><code>displayTime</code> 为新闻展示日期，可录入历史日期；首版不允许晚于服务端当前时间，避免被误当定时发布。<code>published_at</code> 是后台执行发布的时间，不得相互替代。新闻列表按展示日期倒序、ID 倒序；首页手选推荐仍按首页配置顺序。</p>
+<p>新闻详情展示标题、日期、作者/来源（有值才显示）、摘要、正文、返回列表、上一篇/下一篇。相邻新闻按当前有效新闻全集的相同排序确定，不包括草稿或下线记录；没有相邻记录时隐藏入口。</p>
+<h3 id="section_0126">6.9 客户标识管理 CUSTOMER</h3>
+<p>字段使用 <code>title</code> 表示客户名称（1～60）、<code>logoMediaId</code>（必填）、<code>logoAlt</code>（默认客户名）、<code>websiteUrl</code>（可选合法外链）、<code>sortOrder</code>。该类型不要求 cover、category、summary、bodyHtml、seo。后台提供新增、修改、预览、发布、下线；首页从已发布记录中选取。</p>
+<h3 id="section_0128">6.10 分类管理</h3>
+<p>一层分类，固定类型 PRODUCT/SOLUTION/CASE/NEWS；CUSTOMER 不分类。字段：<code>categoryType</code>（创建后不可改）、<code>name</code>（1～30）、<code>sortOrder</code>。同类型名称发布时不得重复，后台校验草稿重名并提示。</p>
+<p>分类也有草稿和发布快照；改名称后仅保存不会影响官网。选择器标明所属类型和发布状态。公开列表传 categoryId 时，只允许有效且类型匹配的分类；无效参数返回 400，而不是静默展示全部内容。</p>
+<h3 id="section_0131">6.11 关于我们 ABOUT</h3>
+<p>字段：<code>title</code>（1～60）、<code>coverMediaId</code>（可选）、<code>intro</code>（0～500）、<code>bodyHtml</code>（必填，最大 100000）、<code>milestones[]</code>（最多 20 条，year 4 位年份、title 1～40、description 0～200、sortOrder）、<code>qualifications[]</code>（最多 12 条，name 1～60、mediaId）。SEO 同通用字段。</p>
+<p>官网按固定模板展示简介、正文、历程与资质；无内容的可选模块隐藏。首版不单独实现团队管理、招聘系统。</p>
+<h3 id="section_0134">6.12 联系我们 CONTACT 与隐私说明 PRIVACY</h3>
+<p>CONTACT 字段：<code>companyName</code>（1～100）、<code>phone</code>（1～32）、<code>email</code>（合法邮箱，最多 120）、<code>address</code>（1～200）、<code>serviceHours</code>（0～100）、<code>mapUrl</code>（可选外链）、<code>qrMediaId</code>、<code>qrLabel</code>（0～20）、<code>formEnabled</code>（默认 false）、<code>formTitle</code>（1～40，启用时必填）、<code>successText</code>（1～100，启用时必填）。电话允许座机、400 和手机号等正常格式，不用手机号规则限制公司联系电话。</p>
+<p>PRIVACY 字段：<code>title</code>（1～60）、<code>bodyHtml</code>（必填）。发布版本号作为 <code>consentVersion</code>，由服务端产生，不能由运营手填版本。官网 <code>/privacy</code> 展示发布版正文。正式文案由公司负责人提供并核对实际收集字段、用途、联系渠道及保留安排；实习生不要自行承诺法律合规。</p>
+<p>首次开启 formEnabled 前，PRIVACY 必须有已发布版本，CONTACT 的必要联系方式必须完整。关闭表单并发布后，所有入口都应调整，服务端提交接口同样拒绝新提交。页脚、悬浮联系入口、联系页共用 CONTACT，不能写死。</p>
+<h3 id="section_0138">6.13 素材管理</h3>
+<p>首版接收 JPG/JPEG、PNG、WebP，单张最多 5MB、最大 2000 万像素。通过后缀、实际类型和图像解码共同校验；SVG、HTML、脚本、可执行文件、视频和任意附件在首版拒绝。</p>
+<p>上传成功返回 mediaId、宽高、体积、原文件名和后台预览地址。磁盘文件名使用服务端随机存储键，不采用原文件名；不接受客户端传磁盘路径。不覆盖旧文件，替换图片必须上传新资源并发布新引用。</p>
+<p>列表支持文件名搜索、上传时间、是否被引用筛选，可查看引用位置。存在草稿或发布引用时禁止删除；删除只标记逻辑删除，文件物理清理由运维后续执行，不提供一键彻底清理。</p>
+<p>素材目录不直接映射为公开静态目录。后台图片预览走鉴权接口；公开 <code>/api/public/media/{id}</code> 只有图片存在至少一个当前有效发布来源引用时才返回文件，否则 404。来源下线、删除或无效分类必须参与有效性检查。首版图片响应同样 no-store；以后采用缓存时须明确撤回行为。曾公开过的图片无法保证从第三方缓存中撤回。</p>
+<p>富文本图片只允许从素材库选择。数据库中的规范化 bodyHtml 对 img 只保存受控 <code>data-media-id</code>、alt 等白名单属性，移除客户端 src；保存/发布时扫描媒体 ID 并维护引用。返回 admin/preview/public DTO 时，服务端再按上下文注入对应 src，不能把后台鉴权图片地址固定保存进发布正文。清洗器须保留经过验证的 data-media-id。拒绝外部图片 src、粘贴 base64 图片、任意 iframe。普通正文外链可使用合法 http/https。不能只处理封面图片而漏记正文中的素材引用。</p>
+<h3 id="section_0144">6.14 工作台、账号与日志</h3>
+<p>工作台只显示内容条数、已发布数量、未发布修改数量、最近发布；管理员额外显示 NEW 咨询数量。编辑接口不得通过统计或最近动态泄露咨询姓名、电话和需求。</p>
+<p>账号管理支持新增编辑/管理员、修改显示名/角色、启停、重置密码。账号不物理删除，以保留内容与审计关联。每次角色/密码/启停变化撤销原有会话。</p>
+<p>日志可按操作人、操作、对象、时间分页筛选，包含 requestId、对象 ID、草稿/发布版本、结果及简要说明。记录登录、账号变更、发布、下线、删除、咨询详情查看及处理。日志只读，首版没有清空按钮；不记录完整密码、Cookie、手机号或咨询正文。</p>
+<h2 id="section_0148">7. 咨询线索：从官网到后台的完整闭环</h2>
+<h3 id="section_0149">7.1 官网表单</h3>
+<p>首页、产品/方案/案例详情和联系页复用同一咨询组件。表单字段和服务端约束如下。</p>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>必填</th><th>校验/来源</th></tr></thead><tbody><tr><td><code>name</code></td><td>是</td><td>1～50 字，普通文本</td></tr><tr><td><code>phone</code></td><td>是</td><td>首版为中国大陆手机号，字符串，<code>^1[3-9][0-9]{9}$</code>；仅作格式校验，不声称验证号码归属</td></tr><tr><td><code>companyName</code></td><td>是</td><td>1～100 字</td></tr><tr><td><code>demand</code></td><td>是</td><td>1～2000 字，普通文本</td></tr><tr><td><code>sourcePath</code></td><td>是</td><td>本站相对路径，最长 200；只保留 path，不存 URL query 中潜在个人信息</td></tr><tr><td><code>sourcePosition</code></td><td>是</td><td>HOME_HERO/HOME_BOTTOM/PRODUCT_DETAIL/SOLUTION_DETAIL/CASE_DETAIL/CONTACT/FLOATING/NAVIGATION/FOOTER/OTHER_CTA 白名单；导航、页脚和其他合法咨询动作分别映射对应值</td></tr><tr><td><code>contentType</code> / <code>contentId</code></td><td>否</td><td>成对填写，限产品/方案/案例的已发布内容；只作来源线索，不作权限依据</td></tr><tr><td><code>consent</code></td><td>是</td><td>必须为 true；不默认勾选</td></tr><tr><td><code>consentVersion</code></td><td>是</td><td>必须与当前已发布隐私说明版本一致；失效时提示重新阅读与勾选</td></tr><tr><td>请求头 <code>Idempotency-Key</code></td><td>是</td><td>每次独立咨询生成 UUID，失败重试沿用；不是身份凭证</td></tr></tbody></table></div>
+<p>隐藏来源参数可被浏览器篡改，因此服务端必须校验白名单、目标类型和公开状态；来源路径和入口仍应视为访客声明。受理时间、状态、处理人、隐私同意时间均由服务端填写。</p>
+<h3 id="section_0153">7.2 提交流程与幂等</h3>
+<p class="list-item" style="margin-left:0.6em">1. 打开表单时获取发布的 formEnabled 与隐私版本，用户查看说明并主动同意。</p>
+<p class="list-item" style="margin-left:0.6em">2. 前端校验；提交中按钮禁用。后端先校验请求结构、长度与 key 格式，规范化载荷并计算 payload_hash；此阶段不校验关联当前状态或当前隐私版本。</p>
+<p class="list-item" style="margin-left:0.6em">3. 查询 key：已经成功且 hash 相同则直接返回原成功结果；hash 不同返回 409。旧成功重试不再受后来表单关闭、隐私升级、关联下线影响，也不重复消耗业务提交额度，但仍受通用请求频率限制。</p>
+<p class="list-item" style="margin-left:0.6em">4. 未命中 key 时才校验当前表单开关、字段业务规则、当前同意版本、有效关联和业务提交限流；通过后将 key/hash 与线索一起入库，唯一约束防并发重复。</p>
+<p class="list-item" style="margin-left:0.6em">5. 并发插入发生唯一键冲突时回读已提交记录，同 hash 返回原受理结果，不同 hash 返回 409；不得仅依靠预先查询。失败未落库的请求没有成功幂等记录，重试仍按当前业务状态校验。</p>
+<p class="list-item" style="margin-left:0.6em">6. 成功只返回 accepted=true 与随机 receiptNo，不回显手机号或提供查询其他线索的接口。成功后清空表单、重新生成下一次 key；网络超时保留输入及原 key，不能展示虚假的成功提示。</p>
+<p>首版不接短信服务。对新提交配置 IP 与手机号摘要限流，例如同 IP 每分钟最多 3 次、同手机号 10 分钟最多 3 次；这些是可配置初值，须结合公司网络情况调整。429 返回可理解提示与 Retry-After。蜜罐/验证码可作为二期增强，不在无服务商凭证时伪造短信验证成功。</p>
+<h3 id="section_0161">7.3 后台处理</h3>
+<p>管理员列表支持状态、日期、公司/姓名关键字筛选，显示姓名、公司、脱敏手机、来源、关联内容、提交时间、状态。点击详情并审计后可查看完整手机；编辑角色没有任何读取权限。</p>
+<p>状态为 NEW → CONTACTED → CLOSED，也可 NEW/CONTACTED → INVALID。CLOSED/INVALID 若需重新跟进，管理员必须填写原因后可回到 CONTACTED；每次操作记录日志。首版保存 <code>last_note</code>（最多 2000）、处理人、处理时间，日志记录状态变化和有无备注，不复制敏感备注全文。</p>
+<p>首版不做线索删除按钮、Excel 导出、邮件/短信通知或 CRM 对接。保留周期由公司负责人在上线清单中确认，写入运维手册；正式上线前落实受控的到期清理方式及备份保留策略，测试数据先清理。保留周期不是由实习生自行决定的业务规则。</p>
+<h3 id="section_0165">7.4 敏感字段存储约定</h3>
+<p>手机号使用服务端维护的密钥进行认证加密保存，密文内包含算法版本、随机 nonce 和校验 tag；密钥不进数据库、不进源码。可使用成熟库/平台密钥能力，禁止自行设计加密算法。列表用末四位脱敏，限流可用带服务端密钥的规范化手机号 HMAC 摘要；不保存可被直接枚举的普通手机号哈希。</p>
+<p>IP 只用于防滥用，日志不要长期保存原始地址；限流键使用受控摘要并设置短期失效。名单详情授权、备份访问、密钥备份同样需要受控。姓名、公司和需求也不输出到普通访问日志。</p>
+<h2 id="section_0168">8. 数据库设计与快照字段约束</h2>
+<h3 id="section_0169">8.1 数据模型</h3>
+<p>为减少实习生重复实现相同发布逻辑，内容统一主表、不同类型使用固定 Java DTO 和不同表单。不能允许客户端任意字段 JSON 透传入库。</p>
+<div class="table-scroll"><table><thead><tr><th>表</th><th>作用</th><th>主要关系</th></tr></thead><tbody><tr><td><code>sys_user</code></td><td>账号、密码哈希、固定角色、启用状态</td><td>内容/日志关联操作人</td></tr><tr><td><code>cms_config</code></td><td>六种固定单例配置</td><td>config_key 唯一</td></tr><tr><td><code>cms_category</code></td><td>一层分类，按内容类型区分</td><td>已发布内容引用有效分类</td></tr><tr><td><code>cms_content</code></td><td>PRODUCT/SOLUTION/CASE/NEWS/CUSTOMER</td><td>草稿与发布快照、发布查询投影</td></tr><tr><td><code>cms_media</code></td><td>图片元数据和受控存储键</td><td>引用表指向素材</td></tr><tr><td><code>cms_media_ref</code></td><td>素材引用位置</td><td>来源 kind/id + DRAFT/PUBLISHED + media_id</td></tr><tr><td><code>cms_content_ref</code></td><td>关联内容引用位置</td><td>来源 kind/id + DRAFT/PUBLISHED + target_content_id</td></tr><tr><td><code>cms_lead</code></td><td>咨询、幂等、处理状态</td><td>可关联产品/方案/案例；不套用内容发布模型</td></tr><tr><td><code>sys_audit_log</code></td><td>操作审计</td><td>actor_id、对象、版本、requestId</td></tr><tr><td>框架会话表</td><td>Spring Session JDBC 登录会话</td><td>按项目依赖自带的 MySQL schema 初始化</td></tr></tbody></table></div>
+<h3 id="section_0172">8.2 通用生命周期字段</h3>
+<p>cms_config、cms_category、cms_content 必须包含以下字段。</p>
+<div class="table-scroll"><table><thead><tr><th>数据库字段</th><th>类型/默认</th><th>写入规则</th></tr></thead><tbody><tr><td><code>id</code></td><td>BIGINT 主键</td><td>JSON 对外返回字符串</td></tr><tr><td><code>draft_json</code></td><td>JSON，非空</td><td>保存时由固定 DTO 序列化，空草稿用合法对象</td></tr><tr><td><code>published_json</code></td><td>JSON，可空</td><td>仅发布事务可写</td></tr><tr><td><code>publication_status</code></td><td>VARCHAR(20)，UNPUBLISHED</td><td>仅状态操作可写</td></tr><tr><td><code>draft_version</code></td><td>INT，1</td><td>每次成功保存 +1</td></tr><tr><td><code>published_version</code></td><td>INT，可空</td><td>发布时复制 draft_version</td></tr><tr><td><code>lock_version</code></td><td>INT，0</td><td>每次保存/发布/下线/删除 +1</td></tr><tr><td><code>published_at</code> / <code>published_by</code></td><td>DATETIME(3) / BIGINT，可空</td><td>最后发布操作信息</td></tr><tr><td><code>created_at</code> / <code>updated_at</code></td><td>DATETIME(3)</td><td>服务端时间</td></tr><tr><td><code>created_by</code> / <code>updated_by</code></td><td>BIGINT，可空</td><td>初始化允许空，正常操作必须填写</td></tr><tr><td><code>deleted</code></td><td>TINYINT，0</td><td>逻辑删除，不把被引用内容物理删除</td></tr></tbody></table></div>
+<p>时间在库内以 UTC 约定存储，JDBC/服务端时区保持一致；API 返回带时区的 ISO 8601，例如 <code>2026-10-31T10:00:00+08:00</code>；页面按 Asia/Shanghai 展示。DATETIME 自身不携带时区，不能依赖数据库自行识别。</p>
+<h3 id="section_0176">8.3 内容已发布查询投影</h3>
+<p><code>cms_content</code> 另含 <code>content_type</code>，创建后不可更改。为了公开列表筛选、搜索、排序，增加 <code>published_title</code>、<code>published_category_id</code>、<code>published_sort_order</code>、<code>published_display_time</code>。分类另有对应的已发布名称、排序投影。具体类型见 schema.sql。</p>
+<p>这些投影只能从本次发布 DTO 提取，并在同一发布事务中更新；草稿保存不得写入。否则虽然正文还没发布，官网搜索和分类已按草稿变化，仍然属于发布隔离错误。</p>
+<p>后台搜索可用 draft_json 中的 title；公开搜索只查 published_title。公开查询通用条件为：</p>
+<pre data-language="sql"><code>deleted = 0
+AND publication_status = &#x27;PUBLISHED&#x27;
+AND published_json IS NOT NULL</code></pre>
+<p>有分类的内容还需核对已发布分类存在、类型正确且有效。新闻按 <code>published_display_time DESC, id DESC</code>；其他内容按 <code>published_sort_order ASC, id DESC</code>。首页手选 ID 列表须按配置数组重新组装，不能依赖 SQL IN 的返回顺序。</p>
+<p>索引围绕内容类型、发布状态、删除标记、已发布分类和排序时间建立。新闻 title 的小数据量关键字查询可用参数化 LIKE；不为首版引入搜索引擎。外键与应用层类型约束的实际分工见脚本说明，不能把 JSON 中存在一个 ID 当成关系已校验。</p>
+<h3 id="section_0183">8.4 引用维护和并发约束</h3>
+<p>保存时重新扫描 DTO 的素材/内容/分类关联；更新 DRAFT 引用。发布时重新计算并替换 PUBLISHED 引用；引用的字段路径记录为 <code>HOME.services.groups[0].contentIds[1]</code> 等，便于后台定位。前端不得直接增删引用表。</p>
+<p>正文图片同样扫描；内部正文内容跳转优先使用结构化关联区，首版正文中的自由链接仅允许外链，避免漏记站内内容引用。分类引用通过 content 草稿 DTO 与 published_category_id 校验和查询，不必再伪装成 content_ref。</p>
+<p>逻辑删除后清除该来源的引用；删除前先检查其他来源是否引用它。引用唯一约束按来源、阶段、目标和字段位置定义，避免重复插入。资源/目标校验与保存、发布、删除并发时，先读候选引用集合，将来源对象也加入集合，按固定表顺序、ID 升序统一加锁，再重读来源版本与引用集合。若候选集合已经变化，回滚并返回版本冲突，不能在持有来源锁后随意逆序补锁。这样可防止刚校验通过目标就被删除；仍须捕获数据库死锁/锁等待超时，完整回滚后返回 409 RETRYABLE_CONFLICT，提示刷新后重试，不能返回成功或丢失草稿。单实例不等于可以忽略并发请求。</p>
+<h3 id="section_0187">8.5 建表与迁移要求</h3>
+<p>附带 schema.sql 提供基线；开发时纳入版本迁移，后续改结构新增迁移，不能修改已经在共享环境执行的旧迁移。Spring Session 表从实际依赖携带的 MySQL 脚本初始化，避免手写与框架版本不一致的表。</p>
+<p>脚本不创建带默认密码的生产账号，不包含正式公司内容，不擅自创建或删除数据库。空配置草稿初始不可公开；应用需展示合理初始化提示，正式验收再检查基础配置全部发布。开发者必须在空测试库实际执行迁移和基本读写后提交结果；本文交付的是开发规格及脚本基线，不代表应用已经实现或数据库已执行验证。</p>
+<h2 id="section_0190">9. 接口通用契约</h2>
+<h3 id="section_0191">9.1 路径、请求与响应</h3>
+<p><code>/api/admin/*</code> 为管理接口；<code>/api/public/*</code> 为公开接口。JSON 使用 camelCase；ID 一律字符串，布尔值为 true/false，不混用 0、1 和字符串。请求体字段白名单校验，忽略/拒绝策略统一为拒绝未知字段，防止误写 publicationStatus 等服务端字段。</p>
+<p>成功响应：</p>
+<pre data-language="json"><code>{
+  &quot;code&quot;: &quot;OK&quot;,
+  &quot;message&quot;: &quot;success&quot;,
+  &quot;data&quot;: {},
+  &quot;requestId&quot;: &quot;req-a83f21&quot;
+}</code></pre>
+<p>失败响应必须同时使用正确 HTTP 状态码：</p>
+<pre data-language="json"><code>{
+  &quot;code&quot;: &quot;VALIDATION_ERROR&quot;,
+  &quot;message&quot;: &quot;请完善发布内容&quot;,
+  &quot;data&quot;: null,
+  &quot;fieldErrors&quot;: [
+    {&quot;field&quot;: &quot;hero.items[0].desktopMediaId&quot;, &quot;message&quot;: &quot;请选择桌面首屏图片&quot;}
+  ],
+  &quot;requestId&quot;: &quot;req-a83f22&quot;
+}</code></pre>
+<div class="table-scroll"><table><thead><tr><th>HTTP</th><th>code 示例</th><th>使用场景</th></tr></thead><tbody><tr><td>400</td><td>VALIDATION_ERROR</td><td>参数、字段、类型、当前隐私版本不符</td></tr><tr><td>401</td><td>UNAUTHENTICATED</td><td>会话不存在/过期</td></tr><tr><td>403</td><td>FORBIDDEN / CSRF_INVALID</td><td>角色不足或 CSRF 不通过</td></tr><tr><td>404</td><td>NOT_FOUND</td><td>不存在、未发布、下线、逻辑删除的公开内容</td></tr><tr><td>409</td><td>VERSION_CONFLICT / REFERENCED / IDEMPOTENCY_CONFLICT</td><td>版本冲突、引用阻止、幂等载荷冲突</td></tr><tr><td>413 / 415</td><td>FILE_TOO_LARGE / UNSUPPORTED_MEDIA</td><td>文件太大 / 类型不允许</td></tr><tr><td>429</td><td>RATE_LIMITED</td><td>登录或咨询限流</td></tr><tr><td>503</td><td>FORM_UNAVAILABLE</td><td>新咨询提交时表单尚未启用或已经关闭</td></tr><tr><td>500</td><td>INTERNAL_ERROR</td><td>未预期异常，响应不包含堆栈或 SQL</td></tr></tbody></table></div>
+<p>文件读取成功直接返回图片字节与准确 Content-Type，失败遵守权限和 404 规则，不把图片再包进 JSON。POST 创建草稿返回 201，其余正常业务操作返回 200。</p>
+<h3 id="section_0199">9.2 分页、查询和排序</h3>
+<p>参数 <code>page</code> 从 1 开始，<code>pageSize</code> 公开默认 12、后台默认 20，最大均为 50；非法值返回 400。统一分页 data：<code>{items:[],page:1,pageSize:12,total:0}</code>。超出末页返回空 items，前端提供回第一页入口。</p>
+<p>关键字最多 50 字，trim 后空串视为不筛选；SQL 使用绑定参数，LIKE 特殊字符按普通文字搜索时要转义。排序只接受服务端白名单，例如后台 updatedAtDesc；禁止接受任意 SQL 列名/排序表达式。日期筛选使用明确起止边界，后台“到某日”转换成该日后一天零时的开区间。</p>
+<h3 id="section_0202">9.3 会话与 CSRF 联调顺序</h3>
+<p class="list-item" style="margin-left:0.6em">1. 后台打开后 GET <code>/api/admin/auth/csrf</code>，允许匿名访问，返回当前 csrf token，Cookie 由浏览器保存；响应 no-store。</p>
+<p class="list-item" style="margin-left:0.6em">2. POST login 使用表单编码 <code>username/password</code>，请求头 <code>X-CSRF-TOKEN</code> 携带 token；使用 Spring Security 的认证过滤器与 JSON 成功/失败处理，不自行拼 SecurityContext 代替完整认证流程。</p>
+<p class="list-item" style="margin-left:0.6em">3. 登录成功后重新获取 CSRF token，再 GET me；之后所有 POST/PUT/PATCH/DELETE 管理请求携带 token。退出后 token 和内存用户信息清理。</p>
+<p class="list-item" style="margin-left:0.6em">4. 管理请求收到 401 导向登录页并提示会话过期；403 显示权限不足，不重复登录、不自动重放发布请求。</p>
+<p class="list-item" style="margin-left:0.6em">5. 开发使用 Vite proxy 将 /api 转发到 Java；生产使用 Nginx 同源代理，避免不必要跨域。</p>
+<p>Spring Security 默认对不安全 HTTP 方法提供 CSRF 保护，SPA 需正确传 token，见<a href="https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html">官方 CSRF 说明</a>。公开只读接口不需要登录；POST leads 可作为唯一明确排除 CSRF 的公开业务写入口，同时执行限流、字段及 Origin 检查；Origin 检查不替代防机器人机制。不要为解决联调问题全局关闭 CSRF。</p>
+<h2 id="section_0209">10. 接口清单与请求示例</h2>
+<h3 id="section_0210">10.1 后台接口</h3>
+<p>除 csrf/login 外全部需要登录；写操作还需 CSRF。权限列 A=ADMIN，E=EDITOR。</p>
+<div class="table-scroll"><table><thead><tr><th>方法与路径</th><th>权限</th><th>请求/行为</th></tr></thead><tbody><tr><td>GET <code>/api/admin/auth/csrf</code></td><td>匿名</td><td>返回 token</td></tr><tr><td>POST <code>/api/admin/auth/login</code></td><td>匿名</td><td>表单 username/password + CSRF，建立会话</td></tr><tr><td>GET <code>/api/admin/auth/me</code></td><td>A/E</td><td>id、displayName、role，不含 passwordHash</td></tr><tr><td>POST <code>/api/admin/auth/logout</code></td><td>A/E</td><td>撤销会话</td></tr><tr><td>PUT <code>/api/admin/auth/password</code></td><td>A/E</td><td>oldPassword/newPassword，成功后全部会话失效</td></tr><tr><td>GET <code>/api/admin/dashboard</code></td><td>A/E</td><td>按权限返回统计</td></tr><tr><td>GET <code>/api/admin/configs/{key}</code></td><td>A/E</td><td>返回 draft、线上状态和版本；key 六种白名单</td></tr><tr><td>GET <code>/api/admin/configs/{key}/published</code></td><td>A/E</td><td>读取当前发布快照用于对照</td></tr><tr><td>PUT <code>/api/admin/configs/{key}/draft</code></td><td>A/E</td><td>expectedLockVersion + draft</td></tr><tr><td>POST <code>/api/admin/configs/{key}/publish</code></td><td>A</td><td>两个 expected 版本，发布单例</td></tr><tr><td>GET <code>/api/admin/contents</code></td><td>A/E</td><td>contentType、keyword、categoryId、publicationStatus、hasUnpublishedChanges、page/pageSize</td></tr><tr><td>POST <code>/api/admin/contents</code></td><td>A/E</td><td>contentType + draft，新建草稿</td></tr><tr><td>GET <code>/api/admin/contents/{id}</code></td><td>A/E</td><td>草稿与状态、版本</td></tr><tr><td>GET <code>/api/admin/contents/{id}/published</code></td><td>A/E</td><td>已发布快照；无快照返回 404</td></tr><tr><td>PUT <code>/api/admin/contents/{id}/draft</code></td><td>A/E</td><td>expectedLockVersion + draft，不能改类型</td></tr><tr><td>POST <code>/api/admin/contents/{id}/publish</code></td><td>A</td><td>expectedLockVersion + expectedDraftVersion</td></tr><tr><td>POST <code>/api/admin/contents/{id}/offline</code></td><td>A</td><td>expectedLockVersion，返回影响数量</td></tr><tr><td>DELETE <code>/api/admin/contents/{id}</code></td><td>A</td><td>query expectedLockVersion；校验状态与引用</td></tr><tr><td>GET <code>/api/admin/contents/{id}/references</code></td><td>A/E</td><td>引用来源、阶段、字段位置与后台编辑入口</td></tr><tr><td>GET <code>/api/admin/categories</code></td><td>A/E</td><td>categoryType、关键字、状态、分页</td></tr><tr><td>POST <code>/api/admin/categories</code></td><td>A/E</td><td>categoryType + draft</td></tr><tr><td>GET <code>/api/admin/categories/{id}</code></td><td>A/E</td><td>分类草稿和版本</td></tr><tr><td>PUT <code>/api/admin/categories/{id}/draft</code></td><td>A/E</td><td>expectedLockVersion + draft</td></tr><tr><td>POST <code>/api/admin/categories/{id}/publish</code></td><td>A</td><td>两个 expected 版本</td></tr><tr><td>POST <code>/api/admin/categories/{id}/offline</code></td><td>A</td><td>expectedLockVersion；已发布内容使用时拒绝</td></tr><tr><td>DELETE <code>/api/admin/categories/{id}</code></td><td>A</td><td>query expectedLockVersion；任何内容仍引用时拒绝</td></tr><tr><td>GET <code>/api/admin/preview/configs/{key}</code></td><td>A/E</td><td>当前配置草稿的可渲染 DTO</td></tr><tr><td>GET <code>/api/admin/preview/contents/{id}</code></td><td>A/E</td><td>当前内容草稿的可渲染 DTO</td></tr><tr><td>POST <code>/api/admin/media</code></td><td>A/E</td><td>multipart/form-data，字段 file</td></tr><tr><td>GET <code>/api/admin/media</code></td><td>A/E</td><td>filename、referenced、时间、分页</td></tr><tr><td>GET <code>/api/admin/media/{id}/file</code></td><td>A/E</td><td>后台原图预览，鉴权、no-store</td></tr><tr><td>GET <code>/api/admin/media/{id}/references</code></td><td>A/E</td><td>草稿/发布引用位置</td></tr><tr><td>DELETE <code>/api/admin/media/{id}</code></td><td>A</td><td>无引用时逻辑删除</td></tr><tr><td>GET <code>/api/admin/leads</code></td><td>A</td><td>status、keyword、from/to、分页，手机号脱敏</td></tr><tr><td>GET <code>/api/admin/leads/{id}</code></td><td>A</td><td>详情与 lastNote，记录查看审计</td></tr><tr><td>PUT <code>/api/admin/leads/{id}/follow-up</code></td><td>A</td><td>expectedLockVersion、status、lastNote，校验状态流转</td></tr><tr><td>GET <code>/api/admin/users</code></td><td>A</td><td>账号、启用状态、分页</td></tr><tr><td>POST <code>/api/admin/users</code></td><td>A</td><td>username/displayName/roleCode/initialPassword</td></tr><tr><td>PUT <code>/api/admin/users/{id}</code></td><td>A</td><td>expectedLockVersion、displayName、roleCode、enabled</td></tr><tr><td>POST <code>/api/admin/users/{id}/reset-password</code></td><td>A</td><td>expectedLockVersion、newPassword，撤销会话</td></tr><tr><td>GET <code>/api/admin/audit-logs</code></td><td>A</td><td>actor/action/target/time、分页，只读</td></tr></tbody></table></div>
+<p>后台预览路由可在管理站中使用 <code>/preview/home</code>、<code>/preview/products/:id</code> 等。预览复用官网展示组件或共享渲染逻辑，不复制一套与官网不同的模板。预览中咨询提交按钮禁用并标明预览；不能把测试咨询误入正式业务。</p>
+<h3 id="section_0214">10.2 公开接口</h3>
+<div class="table-scroll"><table><thead><tr><th>方法与路径</th><th>参数</th><th>data 输出/限制</th></tr></thead><tbody><tr><td>GET <code>/api/public/site-config</code></td><td>无</td><td>SITE、有效导航、页脚、CONTACT 摘要、formEnabled、隐私版本与链接；不含隐私全文</td></tr><tr><td>GET <code>/api/public/home</code></td><td>无</td><td>首页发布配置及解析好的卡片；不返回详情正文</td></tr><tr><td>GET <code>/api/public/categories</code></td><td>type=PRODUCT/SOLUTION/CASE/NEWS</td><td>有效分类 id/name/sortOrder</td></tr><tr><td>GET <code>/api/public/products</code></td><td>page/pageSize/categoryId/keyword</td><td>有效产品分页摘要</td></tr><tr><td>GET <code>/api/public/products/{id}</code></td><td>ID</td><td>产品发布详情、有效关联案例</td></tr><tr><td>GET <code>/api/public/solutions</code> 与 <code>/{id}</code></td><td>列表同上</td><td>方案摘要/详情、有效关联产品</td></tr><tr><td>GET <code>/api/public/cases</code> 与 <code>/{id}</code></td><td>列表同上</td><td>案例摘要/详情、有效关联产品与方案</td></tr><tr><td>GET <code>/api/public/news</code> 与 <code>/{id}</code></td><td>列表同上</td><td>新闻摘要/详情及有效相邻新闻</td></tr><tr><td>GET <code>/api/public/pages/{code}</code></td><td>ABOUT/CONTACT/PRIVACY，大小写固定</td><td>对应单页的发布 DTO，未发布返回 404</td></tr><tr><td>GET <code>/api/public/media/{id}</code></td><td>ID</td><td>当前有效发布引用的图片二进制</td></tr><tr><td>POST <code>/api/public/leads</code></td><td>第 7 章 JSON + Idempotency-Key</td><td>accepted/receiptNo，200；无公开线索读取接口</td></tr></tbody></table></div>
+<p>公开 DTO 中所有图片统一为 <code>{id,url,alt,width,height}</code>。公开详情不包含 draft、lockVersion、createdBy、updatedBy、后台备注、账号、日志或线索信息。SITE/HOME 未初始化时 API 返回 404；Vue 显示初始化/暂不可用提示，正式环境不允许以该状态通过上线验收。</p>
+<h3 id="section_0217">10.3 示例：创建、保存和发布产品</h3>
+<p>以下图片、分类等 ID 仅用于解释格式，调用前必须使用本环境真实 ID。</p>
+<p>创建 <code>POST /api/admin/contents</code>：</p>
+<pre data-language="json"><code>{
+  &quot;contentType&quot;: &quot;PRODUCT&quot;,
+  &quot;draft&quot;: {
+    &quot;title&quot;: &quot;设备管理平台&quot;,
+    &quot;summary&quot;: &quot;集中查看设备状态，帮助企业管理日常巡检。&quot;,
+    &quot;coverMediaId&quot;: &quot;501&quot;,
+    &quot;coverAlt&quot;: &quot;设备管理平台展示图&quot;,
+    &quot;categoryId&quot;: &quot;11&quot;,
+    &quot;sortOrder&quot;: 100,
+    &quot;heroMediaId&quot;: &quot;502&quot;,
+    &quot;features&quot;: [{&quot;title&quot;:&quot;状态查看&quot;,&quot;description&quot;:&quot;集中显示已接入设备状态。&quot;,&quot;iconMediaId&quot;:null}],
+    &quot;bodyHtml&quot;: &quot;&lt;h2&gt;产品介绍&lt;/h2&gt;&lt;p&gt;这里填写经过确认的产品说明。&lt;/p&gt;&quot;,
+    &quot;relatedCaseIds&quot;: [],
+    &quot;seo&quot;: {&quot;title&quot;:&quot;设备管理平台&quot;,&quot;description&quot;:&quot;了解平台的功能与适用场景。&quot;}
+  }
+}</code></pre>
+<p>成功 data 示意：</p>
+<pre data-language="json"><code>{
+  &quot;id&quot;: &quot;101&quot;,
+  &quot;contentType&quot;: &quot;PRODUCT&quot;,
+  &quot;publicationStatus&quot;: &quot;UNPUBLISHED&quot;,
+  &quot;draftVersion&quot;: 1,
+  &quot;publishedVersion&quot;: null,
+  &quot;lockVersion&quot;: 0,
+  &quot;hasUnpublishedChanges&quot;: true
+}</code></pre>
+<p>后续保存 <code>PUT /api/admin/contents/101/draft</code>，请求体 <code>{ &quot;expectedLockVersion&quot;: 0, &quot;draft&quot;: {完整产品草稿对象} }</code>；这里的说明占位不是可直接发送的 JSON。保存成功版本应变为 draftVersion=2、lockVersion=1，返回新的完整版本元信息。</p>
+<p>发布 <code>POST /api/admin/contents/101/publish</code>：</p>
+<pre data-language="json"><code>{&quot;expectedLockVersion&quot;:1,&quot;expectedDraftVersion&quot;:2}</code></pre>
+<p>成功 data：</p>
+<pre data-language="json"><code>{
+  &quot;id&quot;:&quot;101&quot;,
+  &quot;publicationStatus&quot;:&quot;PUBLISHED&quot;,
+  &quot;draftVersion&quot;:2,
+  &quot;publishedVersion&quot;:2,
+  &quot;lockVersion&quot;:2,
+  &quot;publishedAt&quot;:&quot;2026-10-31T10:00:00+08:00&quot;,
+  &quot;publicUrl&quot;:&quot;/products/101&quot;
+}</code></pre>
+<p>此时产品列表与详情可见，但首页尚未选中它。必须再将 101 加入 HOME.services.groups 对应分组的 contentIds，保存并发布 HOME；首页才出现该产品。以后发布产品改名，无需重发 HOME，所有动态引用使用产品的最新发布标题。</p>
+<h3 id="section_0229">10.4 示例：首页公开聚合结果</h3>
+<p>下例为裁减后的合法响应结构示意，空的可选区块以 null 返回；真实字段以第 6 章为准。相同请求应批量查询关联数据，避免每张卡片单独查库。</p>
+<pre data-language="json"><code>{
+  &quot;code&quot;:&quot;OK&quot;,
+  &quot;message&quot;:&quot;success&quot;,
+  &quot;requestId&quot;:&quot;req-home-1&quot;,
+  &quot;data&quot;:{
+    &quot;version&quot;:3,
+    &quot;publishedAt&quot;:&quot;2026-10-31T10:10:00+08:00&quot;,
+    &quot;hero&quot;:{
+      &quot;items&quot;:[{
+        &quot;key&quot;:&quot;hero-a&quot;,
+        &quot;title&quot;:&quot;让设备管理更高效&quot;,
+        &quot;subtitle&quot;:&quot;面向企业的数字化服务&quot;,
+        &quot;desktopImage&quot;:{&quot;id&quot;:&quot;503&quot;,&quot;url&quot;:&quot;/api/public/media/503&quot;,&quot;alt&quot;:&quot;企业设备场景&quot;,&quot;width&quot;:1920,&quot;height&quot;:800},
+        &quot;mobileImage&quot;:null,
+        &quot;buttonText&quot;:&quot;了解产品&quot;,
+        &quot;link&quot;:{&quot;type&quot;:&quot;CONTENT&quot;,&quot;url&quot;:&quot;/products/101&quot;}
+      }]
+    },
+    &quot;metrics&quot;:{
+      &quot;title&quot;:&quot;企业实力&quot;,
+      &quot;subtitle&quot;:&quot;&quot;,
+      &quot;items&quot;:[{&quot;key&quot;:&quot;metric-a&quot;,&quot;displayValue&quot;:&quot;1000&quot;,&quot;unit&quot;:&quot;+&quot;,&quot;label&quot;:&quot;服务客户&quot;,&quot;description&quot;:&quot;&quot;}]
+    },
+    &quot;services&quot;:{
+      &quot;title&quot;:&quot;产品与解决方案&quot;,
+      &quot;subtitle&quot;:&quot;&quot;,
+      &quot;groups&quot;:[{
+        &quot;key&quot;:&quot;group-a&quot;,
+        &quot;title&quot;:&quot;数字化产品&quot;,
+        &quot;description&quot;:&quot;&quot;,
+        &quot;image&quot;:null,
+        &quot;moreLink&quot;:{&quot;type&quot;:&quot;PAGE&quot;,&quot;url&quot;:&quot;/products&quot;},
+        &quot;items&quot;:[{
+          &quot;id&quot;:&quot;101&quot;,&quot;contentType&quot;:&quot;PRODUCT&quot;,&quot;title&quot;:&quot;设备管理平台&quot;,
+          &quot;summary&quot;:&quot;集中查看设备状态，帮助企业管理日常巡检。&quot;,
+          &quot;cover&quot;:{&quot;id&quot;:&quot;501&quot;,&quot;url&quot;:&quot;/api/public/media/501&quot;,&quot;alt&quot;:&quot;设备管理平台展示图&quot;,&quot;width&quot;:800,&quot;height&quot;:450},
+          &quot;url&quot;:&quot;/products/101&quot;
+        }]
+      }]
+    },
+    &quot;cases&quot;:null,
+    &quot;customers&quot;:null,
+    &quot;news&quot;:null,
+    &quot;consultation&quot;:{&quot;title&quot;:&quot;了解适合您的服务&quot;,&quot;subtitle&quot;:&quot;&quot;,&quot;buttonText&quot;:&quot;立即咨询&quot;,&quot;link&quot;:{&quot;type&quot;:&quot;CONSULT&quot;}}
+  }
+}</code></pre>
+<p>version 仅表示 HOME 自身的发布版本，不是整份聚合响应的缓存版本；被引用内容或 CONTACT 发布也可能改变结果。首版不据此跳过重新取数。公开接口已经完成开关、权限和关联过滤，Vue 仍需处理 null 和网络错误。</p>
+<h3 id="section_0233">10.5 示例：咨询提交与处理</h3>
+<p><code>POST /api/public/leads</code>，请求头 <code>Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000</code>：</p>
+<pre data-language="json"><code>{
+  &quot;name&quot;:&quot;示例客户&quot;,
+  &quot;phone&quot;:&quot;13800000000&quot;,
+  &quot;companyName&quot;:&quot;示例公司&quot;,
+  &quot;demand&quot;:&quot;希望了解设备管理平台的适用范围。&quot;,
+  &quot;sourcePath&quot;:&quot;/products/101&quot;,
+  &quot;sourcePosition&quot;:&quot;PRODUCT_DETAIL&quot;,
+  &quot;contentType&quot;:&quot;PRODUCT&quot;,
+  &quot;contentId&quot;:&quot;101&quot;,
+  &quot;consent&quot;:true,
+  &quot;consentVersion&quot;:&quot;4&quot;
+}</code></pre>
+<p>上述身份信息是测试占位，禁止用于真实联系。成功 data：<code>{&quot;accepted&quot;:true,&quot;receiptNo&quot;:&quot;L-random-opaque-value&quot;}</code>；这里 receiptNo 由服务端生成，不能可预测地暴露内部顺序 ID。后台处理 <code>PUT /api/admin/leads/701/follow-up</code>：</p>
+<pre data-language="json"><code>{&quot;expectedLockVersion&quot;:0,&quot;status&quot;:&quot;CONTACTED&quot;,&quot;lastNote&quot;:&quot;已完成初次沟通，安排后续演示。&quot;}</code></pre>
+<p>返回新的状态、lockVersion、处理人显示名与处理时间。对这条处理记录的更新也要乐观锁，避免两名管理员相互覆盖。</p>
+<h2 id="section_0239">11. 官网 Vue 如何使用后台内容</h2>
+<h3 id="section_0240">11.1 页面区域到数据源的映射</h3>
+<div class="table-scroll"><table><thead><tr><th>官网区域/建议组件</th><th>后台入口</th><th>数据接口</th><th>显示与点击规则</th></tr></thead><tbody><tr><td>SiteHeader 顶部</td><td>全站设置、导航</td><td>site-config</td><td>Logo/有效导航；桌面展开、小屏抽屉；Logo 回首页</td></tr><tr><td>HomeHero 首屏</td><td>首页/首屏</td><td>home.hero</td><td>HTML 文案覆盖在图层上；按钮按解析动作执行</td></tr><tr><td>CompanyMetrics</td><td>首页/企业指标</td><td>home.metrics</td><td>displayValue+unit 原样展示，按条数自适应</td></tr><tr><td>ServiceGroups</td><td>首页/服务分组及产品/方案管理</td><td>home.services</td><td>后台分组、内容发布版卡片；点击详情</td></tr><tr><td>FeaturedCases</td><td>首页/案例推荐及案例管理</td><td>home.cases</td><td>按 ID 数组顺序；无效关联已由后端移除</td></tr><tr><td>CustomerLogos</td><td>首页/客户推荐及客户标识</td><td>home.customers</td><td>contain；无客户网址则普通图片</td></tr><tr><td>LatestNews</td><td>首页/新闻推荐及新闻管理</td><td>home.news</td><td>按选定模式展示；点击新闻详情</td></tr><tr><td>ConsultationCTA</td><td>首页/咨询、联系设置</td><td>home.consultation + site-config</td><td>表单启用时打开复用弹窗；关闭后转联系页</td></tr><tr><td>FloatingActions</td><td>联系设置</td><td>site-config</td><td>电话 tel:、二维码、联系页入口；无值则隐藏该项</td></tr><tr><td>SiteFooter</td><td>全站设置、联系设置</td><td>site-config</td><td>页脚分组、联系方式、备案、隐私链接；全页复用</td></tr><tr><td>列表页</td><td>对应内容、分类</td><td>categories + 相应列表</td><td>URL query 保存分类/页码/关键词，切分类回第 1 页</td></tr><tr><td>详情页</td><td>对应内容编辑</td><td>相应 /{id}</td><td>固定模板+发布正文+有效关联，404 显示未找到</td></tr><tr><td>关于/联系/隐私页</td><td>对应单页</td><td>pages/{code}</td><td>只展示发布版，内容为空按各模板规则处理</td></tr></tbody></table></div>
+<p>应用启动获取 site-config，首页获取 home；详情页只获取对应详情，无须为每个链接再查管理接口。进入详情时即使来自首页，也重新按 ID 获取公开详情，避免用户直接刷新时无数据。</p>
+<h3 id="section_0243">11.2 状态、路由与错误</h3>
+<p class="list-item" style="margin-left:0.6em">• 页面区分 loading、success-empty、success-data、error，不能把请求失败转为空数组后显示“暂无内容”。</p>
+<p class="list-item" style="margin-left:0.6em">• 首页可选区块 null 或无有效条目则不渲染整块；列表为空保留标题/筛选，显示“暂无相关内容”和清空筛选入口。</p>
+<p class="list-item" style="margin-left:0.6em">• 详情 API 404 展示 404 页；网络错误/500 保留重试，不能误判为内容不存在。</p>
+<p class="list-item" style="margin-left:0.6em">• 列表筛选放在地址栏 query，浏览器前进/后退恢复；快速切换筛选时取消旧请求或使用序号防止旧结果覆盖新结果。</p>
+<p class="list-item" style="margin-left:0.6em">• 首版不在 localStorage 缓存 CMS 数据；站点配置与首页是独立请求，一个失败时另一个仍可呈现并提供重试。</p>
+<p class="list-item" style="margin-left:0.6em">• 顶部提供少量静态兜底，如中性的“公司官网”和返回首页入口；不能在请求前闪现参考公司的名称或测试素材。</p>
+<p class="list-item" style="margin-left:0.6em">• API 客户端合理超时，例如 10 秒；读请求可由用户重试，写请求不得自动无条件重放。咨询仅按同一幂等 key 允许用户重试。</p>
+<h3 id="section_0251">11.3 响应式和交互</h3>
+<p>至少验收 375、768、1440 像素宽度。页面整体不得横向滚动；导航在小屏收起，卡片按一列/两列/多列切换，长标题和长链接可换行。富文本图片最大宽度 100%，表格允许在自身容器横向滚动。</p>
+<p>PC 图和手机图用 picture 等方式按断点切换；没有手机图回退 PC 图，object-fit:cover，预览必须检查裁切与文案可读性。封面固定比例、Logo contain，图像预留宽高避免布局跳动。首屏图优先加载，屏幕外普通图片可懒加载；失败显示中性占位和 alt。</p>
+<p>菜单、轮播按钮、弹窗可通过键盘操作，焦点可见；弹窗打开后焦点进入，Escape 可关闭，关闭后回到触发按钮。表单字段有 label 和明确错误文案，不能只用颜色表示错误。不要把核心文字全部放入图片。</p>
+<h3 id="section_0255">11.4 SEO 与渲染边界</h3>
+<p>路由切换更新 title、description；独立内容 SEO 优先，其次标题/摘要，再回退全站默认 SEO。图片 alt、页面一级标题、语义化链接属于首版要求。已发布页面可以生成 sitemap.xml，若纳入实现需从公开内容源生成，不能输出草稿；首版可以由部署文档维护基础 sitemap，不能宣称已自动化。</p>
+<p>本基线使用 Vue SPA：浏览器刷新由 Nginx 回退 index.html，API 404 与前端 404 展示必须正确，但静态入口响应通常仍为 200。SPA 的 meta 更新不保证所有搜索引擎或社交分享抓取效果；若业务要求服务端完整 SEO HTML、HTTP 页面 404 或首屏抓取，则作为明确新增工作采用 Vue 的 SSR/预渲染方案并另验收。后台与预览应限制收录，但 robots/noindex 不能代替登录鉴权。</p>
+<h2 id="section_0258">12. 安全、数据校验和异常处理</h2>
+<h3 id="section_0259">12.1 服务端必须完成的边界检查</h3>
+<div class="table-scroll"><table><thead><tr><th>风险位置</th><th>必须实现</th></tr></thead><tbody><tr><td>草稿泄露</td><td>公开查询固定发布条件；显式公开 DTO；图片也检查有效发布引用</td></tr><tr><td>越权</td><td>URL 权限和业务权限同时校验；编辑不能直接发布/读咨询/管账号</td></tr><tr><td>SQL 注入</td><td>绑定参数；排序字段、类型、页面代码白名单</td></tr><tr><td>XSS</td><td>普通标题按文本绑定；服务端白名单清洗正文；拒绝 script/iframe/on* 事件/任意 style/危险协议</td></tr><tr><td>富文本链接与图片</td><td>外链协议白名单；图片只能素材 ID；站内内容关联使用结构化字段以便记录引用</td></tr><tr><td>文件上传</td><td>类型/内容/大小/像素校验、随机存储键、受控目录、路径规范化</td></tr><tr><td>会话</td><td>安全 Cookie、超时、登录轮换、密码与角色变化撤销会话、管理写接口 CSRF</td></tr><tr><td>重复提交</td><td>按钮防重 + 数据库幂等唯一约束；发布版本冲突不重试覆盖</td></tr><tr><td>数据泄露</td><td>日志不记录密码/会话/完整电话/需求；数据库与素材备份访问受控</td></tr><tr><td>密钥与配置</td><td>环境变量/密钥管理，测试与生产隔离；不提交真实密码、加密密钥、生产备份</td></tr></tbody></table></div>
+<p>服务端清洗富文本时允许的标签基线为 p、br、h2/h3、ul/ol/li、strong/em、blockquote、a、img、table/thead/tbody/tr/th/td；属性由清洗器白名单管理，只保留必要链接、媒体标识和表格属性。正文清洗后为空时发布失败。清洗器使用维护中的成熟库，前端编辑器限制不能替代后端清洗。关于模板、HTML/URL 风险，参考<a href="https://vuejs.org/guide/best-practices/security.html">Vue 官方安全说明</a>。</p>
+<h3 id="section_0262">12.2 统一异常处理</h3>
+<p>使用全局异常处理，将参数错误定位到字段，将权限、引用、版本冲突转换为第 9 章状态。后端日志关联 requestId；官网和后台提示只显示可操作文案和 requestId，不显示 Java 堆栈、SQL、存储目录。上传被拒绝不能遗留半成品数据库行或可执行文件。</p>
+<p>业务成功日志与内容写入在同一事务；失败审计在回滚后单独记录必要摘要，避免记录“发布成功”但内容未提交。静态文件不存在不要回退成 index.html；API 不存在要 JSON 404，不能返回 HTML 200。</p>
+<h3 id="section_0265">12.3 性能和容量基线</h3>
+<p>首版按几百到几千条内容、30 个以内首页 Logo 设计。首页聚合批量读取关联，不出现一条卡片一次查询的 N+1；列表不查询大正文；图片不作为 base64 存数据库。请求体对 HOME/正文设置上限，例如 JSON 最大 1MB，上传单文件 5MB，代理与 Java 配置一致。</p>
+<p>建议在约定测试机、500 条新闻和 20 并发公开读请求下验证 API P95 不高于 500ms（不含图片传输）；记录机器、数据量、工具、样本和结果后由带教确认是否适合作为项目门槛。此数值是目标，不代表本文已测得。图片压缩后再上传，首屏单张建议不超过 500KB；硬上限仍为 5MB。优先控制资源体积和查询次数，不为此引入分布式缓存。</p>
+<h2 id="section_0268">13. 开发步骤、任务拆解和带教检查点</h2>
+<h3 id="section_0269">13.1 工作顺序</h3>
+<p>先完成一条产品的“后台草稿—预览—发布—官网列表/详情”，证明公共发布逻辑正确，再复用到新闻/案例/方案/客户标识。不要先画完所有后台表单，最后才发现发布逻辑需要重做。</p>
+<div class="table-scroll"><table><thead><tr><th>阶段</th><th>预计有效工作日</th><th>任务</th><th>阶段验收</th></tr></thead><tbody><tr><td>1. 需求与工程</td><td>2</td><td>阅读本文、确认素材清单、建立三个工程、MySQL迁移、统一响应</td><td>空库启动成功，三端能连通；带教核对范围</td></tr><tr><td>2. 登录权限</td><td>3</td><td>Session、CSRF、角色、账号、审计基础</td><td>未登录 401，编辑越权 403，退出与禁用失效</td></tr><tr><td>3. 内容纵向闭环</td><td>5</td><td>素材、分类、产品 DTO、快照、乐观锁、引用、预览、公开产品</td><td>仅保存不影响官网；发布/下线正确；并发冲突可复现</td></tr><tr><td>4. 内容模块复用</td><td>4</td><td>方案、案例、新闻、客户标识，列表与详情</td><td>不同类型字段/分类正确，正文安全，公开无草稿</td></tr><tr><td>5. 配置与首页</td><td>5</td><td>SITE、CONTACT、PRIVACY、ABOUT、导航、HOME、官网组件</td><td>每个首页区域能从后台改动；推荐与全站配置一致</td></tr><tr><td>6. 咨询闭环</td><td>3</td><td>公共表单、幂等、限流、加密存储、后台处理</td><td>超时重试无重复，编辑读不到线索，关闭后拒绝新提交</td></tr><tr><td>7. 联调与交付</td><td>5</td><td>移动端、错误态、测试、部署、备份恢复、操作手册</td><td>按验收清单演示，空环境部署与恢复成功</td></tr><tr><td>合计</td><td>27</td><td>不包含等待素材、公司审稿、额外培训</td><td>建议预留约 6 周日历排期，并按实习生能力调整</td></tr></tbody></table></div>
+<p>这是排期参考，不是固定工期承诺。带教应在第 2、3、5、7 阶段进行代码与演示检查，尤其检查数据库查询是否误用草稿字段。</p>
+<h3 id="section_0273">13.2 每项开发任务的完成定义</h3>
+<p>一项任务必须同时具备：数据库迁移/DTO与校验、Service 业务规则、后台界面、公开接口、官网显示、权限与错误处理、接口文档、适当测试/演示结果。仅页面能打开、接口返回 200 或数据库有数据都不构成完成。</p>
+<p>实习生每日记录“已完成可演示功能、当前问题、次日目标”，问题附 requestId 或最小复现。发现字段/范围有歧义先按本文基线实现并记录，由带教决定变更，不自行增加业务系统。</p>
+<h2 id="section_0276">14. 联调数据和关键验收用例</h2>
+<h3 id="section_0277">14.1 测试数据</h3>
+<p>至少准备：2 个管理员、1 个编辑；2 个产品、2 个方案、3 个案例、8 条新闻、6 个客户标识、3 个首屏；新闻和案例各 2 个分类；包含 UNPUBLISHED/PUBLISHED/OFFLINE、有未发布修改及未引用图片等状态。新闻使用多个不同日期，另准备相同排序值、长标题、无手机图、失效关联场景。</p>
+<p>数据均使用自有或允许使用的示例素材，不能把真实客户咨询数据复制到开发环境。以下是开发完成后应执行的测试要求；随文提供的验收清单初始状态是“待测”，不代表应用已实现或测试已通过。</p>
+<h3 id="section_0280">14.2 必须通过的核心用例</h3>
+<div class="table-scroll"><table><thead><tr><th>编号</th><th>操作</th><th>预期结果</th></tr></thead><tbody><tr><td>A01</td><td>新建产品只保存；直接查公开列表、详情、首页</td><td>列表无草稿；详情 404；公开 JSON 无独特草稿文字</td></tr><tr><td>A02</td><td>发布产品，再加入 HOME 草稿，最后发布 HOME</td><td>产品先在列表可见；首页仅在 HOME 发布后出现</td></tr><tr><td>A03</td><td>修改已发布内容的标题/封面/分类/排序，只保存</td><td>官网所有公开字段仍为旧版，后台预览为新版</td></tr><tr><td>A04</td><td>发布 A03，检查首页/列表/详情和分类搜索</td><td>新版一致；旧查询投影不会残留；自定义导航 label 仍按导航配置显示</td></tr><tr><td>A05</td><td>两个窗口先后保存同一旧版本；尝试发布旧预览版本</td><td>后提交/旧预览收到 409，已保存数据不被覆盖</td></tr><tr><td>A06</td><td>下线首页正在引用的案例</td><td>详情 404，公开列表/首页/关联区移除；后台显示引用影响</td></tr><tr><td>A07</td><td>删除有草稿/发布引用的内容、图片；下线有已发布内容的分类</td><td>409 或明确阻止，准确列出来源，文件与线上内容不被误删</td></tr><tr><td>A08</td><td>人为使发布写引用步骤失败</td><td>快照、状态、投影、版本与成功日志一并回滚</td></tr><tr><td>A09</td><td>未登录请求后台/预览；编辑直接调用发布、线索、账号接口</td><td>分别 401、403；公共 preview 参数不泄露草稿</td></tr><tr><td>A10</td><td>退出、禁用、改密、改角色后复用旧会话</td><td>旧会话失效；最后启用管理员不可被禁用/降级</td></tr><tr><td>A11</td><td>管理写请求缺 CSRF；换非法 Origin 提交</td><td>管理写拒绝；公开表单按已定义检查拒绝不合法来源</td></tr><tr><td>A12</td><td>正文输入 script/onerror/危险 URL；上传假图、SVG、超限文件</td><td>后端拒绝/清洗，官网不执行脚本，不产生可公开的危险文件</td></tr><tr><td>A13</td><td>直接访问新上传但未发布的图片；再发布引用；再移除所有有效引用</td><td>先 404，再可读，最后新请求 404；不误承诺外部缓存撤回</td></tr><tr><td>A14</td><td>发送同 key 同载荷并发咨询、同 key 不同载荷</td><td>只有一条线索；同载荷原结果，不同载荷 409</td></tr><tr><td>A15</td><td>未同意、过期同意版本、伪造关联、超长需求、超频提交</td><td>校验拒绝；限流 429，不能只依赖前端禁用</td></tr><tr><td>A16</td><td>关闭 CONTACT 表单并发布，然后直接新 key 调用提交接口</td><td>503 且不入库；旧已成功幂等重试仍可返回原受理结果</td></tr><tr><td>A17</td><td>管理员处理线索、编辑查详情/列表/工作台统计</td><td>处理状态和备注保存；编辑无权且统计不泄露客户信息</td></tr><tr><td>A18</td><td>新闻 SELECTED/LATEST 两种首页模式、新闻列表日期排序</td><td>首页遵循所选模式，列表规则固定，互不混淆</td></tr><tr><td>A19</td><td>改 Logo/电话/版权/隐私并分别发布</td><td>所有页面使用各对应最新发布版；新咨询校验当前隐私版本</td></tr><tr><td>A20</td><td>375/768/1440 宽度、长文、表格、键盘弹窗</td><td>无整体横向滚动，文案可读，焦点正确，局部表格可滚动</td></tr><tr><td>A21</td><td>快速切分类、前进后退、直接刷新详情和后台深层链接</td><td>筛选/分页恢复，旧请求不覆盖，Nginx 路由正确</td></tr><tr><td>A22</td><td>模拟断网、API 500、详情 404、图片失败</td><td>错误/空态区分，输入保留可重试，无白屏/堆栈</td></tr><tr><td>A23</td><td>检查公开响应、日志及数据库连接配置</td><td>无后台信息/完整敏感日志/硬编码生产密钥</td></tr><tr><td>A24</td><td>空测试库部署，并从数据库+素材+密钥备份恢复</td><td>可登录、发布、读图、查咨询；记录恢复步骤与结果</td></tr></tbody></table></div>
+<p>详细执行步骤与实际结果记录在 acceptance-checklist.md。所有安全、发布隔离和咨询重复写入问题属于阻止上线的问题，不以“实习项目”豁免。</p>
+<h3 id="section_0283">14.3 自动化测试最低集合</h3>
+<p>Service/集成测试至少覆盖：保存不改发布快照、发布完整事务与失败回滚、乐观锁冲突、公开状态/分类过滤、引用删除防护、编辑越权、会话失效、咨询并发幂等和开关校验。使用真实 MySQL 测试库或 Testcontainers 核对 JSON/SQL/唯一约束；仅用内存库不能证明 MySQL 行为正确。</p>
+<p>前端至少验证关键路由、空态/错误态、权限视图、咨询重试和首页发布数据渲染。移动端、图片裁切、长文本及键盘焦点可以按清单人工验收。不要为每个纯字段 getter 写形式测试，优先覆盖会造成线上错误的业务规则。</p>
+<h2 id="section_0286">15. 部署、配置与恢复要求</h2>
+<h3 id="section_0287">15.1 环境隔离与部署路由</h3>
+<p>至少有 dev/test/prod 三套配置；数据库、会话 Cookie、上传目录和加密密钥不能共用。生产使用 HTTPS，同站点路径规划如下。</p>
+<div class="table-scroll"><table><thead><tr><th>路径</th><th>处理方式</th></tr></thead><tbody><tr><td><code>/api/</code></td><td>Nginx 原样代理到 Java；不改写成前端 HTML，设置上传大小与超时</td></tr><tr><td><code>/admin/</code></td><td>后台构建产物，Vite base 与 Router base 均为 /admin/，深层路由回退后台 index.html</td></tr><tr><td>官网其他页面路径</td><td>官网构建产物，history 路由回退官网 index.html</td></tr><tr><td>JS/CSS/图片静态构建文件</td><td>缺失返回 404，不回退 index.html</td></tr><tr><td>用户上传图片</td><td>不由 Nginx 公开目录直接映射，统一走带引用校验的 Java 资源接口</td></tr></tbody></table></div>
+<p>Java/MySQL 只开放必要网络范围；公网只提供网关入口。运行应用账号与执行迁移账号分离，生产运行账号不授予 DROP 等不必要权限。MySQL 不直接向公网开放。</p>
+<h3 id="section_0291">15.2 必要配置项</h3>
+<p>README 提供无真实密钥的配置模板，至少列出：数据库地址/账号/密码、应用公开基址、素材目录、Session 超时与 Cookie 设置、手机号加密密钥及 key 版本、摘要密钥、登录/咨询限流值、日志目录、备份位置。首次管理员初始化参数只在初始化流程使用，完成后关闭入口。</p>
+<p>不把上述敏感值编译进 Vue；Vue 产物对访客可见。前端只配置公共 API base 和必要的公开站点信息。生产关闭调试输出、禁止数据库控制台和公开堆栈，健康检查不暴露连接串及内部详细信息。</p>
+<h3 id="section_0294">15.3 发布操作</h3>
+<p class="list-item" style="margin-left:0.6em">1. 在空测试环境验证构建、迁移和账号初始化；记录实际 JDK/Node/依赖版本。</p>
+<p class="list-item" style="margin-left:0.6em">2. 备份当前数据库、素材、部署配置及所需加密密钥；记录一致性时间点。</p>
+<p class="list-item" style="margin-left:0.6em">3. 执行兼容性迁移，部署 Java 与两个前端产物，重载网关。</p>
+<p class="list-item" style="margin-left:0.6em">4. 验证登录、公开首页、详情、图片、保存/发布与咨询；生产咨询测试需明确标记并由管理员处理。</p>
+<p class="list-item" style="margin-left:0.6em">5. 保存发布版本、时间、检查人、检查结果和恢复路径。若失败，根据迁移兼容性决定恢复旧应用或恢复完整备份，不能盲目覆盖数据库。</p>
+<h3 id="section_0300">15.4 备份恢复</h3>
+<p>数据库与素材至少每日备份，上线前由公司明确保留天数、访问权限及恢复责任人。手机号加密密钥需要独立受控备份，否则数据库恢复后仍无法解密。首版建议暂定恢复点目标 24 小时、恢复时间目标 4 小时，再以实际恢复演练结果确认是否可达到。</p>
+<p>必须在空测试库/目录做一次恢复演练，验证官网内容、图片、管理登录及咨询可读性，并记录时间与失败修正。恢复演练只使用测试数据，不把生产个人信息复制到不受控环境。备份文件存在不能代替恢复成功证据。</p>
+<h2 id="section_0303">16. 运营人员常用操作示例</h2>
+<h3 id="section_0304">16.1 新增产品并展示到首页</h3>
+<p>编辑登录 → 产品管理新增 → 从素材库选图并填正文 → 保存 → 桌面/手机预览 → 管理员核对版本并发布 → 打开产品列表和详情验证 → 首页管理选择该已发布产品进入服务分组 → 保存并预览 HOME → 发布 HOME → 刷新首页验证点击与内容。仅发布产品不会自动成为首页推荐。</p>
+<h3 id="section_0306">16.2 更换首屏及联系信息</h3>
+<p>上传新图片，不覆盖旧文件 → HOME 选新图、填文案与动作 → 保存草稿时官网保持旧图 → 检查手机裁切 → 发布 HOME → 刷新查看新图。电话在 CONTACT 修改、保存并发布；全站页脚和联系页自动使用新电话，HOME 无需重复录入。</p>
+<h3 id="section_0308">16.3 首页推荐新闻与紧急下线</h3>
+<p>发布新闻 A/B → 首页选 SELECTED，顺序 B/A → 发布 HOME：首页按 B/A，新闻列表仍按展示日期。下线 A：详情 404，列表/首页移除 A；HOME 编辑页保留失效引用提示。要删除 A，先从所有相关草稿与发布配置中解除引用，再删除。</p>
+<h3 id="section_0310">16.4 处理咨询</h3>
+<p>访客在产品详情提交 → 服务端确认成功 → 管理员咨询列表看到 NEW，详情核对来源和需求 → 记录处理说明改 CONTACTED → 完成后 CLOSED。无需通过任何公共接口查询手机号；编辑不能看到此流程中的客户资料。</p>
+<h3 id="section_0312">16.5 误改后的处理</h3>
+<p>只保存的误改尚未影响官网，可依据当前发布快照重新编辑草稿并保存。已发布误改首版由管理员手动修正并再发布；没有完整历史版本回滚功能。必要时紧急下线内容并修正关联；系统故障则按部署备份恢复方案处理，不把数据库恢复当成日常内容撤销按钮。</p>
+<h2 id="section_0314">17. 交付物与最终完成标准</h2>
+<p>实习生必须提交下列内容，带教按实际产物核对。</p>
+<div class="table-scroll"><table><thead><tr><th>交付物</th><th>核对方式</th></tr></thead><tbody><tr><td>Java、官网 Vue、后台 Vue 完整源代码</td><td>能从新环境按 README 构建，无本机绝对目录依赖</td></tr><tr><td>依赖锁定与配置模板</td><td>有 Maven Wrapper/版本、前端锁文件、环境变量清单，无真实生产密钥</td></tr><tr><td>MySQL 迁移及测试初始化数据</td><td>空库自动建表成功；框架会话表和业务表齐全；初始化数据不默认上线</td></tr><tr><td>接口文档</td><td>实际路径、DTO、校验、权限、错误、示例与本规格一致；可用 OpenAPI 或导入式集合</td></tr><tr><td>自动化测试及结果</td><td>覆盖发布隔离/事务/权限/幂等等关键规则，记录运行环境与结果</td></tr><tr><td>官网和后台可部署产物</td><td>Java jar、两套构建目录与网关路由说明</td></tr><tr><td>管理员初始化与运营手册</td><td>无固定生产密码，运营能独立完成第 16 章操作</td></tr><tr><td>部署与恢复手册</td><td>真实执行过空环境部署和恢复，记录版本、步骤、结果</td></tr><tr><td>验收记录</td><td>清单逐项标记结果、证据和问题；阻止上线的问题全部修复并复测</td></tr></tbody></table></div>
+<p>完成标准：所有 P0 模块都能由后台控制官网展示；草稿、发布、下线在公开接口与页面一致；权限和敏感数据边界正确；咨询闭环和重试可靠；移动端和错误态可用；空环境可部署、备份可恢复。带教最终演示时随机改一个文案/图片/推荐关系，发布后应能在官网正确看到变化。</p>
+<h2 id="section_0318">18. 开工与上线前由公司确认的资料</h2>
+<p>这些是按本基线开发时可继续收集的输入项，不需要实习生自行猜测正式内容。</p>
+<div class="table-scroll"><table><thead><tr><th>输入</th><th>默认开发处理</th><th>正式上线前责任</th></tr></thead><tbody><tr><td>公司名称、Logo、品牌色、图片</td><td>有明确标记的占位，后台可替换</td><td>公司提供并确认使用范围</td></tr><tr><td>产品、方案、案例、客户标识、宣传数据</td><td>示例内容验证功能，不冒充真实数据</td><td>业务负责人核对真实性和公开授权</td></tr><tr><td>首页视觉稿、图片比例、栏目名</td><td>使用本文固定模板与建议比例</td><td>公司确认桌面及手机效果</td></tr><tr><td>联系方式、域名、备案展示信息</td><td>配置项预留，空值不伪造</td><td>公司提供实际信息并确认部署安排</td></tr><tr><td>咨询隐私说明、保留周期、处理人员</td><td>表单默认关闭，先做测试闭环</td><td>公司确认实际流程、文案及数据处理安排</td></tr><tr><td>服务器、HTTPS、备份与密钥责任人</td><td>本地/测试环境验证</td><td>部署负责人提供受控生产配置</td></tr><tr><td>SEO 是否必须服务端渲染</td><td>按 Vue SPA 基线开发</td><td>若需要 SSR/预渲染，开工早期确认新增范围</td></tr></tbody></table></div>
+<p>后续调整应记录“变更内容、影响字段/接口/页面、开发及测试工作量、负责人”。先把本基线中的完整内容维护流程实现并验收，再扩展新模块。</p>
+<h2 id="section_0322">附录：实现前应核对的官方资料</h2>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://www.g7.com.cn/">参考站首页与栏目</a>：用于页面内容组织参考，后台设计为本项目原创方案。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://docs.spring.io/spring-boot/system-requirements.html">Spring Boot 系统要求</a>：核对 Java、构建工具和 Boot 的兼容性。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html">Spring Security CSRF</a>：核对登录与管理写请求的保护和 SPA 联调方式。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://docs.spring.io/spring-session/reference/configuration/jdbc.html">Spring Session JDBC</a>：核对框架会话表与初始化方式，具体以项目依赖版本文档为准。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://vuejs.org/guide/quick-start.html">Vue Quick Start</a>：核对工程创建和 Node 要求。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://vuejs.org/guide/best-practices/security.html">Vue Security</a>：核对模板、HTML 与 URL 的安全边界。</p>
+<p class="list-item" style="margin-left:0.6em">• <a href="https://dev.mysql.com/doc/refman/8.4/en/mysql-releases.html">MySQL LTS 版本说明</a>：核对数据库版本选择。</p>
+<p>—— 文档结束 ——</p>
+</main></body></html>
