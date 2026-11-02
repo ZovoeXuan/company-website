@@ -5,12 +5,10 @@
 import type {
   AboutPage,
   CaseDetail,
-  HomeView,
   MediaRef,
   NewsDetail,
   PrivacyPage,
   ProductDetail,
-  SiteConfig,
   SolutionDetail,
 } from './types'
 
@@ -29,67 +27,6 @@ const square = (alt: string): MediaRef => ({
   width: 600,
   height: 450,
 })
-
-export const site: SiteConfig = {
-  siteName: '示例科技',
-  slogan: '让设备运维从被动响应变成提前预判',
-  nav: [
-    { label: '首页', path: '/' },
-    { label: '产品', path: '/products' },
-    { label: '解决方案', path: '/solutions' },
-    { label: '客户案例', path: '/cases' },
-    { label: '新闻', path: '/news' },
-    { label: '关于我们', path: '/about' },
-    { label: '联系我们', path: '/contact' },
-  ],
-  contact: {
-    phone: '010-0000 0000',
-    email: 'contact@example.com',
-    address: '北京市示例区示例路 1 号',
-    hours: '工作日 9:00–18:00',
-  },
-  footer: {
-    copyright: '© 2026 示例科技有限公司',
-    icp: '京ICP备00000000号',
-    links: [
-      { label: '隐私说明', path: '/privacy' },
-      { label: '联系我们', path: '/contact' },
-      { label: '关于我们', path: '/about' },
-    ],
-  },
-}
-
-export const home: HomeView = {
-  hero: {
-    eyebrow: '工业设备数字化',
-    title: '让设备运维从被动响应\n变成提前预判',
-    subtitle: '从设备接入、状态监测到运维决策，一套系统覆盖全流程，帮助制造企业降低非计划停机。',
-    primary: { label: '预约演示', path: '/contact' },
-    secondary: { label: '查看产品', path: '/products' },
-    media: wide('设备管理平台界面示意'),
-  },
-  metrics: [
-    { value: '320+', label: '服务企业' },
-    { value: '68', label: '覆盖城市' },
-    { value: '12,000+', label: '接入设备' },
-    { value: '4h', label: '平均响应' },
-  ],
-  services: [
-    { key: 'svc-1', title: '设备管理平台', summary: '统一接入、台账与远程参数下发', contentId: 'p-1' },
-    { key: 'svc-2', title: '预测性维护', summary: '基于运行数据提前发现异常', contentId: 'p-2' },
-    { key: 'svc-3', title: '能耗监测', summary: '分项计量与用能优化建议', contentId: 'p-3' },
-  ],
-  featuredCases: [],
-  customers: [
-    { id: 'c-1', name: '汽车零部件' },
-    { id: 'c-2', name: '城市水务' },
-    { id: 'c-3', name: '电子制造' },
-    { id: 'c-4', name: '化工园区' },
-    { id: 'c-5', name: '装备制造' },
-    { id: 'c-6', name: '食品加工' },
-  ],
-  latestNews: [],
-}
 
 export const productCategories = [
   { id: 'pc-1', name: '设备管理' },
@@ -419,8 +356,6 @@ export const privacy: PrivacyPage = {
 }
 
 // 关联关系在数组定义后回填，避免循环引用
-home.featuredCases = [cases[0], cases[2]]
-home.latestNews = news.slice(0, 3)
 
 products[0].relatedCases = [cases[0], cases[2]]
 products[1].relatedCases = [cases[0]]

@@ -59,21 +59,21 @@ function submit() {
         <div class="info">
           <h2 class="info__title">直接联系</h2>
           <dl class="info__list">
-            <div class="info__row">
+            <div v-if="site?.contact.phone" class="info__row">
               <dt>电话</dt>
-              <dd><a class="info__link" :href="`tel:${site?.contact.phone.replace(/\s/g, '')}`">{{ site?.contact.phone }}</a></dd>
+              <dd><a class="info__link" :href="`tel:${site.contact.phone.replace(/[\s-]/g, '')}`">{{ site.contact.phone }}</a></dd>
             </div>
-            <div class="info__row">
+            <div v-if="site?.contact.email" class="info__row">
               <dt>邮箱</dt>
-              <dd><a class="info__link" :href="`mailto:${site?.contact.email}`">{{ site?.contact.email }}</a></dd>
+              <dd><a class="info__link" :href="`mailto:${site.contact.email}`">{{ site.contact.email }}</a></dd>
             </div>
-            <div class="info__row">
+            <div v-if="site?.contact.address" class="info__row">
               <dt>地址</dt>
-              <dd>{{ site?.contact.address }}</dd>
+              <dd>{{ site.contact.address }}</dd>
             </div>
-            <div class="info__row">
+            <div v-if="site?.contact.hours" class="info__row">
               <dt>时间</dt>
-              <dd>{{ site?.contact.hours }}</dd>
+              <dd>{{ site.contact.hours }}</dd>
             </div>
           </dl>
         </div>

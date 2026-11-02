@@ -45,6 +45,12 @@ const evaluate = async (expression) => {
 
 await send('Page.enable')
 await send('Runtime.enable')
+await send('Emulation.setDeviceMetricsOverride', {
+  width: Number(process.env.CMS_E2E_WIDTH || 1440),
+  height: Number(process.env.CMS_E2E_HEIGHT || 1200),
+  deviceScaleFactor: 1,
+  mobile: false,
+})
 await sleep(1800)
 
 console.log('--- 登录前 ---')

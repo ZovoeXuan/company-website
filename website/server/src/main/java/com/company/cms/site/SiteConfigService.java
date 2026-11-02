@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 站点配置：草稿保存、发布、公开读取。六个键互不影响，各自独立发布。
@@ -22,12 +23,14 @@ public class SiteConfigService {
 
     private final SiteConfigRepository repository;
     private final SiteConfigValidator validator;
+    private final LinkResolver links;
     private final AuditLogService audit;
 
     public SiteConfigService(SiteConfigRepository repository, SiteConfigValidator validator,
-                             AuditLogService audit) {
+                             LinkResolver links, AuditLogService audit) {
         this.repository = repository;
         this.validator = validator;
+        this.links = links;
         this.audit = audit;
     }
 
@@ -68,8 +71,9 @@ public class SiteConfigService {
         if (row.draftVersion() != expectedDraftVersion) {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "草稿已变化，请刷新后重新发布");
         }
-        // 发布前再校验一次，避免历史草稿绕过新增规则
-        validator.validate(key, row.draft());
+        // 发布前再校验一次结构与必填，避免历史草稿绕过新增规则
+        JsonNode normalized = validator.validate(key, row.draft());
+        validator.validateForPublish(key, normalized);
 
         int updated = repository.publish(key, expectedLockVersion, expectedDraftVersion, actor.id());
         if (updated == 0) {
@@ -84,36 +88,55 @@ public class SiteConfigService {
     public Map<String, Object> publicSiteConfig() {
         SiteConfigRow site = requirePublished(SiteConfigKey.SITE);
         JsonNode siteJson = site.published();
+        JsonNode contactJson = publishedOrEmpty(SiteConfigKey.CONTACT);
+        boolean formEnabled = contactJson != null && contactJson.get("formEnabled") != null
+                && contactJson.get("formEnabled").asBoolean(false);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("siteName", text(siteJson, "siteName"));
         data.put("slogan", text(siteJson, "slogan"));
 
-        JsonNode logoId = siteJson.get("logoMediaId");
-        data.put("logoUrl", logoId == null || !logoId.isNumber()
-                ? null : "/api/public/media/" + logoId.asLong());
+        String logoUrl = mediaUrl(siteJson.get("logoMediaId"));
+        data.put("logoUrl", logoUrl);
+        data.put("logoAlt", text(siteJson, "logoAlt").isBlank()
+                ? text(siteJson, "siteName") : text(siteJson, "logoAlt"));
+        data.put("faviconUrl", mediaUrl(siteJson.get("faviconMediaId")));
 
-        data.put("nav", visibleLinks(publishedOrEmpty(SiteConfigKey.NAVIGATION), "items"));
+        JsonNode seo = siteJson.get("defaultSeo");
+        Map<String, Object> seoView = new LinkedHashMap<>();
+        seoView.put("title", text(seo, "title"));
+        seoView.put("description", text(seo, "description"));
+        data.put("defaultSeo", seoView);
 
+        data.put("nav", nav(publishedOrEmpty(SiteConfigKey.NAVIGATION), formEnabled));
+
+        // 联系方式只在 CONTACT 维护；旧快照里的 SITE.contact 作为兼容回退
         Map<String, Object> contact = new LinkedHashMap<>();
-        JsonNode contactJson = siteJson.get("contact");
-        contact.put("phone", text(contactJson, "phone"));
-        contact.put("email", text(contactJson, "email"));
-        contact.put("address", text(contactJson, "address"));
-        contact.put("hours", text(contactJson, "hours"));
+        contact.put("phone", firstNonBlank(text(contactJson, "phone"), text(siteJson.get("contact"), "phone")));
+        contact.put("email", firstNonBlank(text(contactJson, "email"), text(siteJson.get("contact"), "email")));
+        contact.put("address", firstNonBlank(text(contactJson, "address"), text(siteJson.get("contact"), "address")));
+        contact.put("hours", firstNonBlank(text(contactJson, "hours"), text(siteJson.get("contact"), "hours")));
         data.put("contact", contact);
 
         Map<String, Object> footer = new LinkedHashMap<>();
-        footer.put("copyright", text(siteJson, "copyright"));
-        footer.put("icp", text(siteJson, "icp"));
-        footer.put("links", visibleLinks(publishedOrEmpty(SiteConfigKey.NAVIGATION), "footerLinks"));
+        footer.put("copyright", firstNonBlank(text(siteJson, "copyrightText"), text(siteJson, "copyright")));
+        footer.put("icp", firstNonBlank(text(siteJson, "icpText"), text(siteJson, "icp")));
+        footer.put("icpUrl", text(siteJson, "icpUrl"));
+        footer.put("policeText", text(siteJson, "policeText"));
+        footer.put("policeUrl", text(siteJson, "policeUrl"));
+        List<Map<String, Object>> groups = footerGroups(siteJson, formEnabled);
+        footer.put("groups", groups);
+        // 兼容旧前端：拍平后的链接列表
+        List<Map<String, Object>> flat = new ArrayList<>();
+        for (Map<String, Object> group : groups) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> groupLinks = (List<Map<String, Object>>) group.get("links");
+            flat.addAll(groupLinks);
+        }
+        footer.put("links", flat);
         data.put("footer", footer);
 
-        // CONTACT 未发布时按「表单未启用」处理，不应让站点信息整体失败
-        JsonNode contactPage = publishedOrEmpty(SiteConfigKey.CONTACT);
-        data.put("formEnabled", contactPage != null
-                && contactPage.get("formEnabled") != null
-                && contactPage.get("formEnabled").asBoolean(false));
+        data.put("formEnabled", formEnabled);
 
         SiteConfigRow privacy = repository.find(SiteConfigKey.PRIVACY).orElse(null);
         data.put("privacyVersion", privacy != null && privacy.publishedVersion() != null
@@ -150,25 +173,145 @@ public class SiteConfigService {
         return repository.find(key).map(SiteConfigRow::published).orElse(null);
     }
 
-    private List<Map<String, Object>> visibleLinks(JsonNode json, String field) {
-        List<Map<String, Object>> links = new ArrayList<>();
+    /** 导航：解析有效链接，叶子目标失效则隐藏，父节点无有效子项也隐藏。 */
+    private List<Map<String, Object>> nav(JsonNode json, boolean formEnabled) {
+        List<Map<String, Object>> result = new ArrayList<>();
         if (json == null) {
-            return links;
+            return result;
         }
-        JsonNode items = json.get(field);
+        JsonNode items = json.get("items");
         if (items == null || !items.isArray()) {
-            return links;
+            return result;
         }
         for (JsonNode item : items) {
-            if (item.get("visible") != null && !item.get("visible").asBoolean(true)) {
+            if (!isEnabled(item)) {
                 continue;
             }
-            Map<String, Object> link = new LinkedHashMap<>();
-            link.put("label", text(item, "label"));
-            link.put("path", text(item, "path"));
-            links.add(link);
+            Map<String, Object> entry = navEntry(item, formEnabled);
+            if (entry == null) {
+                continue;
+            }
+            JsonNode children = item.get("children");
+            List<Map<String, Object>> childViews = new ArrayList<>();
+            if (children != null && children.isArray()) {
+                for (JsonNode child : children) {
+                    if (!isEnabled(child)) {
+                        continue;
+                    }
+                    Map<String, Object> childView = navEntry(child, formEnabled);
+                    if (childView != null) {
+                        childViews.add(childView);
+                    }
+                }
+            }
+            entry.put("children", childViews);
+            // 既没有有效链接也没有有效子项的父节点不输出
+            if ("".equals(entry.get("path")) && childViews.isEmpty()) {
+                continue;
+            }
+            result.add(entry);
         }
-        return links;
+        return result;
+    }
+
+    private Map<String, Object> navEntry(JsonNode item, boolean formEnabled) {
+        Map<String, Object> action = links.resolve(item.get("link"), text(item, "path"), formEnabled, Set.of());
+        String path = action == null ? null : (String) action.get("url");
+        if (path != null && !path.startsWith("/")) {
+            // 外链导航用 url 字段承载，path 留空避免前端当作站内路由
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("label", text(item, "label"));
+            entry.put("path", "");
+            entry.put("url", path);
+            entry.put("newWindow", Boolean.TRUE.equals(action.get("newWindow")));
+            return entry;
+        }
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("label", text(item, "label"));
+        entry.put("path", path == null ? "" : path);
+        return entry;
+    }
+
+    private List<Map<String, Object>> footerGroups(JsonNode siteJson, boolean formEnabled) {
+        List<Map<String, Object>> groups = new ArrayList<>();
+        JsonNode source = siteJson.get("footerGroups");
+        if (source != null && source.isArray()) {
+            for (JsonNode group : source) {
+                List<Map<String, Object>> groupLinks = new ArrayList<>();
+                JsonNode linksJson = group.get("links");
+                if (linksJson != null && linksJson.isArray()) {
+                    for (JsonNode item : linksJson) {
+                        if (!isEnabled(item)) {
+                            continue;
+                        }
+                        Map<String, Object> action = links.resolve(item.get("link"), null, formEnabled, Set.of());
+                        if (action == null) {
+                            continue;
+                        }
+                        Map<String, Object> link = new LinkedHashMap<>();
+                        link.put("label", text(item, "label"));
+                        Object url = action.get("url");
+                        if (url != null && url.toString().startsWith("/")) {
+                            link.put("path", url);
+                            link.put("url", null);
+                        } else {
+                            link.put("path", "");
+                            link.put("url", url);
+                        }
+                        link.put("newWindow", Boolean.TRUE.equals(action.get("newWindow")));
+                        groupLinks.add(link);
+                    }
+                }
+                if (groupLinks.isEmpty()) {
+                    continue;
+                }
+                Map<String, Object> view = new LinkedHashMap<>();
+                view.put("title", text(group, "title"));
+                view.put("links", groupLinks);
+                groups.add(view);
+            }
+        }
+        // 旧快照：NAVIGATION.footerLinks
+        if (groups.isEmpty()) {
+            JsonNode legacy = publishedOrEmpty(SiteConfigKey.NAVIGATION);
+            JsonNode legacyLinks = legacy == null ? null : legacy.get("footerLinks");
+            if (legacyLinks != null && legacyLinks.isArray()) {
+                List<Map<String, Object>> groupLinks = new ArrayList<>();
+                for (JsonNode item : legacyLinks) {
+                    if (item.get("visible") != null && !item.get("visible").asBoolean(true)) {
+                        continue;
+                    }
+                    Map<String, Object> link = new LinkedHashMap<>();
+                    link.put("label", text(item, "label"));
+                    String legacyPath = text(item, "path");
+                    link.put("path", legacyPath.startsWith("/") ? legacyPath : "");
+                    link.put("url", legacyPath.startsWith("/") ? null : legacyPath);
+                    groupLinks.add(link);
+                }
+                if (!groupLinks.isEmpty()) {
+                    Map<String, Object> view = new LinkedHashMap<>();
+                    view.put("title", "快速入口");
+                    view.put("links", groupLinks);
+                    groups.add(view);
+                }
+            }
+        }
+        return groups;
+    }
+
+    private boolean isEnabled(JsonNode node) {
+        return node != null && (node.get("enabled") == null || node.get("enabled").asBoolean(true));
+    }
+
+    private String mediaUrl(JsonNode idNode) {
+        if (idNode == null || !idNode.isNumber()) {
+            return null;
+        }
+        return "/api/public/media/" + idNode.asLong();
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? (second == null ? "" : second) : first;
     }
 
     private String text(JsonNode node, String field) {
@@ -176,6 +319,6 @@ public class SiteConfigService {
             return "";
         }
         JsonNode value = node.get(field);
-        return value == null || value.isNull() ? "" : value.asString();
+        return value == null || value.isNull() ? "" : value.asString().trim();
     }
 }

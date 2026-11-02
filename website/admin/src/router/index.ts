@@ -14,6 +14,7 @@ import NavigationView from '@/views/NavigationView.vue'
 import AboutPageView from '@/views/AboutPageView.vue'
 import ContactPageView from '@/views/ContactPageView.vue'
 import PrivacyPageView from '@/views/PrivacyPageView.vue'
+import HomeManageView from '@/views/HomeManageView.vue'
 import TodoView from '@/views/TodoView.vue'
 import { useAuth } from '@/stores/auth'
 
@@ -51,8 +52,8 @@ const router = createRouter({
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
         { path: 'settings/site', component: SiteSettingsView, meta: { title: '全站设置' } },
-        { path: 'settings/navigation', component: NavigationView, meta: { title: '导航与页脚链接' } },
-        { path: 'home', ...page('首页管理', '阶段 5-B') },
+        { path: 'settings/navigation', component: NavigationView, meta: { title: '导航' } },
+        { path: 'home', component: HomeManageView, meta: { title: '首页管理' } },
         ...contentRoutes('products', 'PRODUCT', '产品'),
         ...contentRoutes('solutions', 'SOLUTION', '解决方案'),
         ...contentRoutes('cases', 'CASE', '客户案例'),

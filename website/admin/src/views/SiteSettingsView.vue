@@ -1,68 +1,136 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
+import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
+import type { MediaItem } from '@/api/content'
+
+interface FooterLink {
+  key?: string
+  label: string
+  enabled: boolean
+  sortOrder: number
+  link: LinkValue | null
+}
+
+interface FooterGroup {
+  title: string
+  links: FooterLink[]
+}
 
 interface SiteDraft {
   siteName: string
   slogan: string
-  copyright: string
-  icp: string
+  copyrightText: string
+  icpText: string
+  icpUrl: string
+  policeText: string
+  policeUrl: string
   logoMediaId?: number
-  contact: { phone: string; email: string; address: string; hours: string }
+  logoAlt: string
+  faviconMediaId?: number
+  defaultSeo: { title: string; description: string }
+  footerGroups: FooterGroup[]
 }
 
-const { view, loading, saving, publishing, loadError, load, save, publish } = useConfig<SiteDraft & Record<string, unknown>>('SITE')
+const { view, loading, saving, publishing, loadError, load, save, publish } =
+  useConfig<SiteDraft & Record<string, unknown>>('SITE')
 
-const form = reactive({
+interface SiteForm {
+  siteName: string
+  slogan: string
+  copyrightText: string
+  icpText: string
+  icpUrl: string
+  policeText: string
+  policeUrl: string
+  logoMediaId: string
+  logoAlt: string
+  faviconMediaId: string
+  seoTitle: string
+  seoDescription: string
+  footerGroups: FooterGroup[]
+}
+
+const values = ref<SiteForm>({
   siteName: '',
   slogan: '',
-  copyright: '',
-  icp: '',
+  copyrightText: '',
+  icpText: '',
+  icpUrl: '',
+  policeText: '',
+  policeUrl: '',
   logoMediaId: '' as string,
-  phone: '',
-  email: '',
-  address: '',
-  hours: '',
+  logoAlt: '',
+  faviconMediaId: '' as string,
+  seoTitle: '',
+  seoDescription: '',
+  footerGroups: [] as FooterGroup[],
 })
+
 const pickerOpen = ref(false)
+const pickerTarget = ref<'logo' | 'favicon'>('logo')
+
+function emptyLink(): FooterLink {
+  return { label: '', enabled: true, sortOrder: 100, link: { type: 'PAGE', pageCode: 'CONTACT' } }
+}
 
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
-  form.siteName = draft.siteName ?? ''
-  form.slogan = draft.slogan ?? ''
-  form.copyright = draft.copyright ?? ''
-  form.icp = draft.icp ?? ''
-  form.logoMediaId = draft.logoMediaId ? String(draft.logoMediaId) : ''
-  form.phone = draft.contact?.phone ?? ''
-  form.email = draft.contact?.email ?? ''
-  form.address = draft.contact?.address ?? ''
-  form.hours = draft.contact?.hours ?? ''
+  values.value.siteName = draft.siteName ?? ''
+  values.value.slogan = draft.slogan ?? ''
+  values.value.copyrightText = draft.copyrightText ?? ''
+  values.value.icpText = draft.icpText ?? ''
+  values.value.icpUrl = draft.icpUrl ?? ''
+  values.value.policeText = draft.policeText ?? ''
+  values.value.policeUrl = draft.policeUrl ?? ''
+  values.value.logoMediaId = draft.logoMediaId ? String(draft.logoMediaId) : ''
+  values.value.logoAlt = draft.logoAlt ?? ''
+  values.value.faviconMediaId = draft.faviconMediaId ? String(draft.faviconMediaId) : ''
+  values.value.seoTitle = draft.defaultSeo?.title ?? ''
+  values.value.seoDescription = draft.defaultSeo?.description ?? ''
+  values.value.footerGroups = (draft.footerGroups ?? []).map((group) => ({
+    title: group.title ?? '',
+    links: (group.links ?? []).map((link) => ({
+      key: link.key,
+      label: link.label ?? '',
+      enabled: link.enabled ?? true,
+      sortOrder: link.sortOrder ?? 100,
+      link: (link.link as LinkValue | null) ?? { type: 'PAGE', pageCode: 'CONTACT' },
+    })),
+  }))
+  if (values.value.footerGroups.length === 0) {
+    values.value.footerGroups = [{ title: '快速入口', links: [emptyLink()] }]
+  }
 }
 
 function buildDraft(): SiteDraft & Record<string, unknown> {
   const base = { ...(view.value?.draft ?? {}) } as Record<string, unknown>
   return {
     ...base,
-    siteName: form.siteName.trim(),
-    slogan: form.slogan.trim(),
-    copyright: form.copyright.trim(),
-    icp: form.icp.trim(),
-    logoMediaId: form.logoMediaId ? Number(form.logoMediaId) : undefined,
-    contact: {
-      phone: form.phone.trim(),
-      email: form.email.trim(),
-      address: form.address.trim(),
-      hours: form.hours.trim(),
-    },
+    siteName: values.value.siteName.trim(),
+    slogan: values.value.slogan.trim(),
+    copyrightText: values.value.copyrightText.trim(),
+    icpText: values.value.icpText.trim(),
+    icpUrl: values.value.icpUrl.trim(),
+    policeText: values.value.policeText.trim(),
+    policeUrl: values.value.policeUrl.trim(),
+    logoMediaId: values.value.logoMediaId ? Number(values.value.logoMediaId) : undefined,
+    logoAlt: values.value.logoAlt.trim(),
+    faviconMediaId: values.value.faviconMediaId ? Number(values.value.faviconMediaId) : undefined,
+    defaultSeo: { title: values.value.seoTitle.trim(), description: values.value.seoDescription.trim() },
+    footerGroups: values.value.footerGroups.map((group) => ({
+      title: group.title.trim(),
+      links: group.links.map((link) => ({ ...link, label: link.label.trim() })),
+    })),
   } as SiteDraft & Record<string, unknown>
 }
 
 async function onSave() {
-  if (!form.siteName.trim()) {
+  if (!values.value.siteName.trim()) {
     ElMessage.warning('站点名称不能为空')
     return
   }
@@ -71,6 +139,36 @@ async function onSave() {
 
 async function onPublish() {
   if (await publish()) fill()
+}
+
+function addGroup() {
+  if (values.value.footerGroups.length >= 4) {
+    ElMessage.warning('页脚分组最多 4 组')
+    return
+  }
+  values.value.footerGroups.push({ title: '', links: [emptyLink()] })
+}
+
+function addLink(group: FooterGroup) {
+  if (group.links.length >= 10) {
+    ElMessage.warning('每组最多 10 个链接')
+    return
+  }
+  group.links.push({ ...emptyLink(), sortOrder: (group.links.length + 1) * 10 })
+}
+
+function openPicker(target: 'logo' | 'favicon') {
+  pickerTarget.value = target
+  pickerOpen.value = true
+}
+
+function onPick(media: MediaItem) {
+  if (pickerTarget.value === 'logo') {
+    values.value.logoMediaId = String(media.id)
+  } else {
+    values.value.faviconMediaId = String(media.id)
+  }
+  pickerOpen.value = false
 }
 
 onMounted(async () => {
@@ -94,69 +192,102 @@ onMounted(async () => {
   >
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
 
-    <el-form label-width="100px">
+    <el-form label-width="110px">
       <el-form-item label="站点名称" required>
-        <el-input v-model="form.siteName" maxlength="50" show-word-limit />
+        <el-input v-model="values.siteName" maxlength="60" show-word-limit />
       </el-form-item>
       <el-form-item label="标语">
-        <el-input v-model="form.slogan" maxlength="100" show-word-limit placeholder="显示在页脚，一句话说明业务" />
+        <el-input v-model="values.slogan" maxlength="100" show-word-limit placeholder="显示在页脚，一句话说明业务" />
       </el-form-item>
-      <el-form-item label="站点标识">
-        <div class="logo">
-          <img v-if="form.logoMediaId" :src="`/api/admin/media/${form.logoMediaId}/file`" alt="站点标识" />
-          <span v-else class="logo__empty">未选择</span>
-          <el-button size="small" @click="pickerOpen = true">选择图片</el-button>
-          <el-button v-if="form.logoMediaId" size="small" link type="danger" @click="form.logoMediaId = ''">清除</el-button>
+      <el-form-item label="Logo">
+        <div class="media">
+          <img v-if="values.logoMediaId" :src="`/api/admin/media/${values.logoMediaId}/file`" alt="站点 Logo" />
+          <span v-else class="media__empty">未选择</span>
+          <el-button size="small" @click="openPicker('logo')">选择图片</el-button>
+          <el-button v-if="values.logoMediaId" size="small" link type="danger" @click="values.logoMediaId = ''">清除</el-button>
+        </div>
+      </el-form-item>
+      <el-form-item label="Logo 替代文字">
+        <el-input v-model="values.logoAlt" maxlength="120" placeholder="不填时使用站点名称" />
+      </el-form-item>
+      <el-form-item label="站点图标">
+        <div class="media">
+          <img v-if="values.faviconMediaId" :src="`/api/admin/media/${values.faviconMediaId}/file`" alt="站点图标" />
+          <span v-else class="media__empty">可选，建议 PNG 小于 200KB</span>
+          <el-button size="small" @click="openPicker('favicon')">选择图片</el-button>
+          <el-button v-if="values.faviconMediaId" size="small" link type="danger" @click="values.faviconMediaId = ''">清除</el-button>
         </div>
       </el-form-item>
 
-      <el-divider content-position="left">联系方式</el-divider>
-      <p class="hint">这里维护的联系方式会同时用于页头和联系页，只需改一处。</p>
-      <el-form-item label="电话">
-        <el-input v-model="form.phone" maxlength="40" />
+      <el-divider content-position="left">默认 SEO</el-divider>
+      <p class="hint">页面没有单独 SEO 时的兜底值，发布时必填。</p>
+      <el-form-item label="默认标题">
+        <el-input v-model="values.seoTitle" maxlength="80" show-word-limit />
       </el-form-item>
-      <el-form-item label="邮箱">
-        <el-input v-model="form.email" maxlength="100" />
-      </el-form-item>
-      <el-form-item label="地址">
-        <el-input v-model="form.address" maxlength="120" />
-      </el-form-item>
-      <el-form-item label="服务时间">
-        <el-input v-model="form.hours" maxlength="60" placeholder="例如：工作日 9:00–18:00" />
+      <el-form-item label="默认描述">
+        <el-input v-model="values.seoDescription" type="textarea" :rows="2" maxlength="200" show-word-limit />
       </el-form-item>
 
       <el-divider content-position="left">页脚</el-divider>
-      <el-form-item label="版权信息">
-        <el-input v-model="form.copyright" maxlength="120" placeholder="© 2026 示例科技有限公司" />
+      <el-form-item label="版权文案">
+        <el-input v-model="values.copyrightText" maxlength="120" placeholder="© 2026 示例科技有限公司" />
       </el-form-item>
-      <el-form-item label="备案号">
-        <el-input v-model="form.icp" maxlength="60" />
+      <el-form-item label="ICP 备案">
+        <el-input v-model="values.icpText" maxlength="80" placeholder="京ICP备00000000号" style="width: 260px" />
+        <el-input v-model="values.icpUrl" maxlength="500" placeholder="https://beian.miit.gov.cn/" style="width: 300px; margin-left: 8px" />
+      </el-form-item>
+      <el-form-item label="公安备案">
+        <el-input v-model="values.policeText" maxlength="80" placeholder="选填" style="width: 260px" />
+        <el-input v-model="values.policeUrl" maxlength="500" placeholder="https://" style="width: 300px; margin-left: 8px" />
       </el-form-item>
     </el-form>
 
-    <MediaPicker v-model="pickerOpen" :selected-id="form.logoMediaId" @select="(m) => { form.logoMediaId = m.id; pickerOpen = false }" />
+    <el-divider content-position="left">页脚分组</el-divider>
+    <p class="hint">最多 4 组，每组最多 10 个链接。空组不会出现在前台。</p>
+
+    <div v-for="(group, groupIndex) in values.footerGroups" :key="`group-${groupIndex}`" class="group">
+      <div class="group__head">
+        <el-input v-model="group.title" maxlength="20" placeholder="分组标题" style="width: 180px" />
+        <el-button link @click="addLink(group)">添加链接</el-button>
+        <el-button link type="danger" @click="values.footerGroups.splice(groupIndex, 1)">删除分组</el-button>
+      </div>
+      <div v-for="(link, linkIndex) in group.links" :key="link.key ?? `link-${groupIndex}-${linkIndex}`" class="group__row">
+        <el-switch v-model="link.enabled" />
+        <el-input v-model="link.label" maxlength="20" placeholder="链接名称" style="width: 140px" />
+        <LinkEditor v-model="link.link" :allow-none="false" />
+        <el-button link type="danger" @click="group.links.splice(linkIndex, 1)">删除</el-button>
+      </div>
+    </div>
+    <el-button class="add" @click="addGroup">添加分组</el-button>
+
+    <MediaPicker v-model="pickerOpen" :selected-id="null" @select="onPick" />
+
+    <template #tips>
+      <p>电话、邮箱、地址在「联系我们」页维护，这里不重复填写。</p>
+      <p>备案号与备案链接需成对填写，只填一个会在发布时被拒绝。</p>
+    </template>
   </ConfigPanel>
 </template>
 
 <style scoped>
 .err {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .hint {
   font-size: 12px;
   color: var(--a-text-muted);
-  margin: 0 0 12px 100px;
+  margin: 0 0 12px 110px;
 }
 
-.logo {
+.media {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.logo img,
-.logo__empty {
+.media img,
+.media__empty {
   width: 72px;
   height: 48px;
   border: 1px solid var(--a-border);
@@ -168,5 +299,31 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--a-text-muted);
   background: #f6f8fa;
+}
+
+.group {
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.group__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.group__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.add {
+  margin-top: 4px;
 }
 </style>

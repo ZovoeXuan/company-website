@@ -69,6 +69,16 @@ public class MediaRepository {
         return rows.stream().findFirst();
     }
 
+    /** 首页聚合批量取媒体，避免每张图单独查询。 */
+    public List<MediaRow> findByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        return jdbc.query("SELECT * FROM cms_media WHERE deleted = 0 AND id IN (" + placeholders + ")",
+                mapper, ids.toArray());
+    }
+
     public record MediaListItem(MediaRow media, boolean referenced) {
     }
 

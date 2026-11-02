@@ -1,17 +1,32 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getHome } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
-import type { HomeView } from '@/data/types'
+import type { HomeHeroItem, HomeLink, HomeView } from '@/data/types'
 
 const data = ref<HomeView | null>(null)
 const failed = ref(false)
+const heroIndex = ref(0)
+
+const heroes = computed<HomeHeroItem[]>(() => data.value?.hero.items ?? [])
+const current = computed<HomeHeroItem | null>(() => heroes.value[heroIndex.value] ?? null)
 
 usePageMeta(() => ({
   title: '工业设备数字化与能源管理',
   description: '面向制造企业的设备管理、预测性维护与能耗监测平台，帮助降低非计划停机、定位高耗能环节。',
 }))
+
+/** 咨询动作在表单未上线前统一落到联系页，不伪造弹窗 */
+function hrefOf(link: HomeLink | null): string | null {
+  if (!link) return null
+  if (link.type === 'CONSULT') return '/contact'
+  return link.url ?? null
+}
+
+function isExternal(link: HomeLink | null): boolean {
+  return link?.type === 'EXTERNAL'
+}
 
 onMounted(async () => {
   try {
@@ -24,83 +39,153 @@ onMounted(async () => {
 
 <template>
   <div v-if="data" class="home">
-    <section class="hero">
+    <!-- 首屏：只渲染当前一条，避免多个 h1 -->
+    <section v-if="current" class="hero">
       <div class="container hero__inner">
         <div class="hero__copy">
-          <p class="eyebrow">{{ data.hero.eyebrow }}</p>
-          <h1 class="hero__title">{{ data.hero.title }}</h1>
-          <p class="hero__sub">{{ data.hero.subtitle }}</p>
-          <div class="hero__actions">
-            <RouterLink :to="data.hero.primary.path" class="btn btn--primary">{{ data.hero.primary.label }}</RouterLink>
-            <RouterLink :to="data.hero.secondary.path" class="btn btn--ghost">{{ data.hero.secondary.label }}</RouterLink>
+          <h1 class="hero__title">{{ current.title }}</h1>
+          <p v-if="current.subtitle" class="hero__sub">{{ current.subtitle }}</p>
+          <div v-if="current.buttonText && hrefOf(current.link)" class="hero__actions">
+            <a
+              v-if="isExternal(current.link)"
+              :href="hrefOf(current.link) ?? '#'"
+              class="btn btn--primary"
+              :target="current.link?.newWindow ? '_blank' : undefined"
+              :rel="current.link?.newWindow ? 'noopener noreferrer' : undefined"
+            >
+              {{ current.buttonText }}
+            </a>
+            <RouterLink v-else :to="hrefOf(current.link) ?? '/'" class="btn btn--primary">
+              {{ current.buttonText }}
+            </RouterLink>
+          </div>
+
+          <div v-if="heroes.length > 1" class="hero__switch">
+            <button
+              v-for="(item, index) in heroes"
+              :key="item.key"
+              type="button"
+              class="hero__dot"
+              :class="{ 'is-active': index === heroIndex }"
+              :aria-label="`切换到第 ${index + 1} 屏：${item.title}`"
+              :aria-current="index === heroIndex ? 'true' : undefined"
+              @click="heroIndex = index"
+            ></button>
           </div>
         </div>
 
-        <figure v-if="data.hero.media" class="hero__media">
-          <img
-            :src="data.hero.media.url"
-            :alt="data.hero.media.alt"
-            :width="data.hero.media.width"
-            :height="data.hero.media.height"
-            fetchpriority="high"
-          />
+        <figure v-if="current.desktopImage" class="hero__media">
+          <picture>
+            <source
+              v-if="current.mobileImage"
+              media="(max-width: 700px)"
+              :srcset="current.mobileImage.url"
+            />
+            <img
+              :src="current.desktopImage.url"
+              :alt="current.desktopImage.alt || current.title"
+              :width="current.desktopImage.width"
+              :height="current.desktopImage.height"
+              fetchpriority="high"
+            />
+          </picture>
         </figure>
       </div>
     </section>
 
-    <section class="metrics" aria-label="服务规模">
-      <div class="container metrics__grid">
-        <div v-for="item in data.metrics" :key="item.label" class="metrics__item">
-          <p class="metrics__value">{{ item.value }}</p>
-          <p class="metrics__label">{{ item.label }}</p>
+    <!-- 企业指标 -->
+    <section v-if="data.metrics" id="metrics" class="metrics" aria-labelledby="metrics-title">
+      <div class="container">
+        <h2 v-if="data.metrics.title" id="metrics-title" class="visually-hidden">{{ data.metrics.title }}</h2>
+        <div class="metrics__grid">
+          <div v-for="item in data.metrics.items" :key="item.key" class="metrics__item">
+            <p class="metrics__value">
+              {{ item.displayValue }}<span v-if="item.unit" class="metrics__unit">{{ item.unit }}</span>
+            </p>
+            <p class="metrics__label">{{ item.label }}</p>
+            <p v-if="item.description" class="metrics__desc">{{ item.description }}</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="services-title">
+    <!-- 产品服务 -->
+    <section v-if="data.services" id="services" class="section" aria-labelledby="services-title">
       <div class="container">
         <div class="section-head">
           <div>
-            <h2 id="services-title" class="section-title">核心产品</h2>
-            <p class="section-sub">从设备接入到运维决策，按需选择，也可以整套落地。</p>
+            <h2 id="services-title" class="section-title">{{ data.services.title }}</h2>
+            <p v-if="data.services.subtitle" class="section-sub">{{ data.services.subtitle }}</p>
           </div>
-          <RouterLink to="/products" class="link-more">查看全部产品 →</RouterLink>
         </div>
 
-        <div class="grid grid--3">
-          <RouterLink
-            v-for="item in data.services"
-            :key="item.key"
-            :to="item.contentId ? `/products/${item.contentId}` : '/products'"
-            class="card service"
-          >
-            <div class="card__body">
-              <h3 class="card__title">{{ item.title }}</h3>
-              <p class="card__desc">{{ item.summary }}</p>
-              <span class="service__more">了解详情 →</span>
-            </div>
-          </RouterLink>
+        <div v-for="group in data.services.groups" :key="group.key" class="group">
+          <div class="group__head">
+            <h3 class="group__title">{{ group.title }}</h3>
+            <p v-if="group.description" class="group__desc">{{ group.description }}</p>
+            <a
+              v-if="group.moreLink && group.moreLink.type === 'EXTERNAL'"
+              :href="group.moreLink.url"
+              class="link-more"
+              :target="group.moreLink.newWindow ? '_blank' : undefined"
+              :rel="group.moreLink.newWindow ? 'noopener noreferrer' : undefined"
+            >
+              了解更多 →
+            </a>
+            <RouterLink v-else-if="group.moreLink?.url" :to="group.moreLink.url" class="link-more">
+              了解更多 →
+            </RouterLink>
+          </div>
+
+          <div class="grid grid--3">
+            <RouterLink v-for="item in group.items" :key="item.id" :to="item.url" class="card service">
+              <img
+                v-if="item.cover"
+                :src="item.cover.url"
+                :alt="item.cover.alt || item.title"
+                :width="item.cover.width"
+                :height="item.cover.height"
+                loading="lazy"
+                class="service__cover"
+              />
+              <div class="card__body">
+                <h4 class="card__title">{{ item.title }}</h4>
+                <p class="card__desc">{{ item.summary }}</p>
+                <span class="service__more">了解详情 →</span>
+              </div>
+            </RouterLink>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section section--surface" aria-labelledby="cases-title">
+    <!-- 客户案例 -->
+    <section v-if="data.cases" id="cases" class="section section--surface" aria-labelledby="cases-title">
       <div class="container">
         <div class="section-head">
           <div>
-            <h2 id="cases-title" class="section-title">客户案例</h2>
-            <p class="section-sub">项目数据来自实际交付，客户名称按协议隐去。</p>
+            <h2 id="cases-title" class="section-title">{{ data.cases.title }}</h2>
+            <p v-if="data.cases.subtitle" class="section-sub">{{ data.cases.subtitle }}</p>
           </div>
-          <RouterLink to="/cases" class="link-more">全部案例 →</RouterLink>
+          <RouterLink :to="data.cases.moreUrl" class="link-more">全部案例 →</RouterLink>
         </div>
 
         <div class="grid grid--2">
-          <RouterLink v-for="item in data.featuredCases" :key="item.id" :to="`/cases/${item.id}`" class="case card">
+          <RouterLink v-for="item in data.cases.items" :key="item.id" :to="item.url" class="case card">
+            <img
+              v-if="item.cover"
+              :src="item.cover.url"
+              :alt="item.cover.alt || item.title"
+              :width="item.cover.width"
+              :height="item.cover.height"
+              loading="lazy"
+              class="case__cover"
+            />
             <div class="case__body">
-              <span class="tag">{{ item.industry }}</span>
+              <span v-if="item.industry" class="tag">{{ item.industry }}</span>
               <h3 class="case__title">{{ item.title }}</h3>
               <p class="card__desc">{{ item.summary }}</p>
-              <dl class="case__results">
+              <dl v-if="item.results?.length" class="case__results">
                 <div v-for="result in item.results" :key="result.label" class="case__result">
                   <dt>{{ result.label }}</dt>
                   <dd>{{ result.value }}</dd>
@@ -112,26 +197,42 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section class="section" aria-labelledby="customers-title">
+    <!-- 客户标识 -->
+    <section v-if="data.customers" id="customers" class="section" aria-labelledby="customers-title">
       <div class="container">
-        <h2 id="customers-title" class="section-title">服务行业</h2>
-        <p class="section-sub">已在多个制造与公共设施细分领域完成交付。</p>
+        <h2 id="customers-title" class="section-title">{{ data.customers.title }}</h2>
+        <p v-if="data.customers.subtitle" class="section-sub">{{ data.customers.subtitle }}</p>
         <ul class="customers">
-          <li v-for="item in data.customers" :key="item.id" class="customers__item">{{ item.name }}</li>
+          <li v-for="item in data.customers.items" :key="item.id" class="customers__item">
+            <a
+              v-if="item.url"
+              :href="item.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="customers__link"
+            >
+              <img :src="item.logo.url" :alt="item.logo.alt || item.name" loading="lazy" />
+            </a>
+            <img v-else :src="item.logo.url" :alt="item.logo.alt || item.name" loading="lazy" />
+          </li>
         </ul>
       </div>
     </section>
 
-    <section class="section section--surface" aria-labelledby="news-title">
+    <!-- 新闻 -->
+    <section v-if="data.news" id="news" class="section section--surface" aria-labelledby="news-title">
       <div class="container">
         <div class="section-head">
-          <h2 id="news-title" class="section-title">最新动态</h2>
-          <RouterLink to="/news" class="link-more">全部新闻 →</RouterLink>
+          <div>
+            <h2 id="news-title" class="section-title">{{ data.news.title }}</h2>
+            <p v-if="data.news.subtitle" class="section-sub">{{ data.news.subtitle }}</p>
+          </div>
+          <RouterLink :to="data.news.moreUrl" class="link-more">全部新闻 →</RouterLink>
         </div>
 
         <ul class="news-list">
-          <li v-for="item in data.latestNews" :key="item.id" class="news-item">
-            <RouterLink :to="`/news/${item.id}`" class="news-item__link">
+          <li v-for="item in data.news.items" :key="item.id" class="news-item">
+            <RouterLink :to="item.url" class="news-item__link">
               <time class="news-item__date" :datetime="item.displayTime">{{ item.displayTime }}</time>
               <div>
                 <h3 class="news-item__title">{{ item.title }}</h3>
@@ -143,19 +244,31 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section class="cta">
+    <!-- 咨询区 -->
+    <section id="consultation" class="cta">
       <div class="container cta__inner">
         <div>
-          <h2 class="cta__title">先看看你的设备数据能说明什么</h2>
-          <p class="cta__desc">留下联系方式，我们会用你的场景做一次演示，不推销、不承诺做不到的事。</p>
+          <h2 class="cta__title">{{ data.consultation.title }}</h2>
+          <p v-if="data.consultation.subtitle" class="cta__desc">{{ data.consultation.subtitle }}</p>
         </div>
-        <RouterLink to="/contact" class="btn btn--primary">预约演示</RouterLink>
+        <a
+          v-if="data.consultation.link.type === 'EXTERNAL'"
+          :href="data.consultation.link.url"
+          class="btn btn--primary"
+          :target="data.consultation.link.newWindow ? '_blank' : undefined"
+          :rel="data.consultation.link.newWindow ? 'noopener noreferrer' : undefined"
+        >
+          {{ data.consultation.buttonText }}
+        </a>
+        <RouterLink v-else :to="hrefOf(data.consultation.link) ?? '/contact'" class="btn btn--primary">
+          {{ data.consultation.buttonText }}
+        </RouterLink>
       </div>
     </section>
   </div>
 
   <div v-else-if="failed" class="container state">
-    <EmptyState title="内容加载失败" description="请稍后刷新页面重试。" />
+    <EmptyState title="内容加载失败" description="请稍后刷新页面重试。首页尚未发布时也会显示该提示。" />
   </div>
 
   <div v-else class="container state" aria-busy="true">
@@ -202,6 +315,26 @@ onMounted(async () => {
   margin-top: 30px;
 }
 
+.hero__switch {
+  display: flex;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.hero__dot {
+  width: 28px;
+  height: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--c-border-strong);
+  cursor: pointer;
+}
+
+.hero__dot.is-active {
+  background: var(--c-brand);
+}
+
 .hero__media img {
   width: 100%;
   border-radius: var(--radius);
@@ -226,13 +359,56 @@ onMounted(async () => {
   letter-spacing: -0.01em;
 }
 
+.metrics__unit {
+  margin-left: 2px;
+  font-size: 20px;
+}
+
 .metrics__label {
   margin-top: 4px;
   font-size: 14px;
   color: var(--c-text-muted);
 }
 
+.metrics__desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--c-text-subtle);
+}
+
+.group + .group {
+  margin-top: 48px;
+}
+
+.group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.group__title {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.group__desc {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+}
+
 .service {
+  display: block;
+  overflow: hidden;
+}
+
+.service__cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
   display: block;
 }
 
@@ -241,6 +417,13 @@ onMounted(async () => {
   margin-top: 16px;
   font-size: 14px;
   color: var(--c-brand);
+}
+
+.case__cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
 }
 
 .case__body {
@@ -275,19 +458,28 @@ onMounted(async () => {
 .customers {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   list-style: none;
   margin: 28px 0 0;
   padding: 0;
 }
 
 .customers__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 64px;
+  padding: 10px 18px;
   border: 1px solid var(--c-border);
-  border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 14px;
-  color: var(--c-text-muted);
+  border-radius: var(--radius-sm);
   background: #fff;
+}
+
+.customers__item img {
+  max-width: 120px;
+  max-height: 44px;
+  object-fit: contain;
 }
 
 .news-list {

@@ -20,12 +20,20 @@ export interface PageResult<T> {
 
 export interface NavItem {
   label: string
+  /** 站内路径；纯外链项此处为空字符串，改用 url */
   path: string
+  url?: string | null
+  newWindow?: boolean
+  children?: NavItem[]
 }
 
 export interface SiteConfig {
   siteName: string
   slogan: string
+  logoUrl?: string | null
+  logoAlt?: string
+  faviconUrl?: string | null
+  defaultSeo?: { title: string; description: string }
   nav: NavItem[]
   contact: {
     phone: string
@@ -36,38 +44,93 @@ export interface SiteConfig {
   footer: {
     copyright: string
     icp: string
+    icpUrl?: string
+    policeText?: string
+    policeUrl?: string
+    groups: Array<{ title: string; links: NavItem[] }>
     links: NavItem[]
   }
   formEnabled?: boolean
   privacyVersion?: number | null
 }
 
-export interface Metric {
-  value: string
-  label: string
+export interface HomeLink {
+  type: string
+  url?: string
+  newWindow?: boolean
+  contentType?: string
+  contentId?: string
 }
 
-export interface ServiceGroup {
+export interface HomeBlock {
+  title: string
+  subtitle: string
+}
+
+export interface HomeHeroItem {
   key: string
   title: string
+  subtitle: string
+  desktopImage: MediaRef | null
+  mobileImage: MediaRef | null
+  buttonText: string
+  link: HomeLink | null
+}
+
+export interface HomeMetric {
+  key: string
+  displayValue: string
+  unit: string
+  label: string
+  description: string
+}
+
+export interface HomeCard {
+  id: string
+  contentType?: string
+  title: string
   summary: string
-  contentId: string | null
+  cover: MediaRef | null
+  url: string
+  client?: string
+  industry?: string
+  results?: ResultMetric[]
+}
+
+export interface HomeServiceGroup {
+  key: string
+  title: string
+  description: string
+  image: MediaRef | null
+  moreLink: HomeLink | null
+  items: HomeCard[]
+}
+
+export interface HomeCustomer {
+  id: string
+  name: string
+  logo: MediaRef
+  url: string | null
+}
+
+export interface HomeNewsItem {
+  id: string
+  title: string
+  summary: string
+  displayTime: string
+  url: string
 }
 
 export interface HomeView {
-  hero: {
-    eyebrow: string
-    title: string
-    subtitle: string
-    primary: NavItem
-    secondary: NavItem
-    media: MediaRef | null
-  }
-  metrics: Metric[]
-  services: ServiceGroup[]
-  featuredCases: CaseSummary[]
-  customers: Array<{ id: string; name: string }>
-  latestNews: NewsSummary[]
+  version: number | null
+  publishedAt: string | null
+  hero: { items: HomeHeroItem[] }
+  metrics: (HomeBlock & { items: HomeMetric[] }) | null
+  services: (HomeBlock & { groups: HomeServiceGroup[] }) | null
+  cases: (HomeBlock & { items: HomeCard[]; moreUrl: string }) | null
+  customers: (HomeBlock & { items: HomeCustomer[] }) | null
+  news: (HomeBlock & { mode: string; items: HomeNewsItem[]; moreUrl: string }) | null
+  consultation: { title: string; subtitle: string; buttonText: string; link: HomeLink }
 }
 
 export interface Category {
@@ -103,6 +166,11 @@ export interface SolutionDetail extends SolutionSummary {
   approach: string[]
   outcome: Metric[]
   relatedProducts?: ProductSummary[]
+}
+
+export interface Metric {
+  value: string
+  label: string
 }
 
 export interface ResultMetric {
@@ -159,4 +227,8 @@ export interface ContactPage {
   description: string
   successText: string
   formEnabled: boolean
+  phone?: string
+  email?: string
+  address?: string
+  hours?: string
 }

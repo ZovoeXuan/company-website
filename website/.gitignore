@@ -19,6 +19,10 @@ logs/
 .DS_Store
 Thumbs.db
 
+# 审计脚本产物与临时截图
+docs/audit-report.json
+docs/*.png
+
 # IDE
 .idea/
 .vscode/

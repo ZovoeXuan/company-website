@@ -263,6 +263,25 @@ public class ContentRepository {
         return rows.stream().findFirst();
     }
 
+    /** 首页聚合批量取：一次 IN 查询，避免每张卡片单独查库。 */
+    public List<ContentRow> findPublishedByIds(java.util.Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        return jdbc.query("SELECT * FROM cms_content WHERE publication_status = 'PUBLISHED'"
+                + " AND deleted = 0 AND id IN (" + placeholders + ")", mapper, ids.toArray());
+    }
+
+    /** LATEST 模式：按展示时间倒序取指定条数，忽略手选。 */
+    public List<ContentRow> findLatestPublishedNews(int limit) {
+        return jdbc.query("""
+                SELECT * FROM cms_content
+                 WHERE content_type = 'NEWS' AND publication_status = 'PUBLISHED' AND deleted = 0
+                 ORDER BY published_display_time DESC, id DESC LIMIT ?
+                """, mapper, limit);
+    }
+
     public Optional<ContentRow> findAdjacentNews(long id, boolean previous) {
         String sql = previous
                 ? """

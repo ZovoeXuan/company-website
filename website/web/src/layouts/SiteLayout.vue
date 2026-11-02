@@ -24,7 +24,13 @@ onMounted(async () => {
   <div class="site">
     <a class="skip-link" href="#main">跳到主要内容</a>
 
-    <SiteHeader v-if="config" :site-name="config.siteName" :nav="config.nav" />
+    <SiteHeader
+      v-if="config"
+      :site-name="config.siteName"
+      :nav="config.nav"
+      :logo-url="config.logoUrl"
+      :logo-alt="config.logoAlt"
+    />
 
     <main id="main" class="site__main" tabindex="-1">
       <div v-if="notice" class="container notice" role="status">{{ notice }}</div>

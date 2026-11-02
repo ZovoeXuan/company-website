@@ -4,27 +4,46 @@ import type { SiteConfig } from '@/data/types'
 
 const props = defineProps<{ config: SiteConfig }>()
 
-/** 页脚链接由后台「导航与页脚链接」维护；未配置时回退到主导航，避免空列。 */
-const quickLinks = computed(() => {
-  const links = props.config.footer?.links ?? []
-  if (links.length > 0) return links
-  return props.config.nav.slice(1, 5)
+/** 页脚分组由后台「全站设置」维护；未配置时回退到主导航前几项，避免空列 */
+const groups = computed(() => {
+  const configured = props.config.footer?.groups ?? []
+  if (configured.length > 0) return configured
+  const fallback = props.config.footer?.links ?? []
+  if (fallback.length > 0) return [{ title: '快速入口', links: fallback }]
+  return [{ title: '快速入口', links: props.config.nav.slice(1, 5) }]
 })
+
+function telHref(phone: string) {
+  return `tel:${phone.replace(/[\s-]/g, '')}`
+}
 </script>
 
 <template>
   <footer class="footer">
     <div class="container footer__top">
       <div class="footer__brand">
-        <p class="footer__name">{{ config.siteName }}</p>
-        <p class="footer__slogan">{{ config.slogan }}</p>
+        <p class="footer__name">
+          <img v-if="config.logoUrl" :src="config.logoUrl" :alt="config.logoAlt || config.siteName" class="footer__logo" />
+          <span v-else>{{ config.siteName }}</span>
+        </p>
+        <p v-if="config.slogan" class="footer__slogan">{{ config.slogan }}</p>
       </div>
 
-      <nav class="footer__col" aria-label="页脚导航">
-        <p class="footer__title">快速入口</p>
+      <nav v-for="group in groups" :key="group.title" class="footer__col" :aria-label="group.title">
+        <p class="footer__title">{{ group.title }}</p>
         <ul class="footer__list">
-          <li v-for="item in quickLinks" :key="item.path">
-            <RouterLink :to="item.path" class="footer__link">{{ item.label }}</RouterLink>
+          <li v-for="item in group.links" :key="item.label + (item.path || item.url || '')">
+            <a
+              v-if="item.url"
+              :href="item.url"
+              class="footer__link"
+              :target="item.newWindow ? '_blank' : undefined"
+              :rel="item.newWindow ? 'noopener noreferrer' : undefined"
+            >
+              {{ item.label }}
+            </a>
+            <RouterLink v-else-if="item.path" :to="item.path" class="footer__link">{{ item.label }}</RouterLink>
+            <span v-else class="footer__link">{{ item.label }}</span>
           </li>
         </ul>
       </nav>
@@ -32,17 +51,28 @@ const quickLinks = computed(() => {
       <div class="footer__col">
         <p class="footer__title">联系方式</p>
         <ul class="footer__list">
-          <li><a class="footer__link" :href="`tel:${config.contact.phone.replace(/\s/g, '')}`">{{ config.contact.phone }}</a></li>
-          <li><a class="footer__link" :href="`mailto:${config.contact.email}`">{{ config.contact.email }}</a></li>
-          <li>{{ config.contact.address }}</li>
-          <li>{{ config.contact.hours }}</li>
+          <li v-if="config.contact.phone">
+            <a class="footer__link" :href="telHref(config.contact.phone)">{{ config.contact.phone }}</a>
+          </li>
+          <li v-if="config.contact.email">
+            <a class="footer__link" :href="`mailto:${config.contact.email}`">{{ config.contact.email }}</a>
+          </li>
+          <li v-if="config.contact.address">{{ config.contact.address }}</li>
+          <li v-if="config.contact.hours">{{ config.contact.hours }}</li>
         </ul>
       </div>
     </div>
 
     <div class="container footer__bottom">
       <span>{{ config.footer.copyright }}</span>
-      <span>{{ config.footer.icp }}</span>
+      <a v-if="config.footer.icp && config.footer.icpUrl" :href="config.footer.icpUrl" class="footer__link" target="_blank" rel="noopener noreferrer">
+        {{ config.footer.icp }}
+      </a>
+      <span v-else-if="config.footer.icp">{{ config.footer.icp }}</span>
+      <a v-if="config.footer.policeText && config.footer.policeUrl" :href="config.footer.policeUrl" class="footer__link" target="_blank" rel="noopener noreferrer">
+        {{ config.footer.policeText }}
+      </a>
+      <span v-else-if="config.footer.policeText">{{ config.footer.policeText }}</span>
       <RouterLink to="/privacy" class="footer__link">隐私说明</RouterLink>
     </div>
   </footer>
@@ -56,11 +86,27 @@ const quickLinks = computed(() => {
 }
 
 .footer__top {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 40px;
   padding-top: 56px;
   padding-bottom: 40px;
+}
+
+.footer__brand {
+  flex: 1.4 1 260px;
+  min-width: 220px;
+}
+
+.footer__col {
+  flex: 1 1 150px;
+  min-width: 140px;
+}
+
+.footer__logo {
+  max-height: 40px;
+  max-width: 180px;
+  object-fit: contain;
 }
 
 .footer__name {
@@ -115,12 +161,8 @@ const quickLinks = computed(() => {
 
 @media (max-width: 860px) {
   .footer__top {
-    grid-template-columns: 1fr 1fr;
     gap: 32px;
     padding-top: 40px;
-  }
-  .footer__brand {
-    grid-column: 1 / -1;
   }
   .footer {
     margin-top: 64px;

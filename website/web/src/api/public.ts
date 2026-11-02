@@ -25,8 +25,6 @@ import type {
 } from '@/data/types'
 
 const USE_MOCK = {
-  site: false,
-  home: true,
   products: false,
   solutions: true,
   cases: true,
@@ -53,13 +51,11 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
 }
 
 export function getSite(): Promise<SiteConfig> {
-  if (!USE_MOCK.site) return apiGet<SiteConfig>('/api/public/site-config')
-  return delay(mock.site)
+  return apiGet<SiteConfig>('/api/public/site-config')
 }
 
 export function getHome(): Promise<HomeView> {
-  if (!USE_MOCK.home) return apiGet<HomeView>('/api/public/home')
-  return delay(mock.home)
+  return apiGet<HomeView>('/api/public/home')
 }
 
 export function getProductCategories(): Promise<Array<{ id: string; name: string }>> {

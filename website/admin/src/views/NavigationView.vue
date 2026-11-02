@@ -2,50 +2,81 @@
 import { onMounted, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
+import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import { useConfig } from '@/composables/useConfig'
 
-interface LinkItem {
+interface NavNode {
+  key?: string
   label: string
-  path: string
-  visible: boolean
+  enabled: boolean
+  sortOrder: number
+  link: LinkValue | null
+  children?: NavNode[]
 }
 
 interface NavigationDraft {
-  items: LinkItem[]
-  footerLinks: LinkItem[]
+  items: NavNode[]
 }
 
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<NavigationDraft & Record<string, unknown>>('NAVIGATION')
 
-const form = reactive<{ items: LinkItem[]; footerLinks: LinkItem[] }>({ items: [], footerLinks: [] })
+const form = reactive<{ items: NavNode[] }>({ items: [] })
+
+function normalize(node: Partial<NavNode>): NavNode {
+  return {
+    key: node.key,
+    label: node.label ?? '',
+    enabled: node.enabled ?? true,
+    sortOrder: node.sortOrder ?? 100,
+    link: (node.link as LinkValue | null) ?? { type: 'NONE' },
+    children: (node.children ?? []).map((child) => ({
+      key: child.key,
+      label: child.label ?? '',
+      enabled: child.enabled ?? true,
+      sortOrder: child.sortOrder ?? 100,
+      link: (child.link as LinkValue | null) ?? { type: 'PAGE', pageCode: 'HOME' },
+    })),
+  }
+}
 
 function fill() {
   const draft = view.value?.draft
-  form.items = (draft?.items ?? []).map((item) => ({ ...item }))
-  form.footerLinks = (draft?.footerLinks ?? []).map((item) => ({ ...item }))
+  form.items = (draft?.items ?? []).map((item) => normalize(item))
   if (form.items.length === 0) {
-    form.items = [{ label: '首页', path: '/', visible: true }]
+    form.items = [
+      normalize({ label: '首页', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: 10 }),
+      normalize({ label: '产品', link: { type: 'PAGE', pageCode: 'PRODUCTS' }, sortOrder: 20 }),
+      normalize({ label: '联系我们', link: { type: 'PAGE', pageCode: 'CONTACT' }, sortOrder: 30 }),
+    ]
   }
 }
 
-function add(list: LinkItem[]) {
-  if (list.length >= 12) {
-    ElMessage.warning('最多 12 项')
+function addTop() {
+  if (form.items.length >= 8) {
+    ElMessage.warning('顶级导航最多 8 项')
     return
   }
-  list.push({ label: '', path: '/', visible: true })
+  form.items.push(normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (form.items.length + 1) * 10 }))
 }
 
-function move(list: LinkItem[], index: number, delta: number) {
+function addChild(item: NavNode) {
+  item.children = item.children ?? []
+  if (item.children.length >= 10) {
+    ElMessage.warning('子菜单最多 10 项')
+    return
+  }
+  item.children.push(normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (item.children.length + 1) * 10 }))
+}
+
+function move<T extends { sortOrder: number }>(list: T[], index: number, delta: number) {
   const target = index + delta
   if (target < 0 || target >= list.length) return
+  const current = list[index].sortOrder
+  list[index].sortOrder = list[target].sortOrder
+  list[target].sortOrder = current
   const [item] = list.splice(index, 1)
   list.splice(target, 0, item)
-}
-
-function remove(list: LinkItem[], index: number) {
-  list.splice(index, 1)
 }
 
 async function onSave() {
@@ -53,12 +84,7 @@ async function onSave() {
     ElMessage.warning('导航名称不能为空')
     return
   }
-  const draft = {
-    ...(view.value?.draft ?? {}),
-    items: form.items.map((item) => ({ ...item, label: item.label.trim(), path: item.path.trim() })),
-    footerLinks: form.footerLinks.map((item) => ({ ...item, label: item.label.trim(), path: item.path.trim() })),
-  } as NavigationDraft & Record<string, unknown>
-  if (await save(draft)) fill()
+  if (await save({ items: form.items } as NavigationDraft & Record<string, unknown>)) fill()
 }
 
 async function onPublish() {
@@ -73,7 +99,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="导航与页脚链接"
+    title="导航"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -85,76 +111,118 @@ onMounted(async () => {
     @publish="onPublish"
   >
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
+    <el-alert
+      type="info"
+      :closable="false"
+      class="err"
+      title="最多两级，顶层最多 8 项、每项最多 10 个子项。有子项的父节点可以不配链接；叶子节点必须有有效链接才能发布。"
+    />
 
-    <h3 class="section-title">主导航</h3>
-    <p class="hint">只接受站内路径，必须以 / 开头；关闭「显示」后该项不出现在前台，但保留配置。</p>
-
-    <div class="rows">
-      <div v-for="(item, index) in form.items" :key="`nav-${index}`" class="row">
-        <el-input v-model="item.label" placeholder="名称" maxlength="12" style="width: 140px" />
-        <el-input v-model="item.path" placeholder="/products" maxlength="120" style="width: 240px" />
-        <el-switch v-model="item.visible" active-text="显示" />
-        <div class="row-actions">
+    <div v-for="(item, index) in form.items" :key="item.key ?? `top-${index}`" class="node">
+      <div class="node__head">
+        <el-switch v-model="item.enabled" active-text="显示" />
+        <el-input v-model="item.label" maxlength="20" placeholder="导航名称" style="width: 160px" />
+        <span class="node__order">排序 {{ item.sortOrder }}</span>
+        <div class="node__actions">
           <el-button link :disabled="index === 0" @click="move(form.items, index, -1)">上移</el-button>
           <el-button link :disabled="index === form.items.length - 1" @click="move(form.items, index, 1)">下移</el-button>
-          <el-button link type="danger" @click="remove(form.items, index)">删除</el-button>
+          <el-button link @click="addChild(item)">添加子项</el-button>
+          <el-button link type="danger" @click="form.items.splice(index, 1)">删除</el-button>
         </div>
       </div>
-    </div>
-    <el-button class="add" @click="add(form.items)">添加导航项</el-button>
 
-    <el-divider content-position="left">页脚链接</el-divider>
-    <div class="rows">
-      <div v-for="(item, index) in form.footerLinks" :key="`footer-${index}`" class="row">
-        <el-input v-model="item.label" placeholder="名称" maxlength="12" style="width: 140px" />
-        <el-input v-model="item.path" placeholder="/privacy" maxlength="120" style="width: 240px" />
-        <el-switch v-model="item.visible" active-text="显示" />
-        <div class="row-actions">
-          <el-button link type="danger" @click="remove(form.footerLinks, index)">删除</el-button>
+      <div class="node__link">
+        <span class="label">链接</span>
+        <LinkEditor v-model="item.link" :allow-none="true" />
+        <span v-if="item.children?.length" class="hint">已有子项时，这里可设为「无链接」，前台作为展开父节点</span>
+      </div>
+
+      <div v-if="item.children?.length" class="children">
+        <div v-for="(child, childIndex) in item.children" :key="child.key ?? `child-${index}-${childIndex}`" class="child">
+          <el-switch v-model="child.enabled" />
+          <el-input v-model="child.label" maxlength="20" placeholder="子项名称" style="width: 150px" />
+          <LinkEditor v-model="child.link" :allow-none="false" />
+          <el-button link :disabled="childIndex === 0" @click="move(item.children!, childIndex, -1)">上移</el-button>
+          <el-button link :disabled="childIndex === (item.children?.length ?? 0) - 1" @click="move(item.children!, childIndex, 1)">下移</el-button>
+          <el-button link type="danger" @click="item.children!.splice(childIndex, 1)">删除</el-button>
         </div>
       </div>
     </div>
-    <el-button class="add" @click="add(form.footerLinks)">添加页脚链接</el-button>
+
+    <el-button class="add" @click="addTop">添加导航项</el-button>
+
+    <template #tips>
+      <p>页脚链接在「全站设置」的页脚分组里维护，不在导航中重复配置。</p>
+      <p>目标内容下线后，前台会自动隐藏该导航项；父节点没有有效子项时整块隐藏。</p>
+    </template>
   </ConfigPanel>
 </template>
 
 <style scoped>
 .err {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.section-title {
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 6px;
+.node {
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #fbfcfe;
+}
+
+.node__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.node__order {
+  font-size: 12px;
+  color: var(--a-text-muted);
+}
+
+.node__actions {
+  margin-left: auto;
+}
+
+.node__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--a-text-muted);
+  width: 40px;
 }
 
 .hint {
   font-size: 12px;
   color: var(--a-text-muted);
-  margin-bottom: 14px;
-  line-height: 1.7;
 }
 
-.rows {
+.children {
+  margin-top: 12px;
+  padding-left: 14px;
+  border-left: 2px solid var(--a-border);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-.row {
+.child {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.row-actions {
-  display: flex;
-  gap: 2px;
-}
-
 .add {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 </style>

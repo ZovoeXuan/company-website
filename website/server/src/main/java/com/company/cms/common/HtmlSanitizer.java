@@ -37,7 +37,21 @@ public class HtmlSanitizer {
                 "src\\s*=\\s*[\"']" + RELATIVE_IMAGE, "src=\"" + PLACEHOLDER + RELATIVE_IMAGE);
         String cleaned = Jsoup.clean(prepared, "", safelist, outputSettings)
                 .replace(PLACEHOLDER, "");
-        return cleaned.length() <= MAX_LENGTH ? cleaned : cleaned.substring(0, MAX_LENGTH);
+
+        // 清洗后仍可能留下没有地址的 img（例如只带 onerror 的图片），
+        // 这类标签既无意义又会让读屏软件读到空图片，直接移除。
+        Document doc = Jsoup.parseBodyFragment(cleaned);
+        doc.outputSettings(outputSettings);
+        for (org.jsoup.nodes.Element img : doc.select("img")) {
+            String src = img.attr("src").trim().toLowerCase();
+            boolean allowed = src.startsWith(RELATIVE_IMAGE)
+                    || src.startsWith("http://") || src.startsWith("https://");
+            if (!allowed) {
+                img.remove();
+            }
+        }
+        String result = doc.body().html();
+        return result.length() <= MAX_LENGTH ? result : result.substring(0, MAX_LENGTH);
     }
 
     /** 纯文本字段：去掉所有标签，只保留文字。 */
