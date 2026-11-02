@@ -1,92 +1,166 @@
 <script setup lang="ts">
-const metrics = [
-  { value: '—', label: '服务客户' },
-  { value: '—', label: '覆盖城市' },
-  { value: '—', label: '在线设备' },
-  { value: '—', label: '平均响应' },
-]
+import { onMounted, ref } from 'vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { getHome } from '@/api/public'
+import { usePageMeta } from '@/composables/usePageMeta'
+import type { HomeView } from '@/data/types'
 
-const services = [
-  { title: '服务一', desc: '此处由后台「首页管理 · 服务分组」维护，正式内容上线前为占位。' },
-  { title: '服务二', desc: '卡片支持选择已发布产品并自定义标题与说明。' },
-  { title: '服务三', desc: '模块可整体隐藏，不会留下空白区域。' },
-]
+const data = ref<HomeView | null>(null)
+const failed = ref(false)
+
+usePageMeta(() => ({
+  title: '工业设备数字化与能源管理',
+  description: '面向制造企业的设备管理、预测性维护与能耗监测平台，帮助降低非计划停机、定位高耗能环节。',
+}))
+
+onMounted(async () => {
+  try {
+    data.value = await getHome()
+  } catch {
+    failed.value = true
+  }
+})
 </script>
 
 <template>
-  <div class="home">
+  <div v-if="data" class="home">
     <section class="hero">
-      <div class="container hero-inner">
-        <div class="hero-copy">
-          <p class="eyebrow">内容由后台维护 · 当前为占位</p>
-          <h1>这里放一句话说明公司做什么</h1>
-          <p class="hero-sub">
-            首屏标题、副标题、两个按钮和背景图均由「首页管理 · 首屏」控制，保存草稿不会影响线上，发布后才生效。
-          </p>
-          <div class="hero-actions">
-            <RouterLink to="/contact" class="btn primary">预约演示</RouterLink>
-            <RouterLink to="/products" class="btn ghost">了解产品</RouterLink>
+      <div class="container hero__inner">
+        <div class="hero__copy">
+          <p class="eyebrow">{{ data.hero.eyebrow }}</p>
+          <h1 class="hero__title">{{ data.hero.title }}</h1>
+          <p class="hero__sub">{{ data.hero.subtitle }}</p>
+          <div class="hero__actions">
+            <RouterLink :to="data.hero.primary.path" class="btn btn--primary">{{ data.hero.primary.label }}</RouterLink>
+            <RouterLink :to="data.hero.secondary.path" class="btn btn--ghost">{{ data.hero.secondary.label }}</RouterLink>
           </div>
         </div>
-        <div class="hero-media">
-          <span>首屏图 · 桌面 / 手机各一张</span>
+
+        <figure v-if="data.hero.media" class="hero__media">
+          <img
+            :src="data.hero.media.url"
+            :alt="data.hero.media.alt"
+            :width="data.hero.media.width"
+            :height="data.hero.media.height"
+            fetchpriority="high"
+          />
+        </figure>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="服务规模">
+      <div class="container metrics__grid">
+        <div v-for="item in data.metrics" :key="item.label" class="metrics__item">
+          <p class="metrics__value">{{ item.value }}</p>
+          <p class="metrics__label">{{ item.label }}</p>
         </div>
       </div>
     </section>
 
-    <section class="metrics">
-      <div class="container metrics-grid">
-        <div v-for="item in metrics" :key="item.label" class="metric">
-          <p class="metric-value">{{ item.value }}</p>
-          <p class="metric-label">{{ item.label }}</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
+    <section class="section" aria-labelledby="services-title">
       <div class="container">
-        <h2 class="section-title">核心服务</h2>
-        <div class="cards">
-          <article v-for="item in services" :key="item.title" class="card">
-            <div class="card-media"></div>
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.desc }}</p>
-          </article>
+        <div class="section-head">
+          <div>
+            <h2 id="services-title" class="section-title">核心产品</h2>
+            <p class="section-sub">从设备接入到运维决策，按需选择，也可以整套落地。</p>
+          </div>
+          <RouterLink to="/products" class="link-more">查看全部产品 →</RouterLink>
+        </div>
+
+        <div class="grid grid--3">
+          <RouterLink
+            v-for="item in data.services"
+            :key="item.key"
+            :to="item.contentId ? `/products/${item.contentId}` : '/products'"
+            class="card service"
+          >
+            <div class="card__body">
+              <h3 class="card__title">{{ item.title }}</h3>
+              <p class="card__desc">{{ item.summary }}</p>
+              <span class="service__more">了解详情 →</span>
+            </div>
+          </RouterLink>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <section class="section section--surface" aria-labelledby="cases-title">
       <div class="container">
-        <h2 class="section-title">客户案例</h2>
-        <div class="cases">
-          <article class="case">
-            <div class="case-media"></div>
-            <div>
-              <h3>客户名称待填</h3>
-              <p>成果数据由案例内容维护，例如「停机时间下降 37%」。</p>
+        <div class="section-head">
+          <div>
+            <h2 id="cases-title" class="section-title">客户案例</h2>
+            <p class="section-sub">项目数据来自实际交付，客户名称按协议隐去。</p>
+          </div>
+          <RouterLink to="/cases" class="link-more">全部案例 →</RouterLink>
+        </div>
+
+        <div class="grid grid--2">
+          <RouterLink v-for="item in data.featuredCases" :key="item.id" :to="`/cases/${item.id}`" class="case card">
+            <div class="case__body">
+              <span class="tag">{{ item.industry }}</span>
+              <h3 class="case__title">{{ item.title }}</h3>
+              <p class="card__desc">{{ item.summary }}</p>
+              <dl class="case__results">
+                <div v-for="result in item.results" :key="result.label" class="case__result">
+                  <dt>{{ result.label }}</dt>
+                  <dd>{{ result.value }}</dd>
+                </div>
+              </dl>
             </div>
-          </article>
-          <article class="case">
-            <div class="case-media"></div>
-            <div>
-              <h3>客户名称待填</h3>
-              <p>首页只展示已发布且在后台被选为推荐的案例。</p>
-            </div>
-          </article>
+          </RouterLink>
         </div>
       </div>
     </section>
 
-    <section class="cta-band">
-      <div class="container cta-inner">
+    <section class="section" aria-labelledby="customers-title">
+      <div class="container">
+        <h2 id="customers-title" class="section-title">服务行业</h2>
+        <p class="section-sub">已在多个制造与公共设施细分领域完成交付。</p>
+        <ul class="customers">
+          <li v-for="item in data.customers" :key="item.id" class="customers__item">{{ item.name }}</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--surface" aria-labelledby="news-title">
+      <div class="container">
+        <div class="section-head">
+          <h2 id="news-title" class="section-title">最新动态</h2>
+          <RouterLink to="/news" class="link-more">全部新闻 →</RouterLink>
+        </div>
+
+        <ul class="news-list">
+          <li v-for="item in data.latestNews" :key="item.id" class="news-item">
+            <RouterLink :to="`/news/${item.id}`" class="news-item__link">
+              <time class="news-item__date" :datetime="item.displayTime">{{ item.displayTime }}</time>
+              <div>
+                <h3 class="news-item__title">{{ item.title }}</h3>
+                <p class="news-item__desc">{{ item.summary }}</p>
+              </div>
+            </RouterLink>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container cta__inner">
         <div>
-          <h2>把这段文案换成公司的行动号召</h2>
-          <p>咨询表单在「联系我们」页面，提交后进入后台咨询管理。</p>
+          <h2 class="cta__title">先看看你的设备数据能说明什么</h2>
+          <p class="cta__desc">留下联系方式，我们会用你的场景做一次演示，不推销、不承诺做不到的事。</p>
         </div>
-        <RouterLink to="/contact" class="btn primary">立即咨询</RouterLink>
+        <RouterLink to="/contact" class="btn btn--primary">预约演示</RouterLink>
       </div>
     </section>
+  </div>
+
+  <div v-else-if="failed" class="container state">
+    <EmptyState title="内容加载失败" description="请稍后刷新页面重试。" />
+  </div>
+
+  <div v-else class="container state" aria-busy="true">
+    <div class="skeleton skeleton--hero"></div>
+    <div class="skeleton"></div>
   </div>
 </template>
 
@@ -96,228 +170,240 @@ const services = [
   border-bottom: 1px solid var(--c-border);
 }
 
-.hero-inner {
-  display: flex;
-  gap: 40px;
+.hero__inner {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 56px;
   align-items: center;
-  padding-top: 64px;
-  padding-bottom: 64px;
+  padding-top: 72px;
+  padding-bottom: 72px;
 }
 
-.hero-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.eyebrow {
-  font-size: 12px;
-  color: var(--c-brand);
-  margin-bottom: 14px;
-}
-
-h1 {
-  font-size: 34px;
-  line-height: 1.35;
+.hero__title {
+  font-size: 42px;
+  line-height: 1.32;
   font-weight: 500;
-  margin-bottom: 16px;
+  letter-spacing: -0.015em;
+  white-space: pre-line;
 }
 
-.hero-sub {
-  font-size: 14px;
+.hero__sub {
+  margin-top: 18px;
+  font-size: 16px;
   color: var(--c-text-muted);
-  line-height: 1.8;
   max-width: 520px;
-  margin-bottom: 24px;
+  line-height: 1.85;
 }
 
-.hero-actions {
+.hero__actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  margin-top: 30px;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-}
-
-.btn.primary {
-  background: var(--c-brand);
-  color: #fff;
-}
-
-.btn.ghost {
-  border-color: var(--c-border);
-  color: var(--c-text);
-  background: #fff;
-}
-
-.hero-media {
-  width: 320px;
-  height: 200px;
-  flex: none;
-  border-radius: 12px;
-  border: 1px dashed #b9cfe6;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--c-text-muted);
+.hero__media img {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--c-border);
 }
 
 .metrics {
   border-bottom: 1px solid var(--c-border);
 }
 
-.metrics-grid {
+.metrics__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  padding-top: 28px;
-  padding-bottom: 28px;
+  gap: 20px;
+  padding-top: 32px;
+  padding-bottom: 32px;
 }
 
-.metric-value {
-  font-size: 24px;
+.metrics__value {
+  font-size: 30px;
   font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
-.metric-label {
-  font-size: 12px;
-  color: var(--c-text-muted);
+.metrics__label {
   margin-top: 4px;
+  font-size: 14px;
+  color: var(--c-text-muted);
 }
 
-.section {
-  padding: 56px 0 8px;
+.service {
+  display: block;
 }
 
-.section-title {
+.service__more {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--c-brand);
+}
+
+.case__body {
+  padding: 24px;
+}
+
+.case__title {
+  margin: 12px 0 8px;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.case__results {
+  display: flex;
+  gap: 28px;
+  margin: 20px 0 0;
+}
+
+.case__result dt {
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.case__result dd {
+  margin: 2px 0 0;
   font-size: 20px;
   font-weight: 500;
-  margin-bottom: 20px;
+  color: var(--c-brand);
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.card {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  padding: 18px;
-}
-
-.card-media {
-  height: 96px;
-  border-radius: 7px;
-  background: var(--c-surface);
-  margin-bottom: 14px;
-}
-
-.card h3 {
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-
-.card p {
-  font-size: 13px;
-  color: var(--c-text-muted);
-  line-height: 1.7;
-}
-
-.cases {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.case {
+.customers {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+}
+
+.customers__item {
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+  background: #fff;
+}
+
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
-  padding: 14px;
 }
 
-.case-media {
-  width: 92px;
-  height: 68px;
-  border-radius: 7px;
-  background: var(--c-surface);
-  flex: none;
-}
-
-.case h3 {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-
-.case p {
-  font-size: 13px;
-  color: var(--c-text-muted);
-  line-height: 1.7;
-}
-
-.cta-band {
-  margin-top: 64px;
-  background: var(--c-surface);
+.news-item + .news-item {
   border-top: 1px solid var(--c-border);
-  border-bottom: 1px solid var(--c-border);
-  padding: 40px 0;
 }
 
-.cta-inner {
+.news-item__link {
+  display: flex;
+  gap: 28px;
+  padding: 20px 24px;
+}
+
+.news-item__link:hover .news-item__title {
+  color: var(--c-brand);
+}
+
+.news-item__date {
+  flex: none;
+  width: 96px;
+  font-size: 13px;
+  color: var(--c-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.news-item__title {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.news-item__desc {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+}
+
+.cta {
+  margin-top: 8px;
+  background: #0e1c2b;
+  color: #fff;
+  padding: 56px 0;
+}
+
+.cta__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 32px;
   flex-wrap: wrap;
 }
 
-.cta-inner h2 {
-  font-size: 20px;
+.cta__title {
+  font-size: 26px;
   font-weight: 500;
-  margin-bottom: 8px;
+  line-height: 1.4;
 }
 
-.cta-inner p {
-  font-size: 13px;
-  color: var(--c-text-muted);
+.cta__desc {
+  margin-top: 10px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.72);
 }
 
-@media (max-width: 900px) {
-  .hero-inner {
-    flex-direction: column;
-    align-items: flex-start;
-    padding-top: 40px;
-    padding-bottom: 40px;
-  }
-  .hero-media {
-    width: 100%;
-    height: 160px;
-  }
-  h1 {
-    font-size: 26px;
-  }
-  .cards {
+.state {
+  padding: 72px 24px;
+}
+
+.skeleton {
+  height: 200px;
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  margin-bottom: 20px;
+}
+
+.skeleton--hero {
+  height: 320px;
+}
+
+@media (max-width: 980px) {
+  .hero__inner {
     grid-template-columns: 1fr;
+    gap: 32px;
+    padding-top: 48px;
+    padding-bottom: 48px;
   }
-  .cases {
-    grid-template-columns: 1fr;
+  .hero__title {
+    font-size: 32px;
   }
-  .metrics-grid {
+  .metrics__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .news-item__link {
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+  }
+  .news-item__date {
+    width: auto;
+  }
+  .cta {
+    padding: 40px 0;
+  }
+  .cta__title {
+    font-size: 22px;
   }
 }
 </style>
