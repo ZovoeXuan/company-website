@@ -1,9 +1,9 @@
 /**
  * 公开内容数据源。
  *
- * 当前 USE_MOCK = true：使用 data/mock.ts 的示例数据，便于前端独立开发。
- * 后端 /api/public/* 就绪后，把 USE_MOCK 改为 false 并实现下方注释中的请求即可，
- * 页面与组件不需要修改（返回结构已按公开 DTO 对齐）。
+ * 逐资源开关：某个资源在后端实现并验证后，把对应项改为 false 即走真实接口，
+ * 页面与组件不需要修改（真实接口返回结构已按公开 DTO 对齐）。
+ * 目前只有产品已接入，其余仍用示例数据，避免整站被未完成接口卡住。
  */
 import { apiGet } from './http'
 import * as mock from '@/data/mock'
@@ -23,7 +23,17 @@ import type {
   SolutionSummary,
 } from '@/data/types'
 
-const USE_MOCK = true
+const USE_MOCK = {
+  site: true,
+  home: true,
+  products: false,
+  solutions: true,
+  cases: true,
+  news: true,
+  about: true,
+  privacy: true,
+}
+
 const MOCK_LATENCY = 60
 
 function delay<T>(value: T): Promise<T> {
@@ -41,17 +51,17 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
 }
 
 export function getSite(): Promise<SiteConfig> {
-  if (!USE_MOCK) return apiGet<SiteConfig>('/api/public/site-config')
+  if (!USE_MOCK.site) return apiGet<SiteConfig>('/api/public/site-config')
   return delay(mock.site)
 }
 
 export function getHome(): Promise<HomeView> {
-  if (!USE_MOCK) return apiGet<HomeView>('/api/public/home')
+  if (!USE_MOCK.home) return apiGet<HomeView>('/api/public/home')
   return delay(mock.home)
 }
 
 export function getProductCategories(): Promise<Array<{ id: string; name: string }>> {
-  if (!USE_MOCK) return apiGet('/api/public/categories?type=PRODUCT')
+  if (!USE_MOCK.products) return apiGet('/api/public/categories?type=PRODUCT')
   return delay(mock.productCategories)
 }
 
@@ -63,7 +73,7 @@ export function getProducts(params: {
 }): Promise<PageResult<ProductSummary>> {
   const page = params.page ?? 1
   const pageSize = params.pageSize ?? 9
-  if (!USE_MOCK) {
+  if (!USE_MOCK.products) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
     if (params.categoryId) query.set('categoryId', params.categoryId)
     if (params.keyword) query.set('keyword', params.keyword)
@@ -79,7 +89,7 @@ export function getProducts(params: {
 }
 
 export function getProduct(id: string): Promise<ProductDetail | null> {
-  if (!USE_MOCK) return apiGet<ProductDetail | null>(`/api/public/products/${id}`)
+  if (!USE_MOCK.products) return apiGet<ProductDetail | null>(`/api/public/products/${id}`)
   return delay(mock.products.find((item) => item.id === id) ?? null)
 }
 
@@ -90,7 +100,7 @@ export function getSolutions(params: {
 }): Promise<PageResult<SolutionSummary>> {
   const page = params.page ?? 1
   const pageSize = params.pageSize ?? 6
-  if (!USE_MOCK) {
+  if (!USE_MOCK.solutions) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
     if (params.industry) query.set('industry', params.industry)
     return apiGet(`/api/public/solutions?${query.toString()}`)
@@ -100,7 +110,7 @@ export function getSolutions(params: {
 }
 
 export function getSolution(id: string): Promise<SolutionDetail | null> {
-  if (!USE_MOCK) return apiGet<SolutionDetail | null>(`/api/public/solutions/${id}`)
+  if (!USE_MOCK.solutions) return apiGet<SolutionDetail | null>(`/api/public/solutions/${id}`)
   return delay(mock.solutions.find((item) => item.id === id) ?? null)
 }
 
@@ -111,7 +121,7 @@ export function getCases(params: {
 }): Promise<PageResult<CaseSummary>> {
   const page = params.page ?? 1
   const pageSize = params.pageSize ?? 8
-  if (!USE_MOCK) {
+  if (!USE_MOCK.cases) {
     const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
     if (params.industry) query.set('industry', params.industry)
     return apiGet(`/api/public/cases?${query.toString()}`)
@@ -121,28 +131,28 @@ export function getCases(params: {
 }
 
 export function getCase(id: string): Promise<CaseDetail | null> {
-  if (!USE_MOCK) return apiGet<CaseDetail | null>(`/api/public/cases/${id}`)
+  if (!USE_MOCK.cases) return apiGet<CaseDetail | null>(`/api/public/cases/${id}`)
   return delay(mock.cases.find((item) => item.id === id) ?? null)
 }
 
 export function getNews(params: { page?: number; pageSize?: number }): Promise<PageResult<NewsSummary>> {
   const page = params.page ?? 1
   const pageSize = params.pageSize ?? 8
-  if (!USE_MOCK) return apiGet(`/api/public/news?page=${page}&pageSize=${pageSize}`)
+  if (!USE_MOCK.news) return apiGet(`/api/public/news?page=${page}&pageSize=${pageSize}`)
   return delay(paginate(mock.news, page, pageSize))
 }
 
 export function getNewsDetail(id: string): Promise<NewsDetail | null> {
-  if (!USE_MOCK) return apiGet<NewsDetail | null>(`/api/public/news/${id}`)
+  if (!USE_MOCK.news) return apiGet<NewsDetail | null>(`/api/public/news/${id}`)
   return delay(mock.news.find((item) => item.id === id) ?? null)
 }
 
 export function getAbout(): Promise<AboutPage> {
-  if (!USE_MOCK) return apiGet<AboutPage>('/api/public/pages/ABOUT')
+  if (!USE_MOCK.about) return apiGet<AboutPage>('/api/public/pages/ABOUT')
   return delay(mock.about)
 }
 
 export function getPrivacy(): Promise<PrivacyPage> {
-  if (!USE_MOCK) return apiGet<PrivacyPage>('/api/public/pages/PRIVACY')
+  if (!USE_MOCK.privacy) return apiGet<PrivacyPage>('/api/public/pages/PRIVACY')
   return delay(mock.privacy)
 }

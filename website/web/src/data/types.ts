@@ -84,8 +84,8 @@ export interface ProductSummary {
 
 export interface ProductDetail extends ProductSummary {
   bodyHtml: string
-  capabilities: string[]
-  relatedCases: CaseSummary[]
+  capabilities?: string[]
+  relatedCases?: CaseSummary[]
 }
 
 export interface SolutionSummary {
@@ -100,7 +100,7 @@ export interface SolutionDetail extends SolutionSummary {
   challenge: string
   approach: string[]
   outcome: Metric[]
-  relatedProducts: ProductSummary[]
+  relatedProducts?: ProductSummary[]
 }
 
 export interface ResultMetric {
@@ -122,7 +122,7 @@ export interface CaseDetail extends CaseSummary {
   background: string
   actions: string[]
   quote: { text: string; author: string } | null
-  relatedProducts: ProductSummary[]
+  relatedProducts?: ProductSummary[]
 }
 
 export interface NewsSummary {

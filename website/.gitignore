@@ -4,6 +4,9 @@ dist/
 target/
 *.class
 
+# 本地上传的素材文件
+server/data/
+
 # 本地环境与密钥，禁止提交
 .env
 .env.local

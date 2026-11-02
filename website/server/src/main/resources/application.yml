@@ -56,6 +56,8 @@ logging:
     com.company.cms: INFO
 
 cms:
+  media:
+    root: "${CMS_MEDIA_ROOT:./data/media}"
   security:
     login:
       max-failures: 5

@@ -97,14 +97,20 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 |---|---|---|
 | 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.0.46 验证通过（见 `docs/stage1-verification.md`） |
 | 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
-| 3 | 素材、分类、产品纵向闭环 | 后端未开始；官网产品页已完成（mock 数据） |
+| 3 | 素材、分类、产品纵向闭环 | 接口与发布链路完成并验证（`docs/stage3-verification.md`）；后台管理页面未做 |
 | 4 | 方案、案例、新闻、客户标识 | 后端未开始；官网对应页面已完成（mock 数据） |
 | 5 | 站点配置、导航、首页、单页 | 后端未开始；官网首页、关于、联系、隐私已完成（mock 数据） |
 | 6 | 咨询闭环 | 未开始（联系页表单仅前端校验） |
 | 7 | 联调、测试、部署、恢复 | 未开始 |
 
 官网九个页面已完成，说明见 `docs/frontend-pages.md`。页面数据来自 `src/api/public.ts` 的
-`USE_MOCK` 开关：当前为 mock，公开接口就绪后改为 `false` 即可，页面无需改动。
+逐资源开关：产品已接入真实接口（`products: false`），其余仍为示例数据，接口就绪后逐项切换即可。
+
+### 素材存储
+
+上传的图片默认落在 `server/data/media/{年}/{月}/`，可用 `CMS_MEDIA_ROOT` 覆盖。
+该目录已在 `.gitignore` 中排除。公开访问地址为 `/api/public/media/{id}`，只有被
+已发布内容引用时才可读取。
 
 后台页面在登录未接入前可直接访问，顶部有醒目提示，**不得**当作可交付状态。
 

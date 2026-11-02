@@ -83,10 +83,10 @@ onMounted(load)
             <footer class="quote__author">—— {{ data.quote.author }}</footer>
           </blockquote>
 
-          <section v-if="data.relatedProducts.length" class="related" aria-labelledby="related-products">
+          <section v-if="data.relatedProducts?.length" class="related" aria-labelledby="related-products">
             <h2 id="related-products" class="block__title">用到的产品</h2>
             <ul class="related__list">
-              <li v-for="item in data.relatedProducts" :key="item.id">
+              <li v-for="item in data.relatedProducts ?? []" :key="item.id">
                 <RouterLink :to="`/products/${item.id}`" class="related__link">{{ item.title }}</RouterLink>
               </li>
             </ul>

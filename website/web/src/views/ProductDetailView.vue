@@ -57,17 +57,17 @@ onMounted(load)
             <img :src="data.cover.url" :alt="data.cover.alt" :width="data.cover.width" :height="data.cover.height" />
           </figure>
 
-          <ul v-if="data.capabilities.length" class="caps" aria-label="核心能力">
-            <li v-for="cap in data.capabilities" :key="cap" class="caps__item">{{ cap }}</li>
+          <ul v-if="data.capabilities?.length" class="caps" aria-label="核心能力">
+            <li v-for="cap in data.capabilities ?? []" :key="cap" class="caps__item">{{ cap }}</li>
           </ul>
 
           <!-- 正文由后端清洗后下发，前端只负责排版 -->
           <div class="prose" v-html="data.bodyHtml"></div>
 
-          <section v-if="data.relatedCases.length" class="related" aria-labelledby="related-cases">
+          <section v-if="data.relatedCases?.length" class="related" aria-labelledby="related-cases">
             <h2 id="related-cases" class="related__title">相关案例</h2>
             <ul class="related__list">
-              <li v-for="item in data.relatedCases" :key="item.id">
+              <li v-for="item in data.relatedCases ?? []" :key="item.id">
                 <RouterLink :to="`/cases/${item.id}`" class="related__link">
                   <span class="tag">{{ item.industry }}</span>
                   <span class="related__name">{{ item.title }}</span>
