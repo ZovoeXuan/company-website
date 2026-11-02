@@ -1,7 +1,15 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { SiteConfig } from '@/data/types'
 
-defineProps<{ config: SiteConfig }>()
+const props = defineProps<{ config: SiteConfig }>()
+
+/** 页脚链接由后台「导航与页脚链接」维护；未配置时回退到主导航，避免空列。 */
+const quickLinks = computed(() => {
+  const links = props.config.footer?.links ?? []
+  if (links.length > 0) return links
+  return props.config.nav.slice(1, 5)
+})
 </script>
 
 <template>
@@ -15,7 +23,7 @@ defineProps<{ config: SiteConfig }>()
       <nav class="footer__col" aria-label="页脚导航">
         <p class="footer__title">快速入口</p>
         <ul class="footer__list">
-          <li v-for="item in config.nav" :key="item.path">
+          <li v-for="item in quickLinks" :key="item.path">
             <RouterLink :to="item.path" class="footer__link">{{ item.label }}</RouterLink>
           </li>
         </ul>

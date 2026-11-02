@@ -1,22 +1,28 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { getSite } from '@/api/public'
+import { getContactPage, getSite } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
-import type { SiteConfig } from '@/data/types'
+import type { ContactPage, SiteConfig } from '@/data/types'
 
 const site = ref<SiteConfig | null>(null)
+const page = ref<ContactPage | null>(null)
 const submitted = ref(false)
 const errors = reactive<Record<string, string>>({})
 const form = reactive({ name: '', company: '', phone: '', demand: '', consent: false })
 
 usePageMeta(() => ({
-  title: '联系我们',
-  description: '电话、邮箱与在线咨询。留下需求，我们会先判断是否适合再做沟通。',
+  title: page.value?.title || '联系我们',
+  description: page.value?.description || '电话、邮箱与在线咨询。留下需求，我们会先判断是否适合再做沟通。',
 }))
 
 onMounted(async () => {
-  site.value = await getSite()
+  const [siteConfig, contactPage] = await Promise.all([
+    getSite().catch(() => null),
+    getContactPage().catch(() => null),
+  ])
+  site.value = siteConfig
+  page.value = contactPage
 })
 
 function validate(): boolean {
@@ -43,8 +49,8 @@ function submit() {
 <template>
   <div>
     <PageHeader
-      title="联系我们"
-      description="先了解你的场景，再决定是否值得合作。工作时间内通常 4 小时内回复。"
+      :title="page?.title || '联系我们'"
+      :description="page?.description || '先了解你的场景，再决定是否值得合作。工作时间内通常 4 小时内回复。'"
       :crumbs="[{ label: '首页', path: '/' }, { label: '联系我们' }]"
     />
 
@@ -75,7 +81,11 @@ function submit() {
         <div class="form-wrap">
           <h2 class="form__title">在线咨询</h2>
 
-          <form class="form" novalidate @submit.prevent="submit">
+          <p v-if="page && !page.formEnabled" class="form-disabled">
+            在线表单暂未启用，请通过左侧电话或邮箱联系我们。
+          </p>
+
+          <form v-else class="form" novalidate @submit.prevent="submit">
             <div class="field">
               <label class="field__label" for="name">称呼<span class="req" aria-hidden="true">*</span></label>
               <input
@@ -147,7 +157,7 @@ function submit() {
             <button type="submit" class="btn btn--primary form__submit">提交咨询</button>
 
             <p v-if="submitted" class="notice" role="status">
-              演示模式：前端校验已通过，但表单尚未连接服务端（提交接口计划在后端阶段实现），本次未真实发送。
+              {{ page?.successText || '演示模式：前端校验已通过，但表单尚未连接服务端（提交接口计划在后端阶段实现），本次未真实发送。' }}
             </p>
           </form>
         </div>
@@ -297,6 +307,16 @@ function submit() {
 .form__submit {
   align-self: flex-start;
   min-width: 160px;
+}
+
+.form-disabled {
+  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  padding: 20px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+  line-height: 1.8;
 }
 
 .notice {

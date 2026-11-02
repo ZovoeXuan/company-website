@@ -38,6 +38,8 @@ export interface SiteConfig {
     icp: string
     links: NavItem[]
   }
+  formEnabled?: boolean
+  privacyVersion?: number | null
 }
 
 export interface Metric {
@@ -150,4 +152,11 @@ export interface AboutPage {
 export interface PrivacyPage {
   updatedAt: string
   bodyHtml: string
+}
+
+export interface ContactPage {
+  title: string
+  description: string
+  successText: string
+  formEnabled: boolean
 }

@@ -11,6 +11,7 @@ import type {
   AboutPage,
   CaseDetail,
   CaseSummary,
+  ContactPage,
   HomeView,
   NewsDetail,
   NewsSummary,
@@ -24,14 +25,15 @@ import type {
 } from '@/data/types'
 
 const USE_MOCK = {
-  site: true,
+  site: false,
   home: true,
   products: false,
   solutions: true,
   cases: true,
   news: true,
-  about: true,
-  privacy: true,
+  about: false,
+  contact: false,
+  privacy: false,
 }
 
 const MOCK_LATENCY = 60
@@ -148,11 +150,27 @@ export function getNewsDetail(id: string): Promise<NewsDetail | null> {
 }
 
 export function getAbout(): Promise<AboutPage> {
-  if (!USE_MOCK.about) return apiGet<AboutPage>('/api/public/pages/ABOUT')
+  if (!USE_MOCK.about) return getPage<AboutPage>('ABOUT')
   return delay(mock.about)
 }
 
 export function getPrivacy(): Promise<PrivacyPage> {
-  if (!USE_MOCK.privacy) return apiGet<PrivacyPage>('/api/public/pages/PRIVACY')
+  if (!USE_MOCK.privacy) return getPage<PrivacyPage>('PRIVACY')
   return delay(mock.privacy)
+}
+
+export function getContactPage(): Promise<ContactPage> {
+  if (!USE_MOCK.contact) return getPage<ContactPage>('CONTACT')
+  return delay({
+    title: '联系我们',
+    description: '先了解你的场景，再决定是否值得合作。工作时间内通常 4 小时内回复。',
+    successText: '',
+    formEnabled: true,
+  })
+}
+
+/** 单页接口返回 {code, content}，这里统一拆开。 */
+async function getPage<T>(code: string): Promise<T> {
+  const response = await apiGet<{ code: string; content: T }>(`/api/public/pages/${code}`)
+  return response.content
 }

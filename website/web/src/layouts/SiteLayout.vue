@@ -2,17 +2,20 @@
 import { onMounted, ref } from 'vue'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
 import type { SiteConfig } from '@/data/types'
 
 const config = ref<SiteConfig | null>(null)
-const failed = ref(false)
+const notice = ref('')
 
 onMounted(async () => {
   try {
     config.value = await getSite()
-  } catch {
-    failed.value = true
+  } catch (error) {
+    notice.value = error instanceof ApiError && error.code === 'NOT_FOUND'
+      ? '站点内容尚未发布，请管理员在后台完成「全站设置」并发布。'
+      : '站点信息加载失败，请稍后刷新重试。'
   }
 })
 </script>
@@ -24,9 +27,7 @@ onMounted(async () => {
     <SiteHeader v-if="config" :site-name="config.siteName" :nav="config.nav" />
 
     <main id="main" class="site__main" tabindex="-1">
-      <div v-if="failed" class="container notice" role="status">
-        站点信息加载失败，请稍后刷新重试。
-      </div>
+      <div v-if="notice" class="container notice" role="status">{{ notice }}</div>
       <RouterView />
     </main>
 
@@ -47,8 +48,13 @@ onMounted(async () => {
 }
 
 .notice {
-  padding-top: 16px;
-  color: #a33;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid #f0e0bd;
+  background: #fdf6e3;
+  border-radius: 8px;
+  color: #8a6d1f;
   font-size: 14px;
+  line-height: 1.7;
 }
 </style>

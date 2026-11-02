@@ -9,6 +9,11 @@ import ContentListView from '@/views/ContentListView.vue'
 import ContentEditorView from '@/views/ContentEditorView.vue'
 import CategoryView from '@/views/CategoryView.vue'
 import MediaView from '@/views/MediaView.vue'
+import SiteSettingsView from '@/views/SiteSettingsView.vue'
+import NavigationView from '@/views/NavigationView.vue'
+import AboutPageView from '@/views/AboutPageView.vue'
+import ContactPageView from '@/views/ContactPageView.vue'
+import PrivacyPageView from '@/views/PrivacyPageView.vue'
 import TodoView from '@/views/TodoView.vue'
 import { useAuth } from '@/stores/auth'
 
@@ -45,18 +50,18 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
-        { path: 'settings/site', ...page('全站设置', '阶段 5') },
-        { path: 'settings/navigation', ...page('导航与页脚链接', '阶段 5') },
-        { path: 'home', ...page('首页管理', '阶段 5') },
+        { path: 'settings/site', component: SiteSettingsView, meta: { title: '全站设置' } },
+        { path: 'settings/navigation', component: NavigationView, meta: { title: '导航与页脚链接' } },
+        { path: 'home', ...page('首页管理', '阶段 5-B') },
         ...contentRoutes('products', 'PRODUCT', '产品'),
         ...contentRoutes('solutions', 'SOLUTION', '解决方案'),
         ...contentRoutes('cases', 'CASE', '客户案例'),
         ...contentRoutes('news', 'NEWS', '新闻'),
         ...contentRoutes('customers', 'CUSTOMER', '客户标识'),
         { path: 'contents/categories', component: CategoryView, meta: { title: '内容分类' } },
-        { path: 'pages/about', ...page('关于我们', '阶段 5') },
-        { path: 'pages/contact', ...page('联系我们', '阶段 5') },
-        { path: 'pages/privacy', ...page('隐私说明', '阶段 5') },
+        { path: 'pages/about', component: AboutPageView, meta: { title: '关于我们' } },
+        { path: 'pages/contact', component: ContactPageView, meta: { title: '联系我们' } },
+        { path: 'pages/privacy', component: PrivacyPageView, meta: { title: '隐私说明' } },
         { path: 'media', component: MediaView, meta: { title: '素材管理' } },
         { path: 'leads', ...page('咨询管理', '阶段 6') },
         { path: 'system/users', component: UsersView, meta: { title: '账号管理', role: 'ADMIN' } },

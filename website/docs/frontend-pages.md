@@ -27,13 +27,23 @@
 页面只依赖 `src/api/public.ts` 导出的函数，返回结构按后端公开 DTO 定义（见 `src/data/types.ts`）。
 
 ```ts
-const USE_MOCK = true
+const USE_MOCK = {
+  site: false,      // 已接真实接口
+  home: true,       // 首页编排待做（5-B）
+  products: false,  // 已接
+  solutions: true,
+  cases: true,
+  news: true,
+  about: false,     // 已接
+  contact: false,   // 已接
+  privacy: false,   // 已接
+}
 ```
 
 - `true`：读取 `src/data/mock.ts`，前端可独立开发与演示。
-- `false`：改为 `GET /api/public/*`，函数体内已写好对应的真实请求与查询参数。
+- `false`：走 `GET /api/public/*`，函数体内已写好真实请求与参数。
 
-切换后端时只需改这一个常量，页面和组件无需改动。mock 内容全部为示例，不代表真实业绩，上线前必须由后台内容替换。
+逐资源切换，避免整站被未完成接口卡住。mock 内容全部为示例，不代表真实业绩，上线前必须由后台内容替换。
 
 ## 3. SEO 实现
 

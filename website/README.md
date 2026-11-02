@@ -99,7 +99,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 | 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
 | 3 | 素材、分类、产品纵向闭环 | 接口、发布链路与后台页面均完成（`docs/stage3-verification.md`） |
 | 4 | 方案、案例、新闻、客户标识 | 后端未开始；官网对应页面已完成（mock 数据） |
-| 5 | 站点配置、导航、首页、单页 | 后端未开始；官网首页、关于、联系、隐私已完成（mock 数据） |
+| 5 | 站点配置、导航、首页、单页 | 配置与单页完成（5-A，`docs/stage5a-verification.md`）；首页编排（5-B）待做 |
 | 6 | 咨询闭环 | 未开始（联系页表单仅前端校验） |
 | 7 | 联调、测试、部署、恢复 | 未开始 |
 

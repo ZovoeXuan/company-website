@@ -4,6 +4,7 @@ import com.company.cms.auth.CmsPrincipal;
 import com.company.cms.common.ApiException;
 import com.company.cms.common.ErrorCode;
 import com.company.cms.common.FieldErrorItem;
+import com.company.cms.common.HtmlSanitizer;
 import com.company.cms.common.PageQuery;
 import com.company.cms.common.PageResult;
 import com.company.cms.media.MediaService;
@@ -42,11 +43,12 @@ public class ContentService {
     private final ContentRefRepository contentRefs;
     private final AuditLogService audit;
     private final ObjectMapper objectMapper;
+    private final HtmlSanitizer htmlSanitizer;
 
     public ContentService(ContentRepository contents, CategoryRepository categories,
                           MediaService mediaService, MediaRefRepository mediaRefs,
                           ContentRefRepository contentRefs, AuditLogService audit,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper, HtmlSanitizer htmlSanitizer) {
         this.contents = contents;
         this.categories = categories;
         this.mediaService = mediaService;
@@ -54,6 +56,7 @@ public class ContentService {
         this.contentRefs = contentRefs;
         this.audit = audit;
         this.objectMapper = objectMapper;
+        this.htmlSanitizer = htmlSanitizer;
     }
 
     // ---------- 查询 ----------
@@ -219,7 +222,8 @@ public class ContentService {
         }
         normalized.put("summary", summary);
 
-        String bodyHtml = text(draft, "bodyHtml");
+        // 正文入库前必须清洗：编辑器侧过滤可被绕过，后端是唯一可信边界
+        String bodyHtml = htmlSanitizer.sanitize(text(draft, "bodyHtml"));
         if (bodyHtml.length() > MAX_BODY) {
             errors.add(new FieldErrorItem("bodyHtml", "正文不能超过 " + MAX_BODY + " 字符"));
         }
