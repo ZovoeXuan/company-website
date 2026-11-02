@@ -5,6 +5,10 @@ import DashboardView from '@/views/DashboardView.vue'
 import UsersView from '@/views/UsersView.vue'
 import AuditLogsView from '@/views/AuditLogsView.vue'
 import PasswordView from '@/views/PasswordView.vue'
+import ContentListView from '@/views/ContentListView.vue'
+import ContentEditorView from '@/views/ContentEditorView.vue'
+import CategoryView from '@/views/CategoryView.vue'
+import MediaView from '@/views/MediaView.vue'
 import TodoView from '@/views/TodoView.vue'
 import { useAuth } from '@/stores/auth'
 
@@ -12,6 +16,24 @@ const page = (title: string, phase: string) => ({
   component: TodoView,
   meta: { title, phase },
 })
+
+const contentRoutes = (slug: string, contentType: string, title: string) => [
+  {
+    path: `contents/${slug}`,
+    component: ContentListView,
+    meta: { title: `${title}管理`, contentType, slug },
+  },
+  {
+    path: `contents/${slug}/new`,
+    component: ContentEditorView,
+    meta: { title, contentType, slug },
+  },
+  {
+    path: `contents/${slug}/:id/edit`,
+    component: ContentEditorView,
+    meta: { title, contentType, slug },
+  },
+]
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,16 +48,16 @@ const router = createRouter({
         { path: 'settings/site', ...page('全站设置', '阶段 5') },
         { path: 'settings/navigation', ...page('导航与页脚链接', '阶段 5') },
         { path: 'home', ...page('首页管理', '阶段 5') },
-        { path: 'contents/products', ...page('产品管理', '阶段 3') },
-        { path: 'contents/solutions', ...page('解决方案管理', '阶段 4') },
-        { path: 'contents/cases', ...page('客户案例管理', '阶段 4') },
-        { path: 'contents/news', ...page('新闻管理', '阶段 4') },
-        { path: 'contents/customers', ...page('客户标识管理', '阶段 4') },
-        { path: 'contents/categories', ...page('内容分类', '阶段 3') },
+        ...contentRoutes('products', 'PRODUCT', '产品'),
+        ...contentRoutes('solutions', 'SOLUTION', '解决方案'),
+        ...contentRoutes('cases', 'CASE', '客户案例'),
+        ...contentRoutes('news', 'NEWS', '新闻'),
+        ...contentRoutes('customers', 'CUSTOMER', '客户标识'),
+        { path: 'contents/categories', component: CategoryView, meta: { title: '内容分类' } },
         { path: 'pages/about', ...page('关于我们', '阶段 5') },
         { path: 'pages/contact', ...page('联系我们', '阶段 5') },
         { path: 'pages/privacy', ...page('隐私说明', '阶段 5') },
-        { path: 'media', ...page('素材管理', '阶段 3') },
+        { path: 'media', component: MediaView, meta: { title: '素材管理' } },
         { path: 'leads', ...page('咨询管理', '阶段 6') },
         { path: 'system/users', component: UsersView, meta: { title: '账号管理', role: 'ADMIN' } },
         { path: 'system/audit-logs', component: AuditLogsView, meta: { title: '操作日志', role: 'ADMIN' } },

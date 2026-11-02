@@ -73,6 +73,22 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     cache: 'no-store',
   })
 
+  return handle<T>(response)
+}
+
+/** multipart 上传：浏览器自动设置 boundary，不能手动指定 Content-Type。 */
+export async function upload<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'X-CSRF-TOKEN': await ensureCsrf() },
+    body: formData,
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  return handle<T>(response)
+}
+
+async function handle<T>(response: Response): Promise<T> {
   const text = await response.text()
   let body: any = null
   try {

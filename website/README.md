@@ -97,7 +97,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 |---|---|---|
 | 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.0.46 验证通过（见 `docs/stage1-verification.md`） |
 | 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
-| 3 | 素材、分类、产品纵向闭环 | 接口与发布链路完成并验证（`docs/stage3-verification.md`）；后台管理页面未做 |
+| 3 | 素材、分类、产品纵向闭环 | 接口、发布链路与后台页面均完成（`docs/stage3-verification.md`） |
 | 4 | 方案、案例、新闻、客户标识 | 后端未开始；官网对应页面已完成（mock 数据） |
 | 5 | 站点配置、导航、首页、单页 | 后端未开始；官网首页、关于、联系、隐私已完成（mock 数据） |
 | 6 | 咨询闭环 | 未开始（联系页表单仅前端校验） |
