@@ -45,7 +45,11 @@ onMounted(load)
     <PageHeader
       :title="data.title"
       :description="data.summary"
-      :crumbs="[{ label: '首页', path: '/' }, { label: '解决方案', path: '/solutions' }, { label: data.industry }]"
+      :crumbs="[
+        { label: '首页', path: '/' },
+        { label: '解决方案', path: '/solutions' },
+        { label: data.industry || data.categoryName || '方案详情' },
+      ]"
     />
 
     <section class="section">
@@ -55,29 +59,26 @@ onMounted(load)
             <img :src="data.cover.url" :alt="data.cover.alt" :width="data.cover.width" :height="data.cover.height" />
           </figure>
 
-          <div class="block">
-            <h2 class="block__title">面临的挑战</h2>
-            <p class="block__text">{{ data.challenge }}</p>
-          </div>
-
-          <div class="block">
-            <h2 class="block__title">做法</h2>
-            <ol class="steps">
-              <li v-for="(step, index) in data.approach" :key="step" class="steps__item">
-                <span class="steps__num" aria-hidden="true">{{ index + 1 }}</span>
-                <span>{{ step }}</span>
+          <div v-if="data.pains?.length" class="block">
+            <h2 class="block__title">业务痛点</h2>
+            <ul class="plain">
+              <li v-for="item in data.pains ?? []" :key="item.title" class="plain__item">
+                <p class="plain__title">{{ item.title }}</p>
+                <p v-if="item.description" class="plain__desc">{{ item.description }}</p>
               </li>
-            </ol>
+            </ul>
           </div>
 
-          <div class="block">
-            <h2 class="block__title">结果</h2>
-            <dl class="outcome">
-              <div v-for="item in data.outcome" :key="item.label" class="outcome__item">
-                <dt>{{ item.label }}</dt>
-                <dd>{{ item.value }}</dd>
-              </div>
-            </dl>
+          <!-- 正文由后端清洗后下发 -->
+          <div class="prose" v-html="data.bodyHtml"></div>
+
+          <div v-if="data.benefits?.length" class="block">
+            <h2 class="block__title">价值说明</h2>
+            <ul class="plain">
+              <li v-for="item in data.benefits ?? []" :key="item.title" class="plain__item">
+                <p class="plain__title">{{ item.title }}</p>
+              </li>
+            </ul>
           </div>
 
           <section v-if="data.relatedProducts?.length" class="related" aria-labelledby="related-products">
@@ -220,6 +221,28 @@ onMounted(load)
 .related__desc {
   font-size: 13px;
   color: var(--c-text-muted);
+}
+
+.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plain__title {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.plain__desc {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+  line-height: 1.8;
 }
 
 .aside {

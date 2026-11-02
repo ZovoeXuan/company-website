@@ -3,13 +3,12 @@ import { onMounted, ref, watch } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { getCases } from '@/api/public'
+import { getCases, getCaseCategories } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
-import type { CaseSummary, PageResult } from '@/data/types'
+import type { CaseSummary, Category, PageResult } from '@/data/types'
 
-// 行业筛选项：后端分类接口就绪后改为读取 /api/public/categories?type=CASE
-const industries = ['汽车零部件', '城市水务', '电子制造', '化工园区']
-
+/** 行业筛选项来自已发布的案例分类，不写死在前端。 */
+const industries = ref<Category[]>([])
 const industry = ref<string | null>(null)
 const page = ref(1)
 const result = ref<PageResult<CaseSummary> | null>(null)
@@ -25,7 +24,7 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    result.value = await getCases({ page: page.value, pageSize: 8, industry: industry.value })
+    result.value = await getCases({ page: page.value, pageSize: 8, categoryId: industry.value })
   } catch {
     failed.value = true
   } finally {
@@ -40,7 +39,14 @@ function selectIndustry(value: string | null) {
 }
 
 watch([industry, page], load)
-onMounted(load)
+onMounted(async () => {
+  try {
+    industries.value = await getCaseCategories()
+  } catch {
+    industries.value = []
+  }
+  await load()
+})
 </script>
 
 <template>
@@ -65,14 +71,14 @@ onMounted(load)
           </button>
           <button
             v-for="item in industries"
-            :key="item"
+            :key="item.id"
             type="button"
             class="filters__btn"
-            :class="{ 'is-active': industry === item }"
-            :aria-pressed="industry === item"
-            @click="selectIndustry(item)"
+            :class="{ 'is-active': industry === item.id }"
+            :aria-pressed="industry === item.id"
+            @click="selectIndustry(item.id)"
           >
-            {{ item }}
+            {{ item.name }}
           </button>
         </div>
 
@@ -103,10 +109,10 @@ onMounted(load)
               <span class="tag">{{ item.industry }}</span>
               <h2 class="case__title">{{ item.title }}</h2>
               <p class="card__desc">{{ item.summary }}</p>
-              <dl class="case__results">
-                <div v-for="r in item.results" :key="r.label" class="case__result">
-                  <dt>{{ r.label }}</dt>
-                  <dd>{{ r.value }}</dd>
+              <dl v-if="item.outcomes?.length" class="case__results">
+                <div v-for="o in item.outcomes ?? []" :key="o.label" class="case__result">
+                  <dt>{{ o.label }}</dt>
+                  <dd>{{ o.displayValue }}</dd>
                 </div>
               </dl>
             </div>

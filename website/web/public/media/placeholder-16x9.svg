@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="示例图片占位">
-  <rect width="800" height="450" fill="#E6F1FB"/>
-  <g fill="none" stroke="#B5D4F4" stroke-width="1">
-    <path d="M0 90h800M0 180h800M0 270h800M0 360h800"/>
-    <path d="M100 0v450M200 0v450M300 0v450M400 0v450M500 0v450M600 0v450M700 0v450"/>
-  </g>
-  <rect x="300" y="185" width="200" height="80" rx="8" fill="#FFFFFF" stroke="#85B7EB"/>
-  <text x="400" y="232" font-family="system-ui, sans-serif" font-size="20" fill="#5F6B7A" text-anchor="middle">示例图片</text>
-</svg>

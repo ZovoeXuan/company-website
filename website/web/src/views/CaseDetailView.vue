@@ -45,7 +45,11 @@ onMounted(load)
     <PageHeader
       :title="data.title"
       :description="data.summary"
-      :crumbs="[{ label: '首页', path: '/' }, { label: '客户案例', path: '/cases' }, { label: data.industry }]"
+      :crumbs="[
+        { label: '首页', path: '/' },
+        { label: '客户案例', path: '/cases' },
+        { label: data.industry || data.categoryName || '案例详情' },
+      ]"
     />
 
     <section class="section">
@@ -55,32 +59,30 @@ onMounted(load)
             <img :src="data.cover.url" :alt="data.cover.alt" :width="data.cover.width" :height="data.cover.height" />
           </figure>
 
-          <dl class="results" aria-label="关键结果">
-            <div v-for="item in data.results" :key="item.label" class="results__item">
-              <dt>{{ item.label }}</dt>
-              <dd>{{ item.value }}</dd>
+          <div v-if="data.customerName || data.industry" class="facts">
+            <div v-if="data.customerName" class="facts__item">
+              <p class="facts__label">客户</p>
+              <p class="facts__value">{{ data.customerName }}</p>
+            </div>
+            <div v-if="data.industry" class="facts__item">
+              <p class="facts__label">行业</p>
+              <p class="facts__value">{{ data.industry }}</p>
+            </div>
+          </div>
+
+          <!-- 正文由后端清洗后下发，编辑要求见文档 6.7 -->
+          <div class="prose" v-html="data.bodyHtml"></div>
+
+          <dl v-if="data.outcomes?.length" class="results" aria-label="关键结果">
+            <div v-for="outcome in data.outcomes ?? []" :key="outcome.label" class="results__item">
+              <dt>{{ outcome.label }}</dt>
+              <dd>{{ outcome.displayValue }}</dd>
             </div>
           </dl>
 
-          <div class="block">
-            <h2 class="block__title">客户与背景</h2>
-            <p class="block__text">{{ data.client }}</p>
-            <p class="block__text">{{ data.background }}</p>
-          </div>
-
-          <div class="block">
-            <h2 class="block__title">我们做了什么</h2>
-            <ol class="steps">
-              <li v-for="(action, index) in data.actions" :key="action" class="steps__item">
-                <span class="steps__num" aria-hidden="true">{{ index + 1 }}</span>
-                <span>{{ action }}</span>
-              </li>
-            </ol>
-          </div>
-
-          <blockquote v-if="data.quote" class="quote">
-            <p class="quote__text">{{ data.quote.text }}</p>
-            <footer class="quote__author">—— {{ data.quote.author }}</footer>
+          <blockquote v-if="data.quoteText" class="quote">
+            <p class="quote__text">{{ data.quoteText }}</p>
+            <footer v-if="data.quoteAuthor" class="quote__author">—— {{ data.quoteAuthor }}</footer>
           </blockquote>
 
           <section v-if="data.relatedProducts?.length" class="related" aria-labelledby="related-products">
@@ -88,6 +90,15 @@ onMounted(load)
             <ul class="related__list">
               <li v-for="item in data.relatedProducts ?? []" :key="item.id">
                 <RouterLink :to="`/products/${item.id}`" class="related__link">{{ item.title }}</RouterLink>
+            </li>
+            </ul>
+          </section>
+
+          <section v-if="data.relatedSolutions?.length" class="related" aria-labelledby="related-solutions">
+            <h2 id="related-solutions" class="block__title">相关方案</h2>
+            <ul class="related__list">
+              <li v-for="item in data.relatedSolutions ?? []" :key="item.id">
+                <RouterLink :to="`/solutions/${item.id}`" class="related__link">{{ item.title }}</RouterLink>
               </li>
             </ul>
           </section>
@@ -127,10 +138,30 @@ onMounted(load)
   display: flex;
   flex-wrap: wrap;
   gap: 40px;
-  margin: 0 0 40px;
+  margin: 40px 0 0;
   padding: 24px;
   background: var(--c-surface);
   border-radius: var(--radius);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.facts__label {
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.facts__value {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .results__item dt {

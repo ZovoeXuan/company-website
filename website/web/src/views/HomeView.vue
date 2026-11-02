@@ -185,10 +185,10 @@ onMounted(async () => {
               <span v-if="item.industry" class="tag">{{ item.industry }}</span>
               <h3 class="case__title">{{ item.title }}</h3>
               <p class="card__desc">{{ item.summary }}</p>
-              <dl v-if="item.results?.length" class="case__results">
-                <div v-for="result in item.results" :key="result.label" class="case__result">
-                  <dt>{{ result.label }}</dt>
-                  <dd>{{ result.value }}</dd>
+              <dl v-if="item.outcomes?.length" class="case__results">
+                <div v-for="outcome in item.outcomes" :key="outcome.label" class="case__result">
+                  <dt>{{ outcome.label }}</dt>
+                  <dd>{{ outcome.displayValue }}</dd>
                 </div>
               </dl>
             </div>

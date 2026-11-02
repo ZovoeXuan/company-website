@@ -21,9 +21,9 @@ public enum ContentType {
                 .orElseThrow(() -> ApiException.validation("contentType", "内容类型不合法"));
     }
 
-    /** 客户标识不分类，其余类型必须归属一个分类才能发布。 */
+    /** 客户标识不分类；新闻与案例发布时必须归属分类，产品与方案可选（文档 6.1）。 */
     public boolean requiresCategoryOnPublish() {
-        return this != CUSTOMER;
+        return this == CASE || this == NEWS;
     }
 
     public boolean requiresCategory() {

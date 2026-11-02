@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApiError } from '@/api/http'
@@ -7,12 +7,55 @@ import {
   createContent,
   getContent,
   listCategories,
+  offlineContent,
   publishContent,
   saveDraft,
   type CategoryView,
   type ContentDetail,
 } from '@/api/content'
+import ContentPicker from '@/components/ContentPicker.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
+
+interface TitledItem {
+  title: string
+  description: string
+  iconMediaId?: number
+}
+
+interface OutcomeItem {
+  displayValue: string
+  label: string
+}
+
+interface ContentForm {
+  title: string
+  summary: string
+  bodyHtml: string
+  categoryId: string
+  sortOrder: number
+  displayTime: string
+  coverId: string
+  heroId: string
+  logoId: string
+  logoAlt: string
+  websiteUrl: string
+  customerName: string
+  industry: string
+  author: string
+  sourceName: string
+  sourceUrl: string
+  quoteText: string
+  quoteAuthor: string
+  seoTitle: string
+  seoDescription: string
+  features: TitledItem[]
+  pains: TitledItem[]
+  benefits: TitledItem[]
+  outcomes: OutcomeItem[]
+  relatedCaseIds: number[]
+  relatedProductIds: number[]
+  relatedSolutionIds: number[]
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +65,15 @@ const slug = computed(() => String(route.meta.slug ?? 'products'))
 const isNew = computed(() => !route.params.id)
 const contentId = computed(() => (route.params.id ? String(route.params.id) : ''))
 
+const isProduct = computed(() => contentType.value === 'PRODUCT')
+const isSolution = computed(() => contentType.value === 'SOLUTION')
+const isCase = computed(() => contentType.value === 'CASE')
+const isNews = computed(() => contentType.value === 'NEWS')
+const isCustomer = computed(() => contentType.value === 'CUSTOMER')
+const hasCategory = computed(() => !isCustomer.value)
+const hasBody = computed(() => !isCustomer.value)
+const titleLabel = computed(() => (isCustomer.value ? '客户名称' : '标题'))
+
 const loading = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
@@ -29,105 +81,127 @@ const detail = ref<ContentDetail | null>(null)
 const categories = ref<CategoryView[]>([])
 const pickerOpen = ref(false)
 
-const form = reactive({
-  title: '',
-  summary: '',
-  bodyHtml: '',
-  categoryId: '' as string,
-  sortOrder: 9999,
-  displayTime: '',
-  capabilities: '',
-  industry: '',
-  coverId: '' as string,
-  coverName: '',
-})
+type PickerTarget =
+  | { kind: 'cover' }
+  | { kind: 'hero' }
+  | { kind: 'logo' }
+  | { kind: 'featureIcon'; index: number }
 
-const advancedJson = ref('{}')
-const advancedError = ref('')
+const pickerTarget = ref<PickerTarget>({ kind: 'cover' })
 
-/** 类型相关但结构复杂的字段（results/actions/outcome 等）走高级 JSON，避免做四套表单。 */
-const CORE_KEYS = [
-  'title', 'summary', 'bodyHtml', 'categoryId', 'sortOrder', 'displayTime',
-  'capabilities', 'industry', 'coverMediaId', 'coverAlt',
-]
+const form = ref<ContentForm>(blankForm())
 
-const isNews = computed(() => contentType.value === 'NEWS')
-const hasCategory = computed(() => contentType.value !== 'CUSTOMER')
-const hasCapabilities = computed(() => ['PRODUCT', 'SOLUTION'].includes(contentType.value))
-const hasIndustry = computed(() => ['SOLUTION', 'CASE'].includes(contentType.value))
+function blankForm(): ContentForm {
+  return {
+    title: '',
+    summary: '',
+    bodyHtml: '',
+    categoryId: '',
+    sortOrder: 100,
+    displayTime: '',
+    coverId: '',
+    heroId: '',
+    logoId: '',
+    logoAlt: '',
+    websiteUrl: '',
+    customerName: '',
+    industry: '',
+    author: '',
+    sourceName: '',
+    sourceUrl: '',
+    quoteText: '',
+    quoteAuthor: '',
+    seoTitle: '',
+    seoDescription: '',
+    features: [],
+    pains: [],
+    benefits: [],
+    outcomes: [],
+    relatedCaseIds: [],
+    relatedProductIds: [],
+    relatedSolutionIds: [],
+  }
+}
 
-function formatTime(value: unknown) {
+function str(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
-function fill(detailValue: ContentDetail) {
-  const draft = detailValue.draft ?? {}
-  form.title = String(draft.title ?? '')
-  form.summary = String(draft.summary ?? '')
-  form.bodyHtml = String(draft.bodyHtml ?? '')
-  form.categoryId = draft.categoryId ? String(draft.categoryId) : ''
-  form.sortOrder = typeof draft.sortOrder === 'number' ? draft.sortOrder : 9999
-  form.displayTime = formatTime(draft.displayTime)
-  form.capabilities = Array.isArray(draft.capabilities) ? (draft.capabilities as string[]).join('，') : ''
-  form.industry = String(draft.industry ?? '')
-  form.coverId = draft.coverMediaId ? String(draft.coverMediaId) : ''
-  form.coverName = draft.coverMediaId ? `图片 #${draft.coverMediaId}` : ''
-
-  const rest: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(draft)) {
-    if (!CORE_KEYS.includes(key)) rest[key] = value
-  }
-  advancedJson.value = Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : '{}'
-  advancedError.value = ''
+function numStr(value: unknown) {
+  return typeof value === 'number' || typeof value === 'string' ? String(value) : ''
 }
 
-async function load() {
-  loading.value = true
-  try {
-    categories.value = (await listCategories({ categoryType: contentType.value, page: 1, pageSize: 50 })).items
-    if (!isNew.value) {
-      const data = await getContent(contentId.value)
-      detail.value = data
-      fill(data)
+function titled(value: unknown): TitledItem[] {
+  if (!Array.isArray(value)) return []
+  return value.map((raw) => {
+    const item = (raw ?? {}) as Partial<TitledItem>
+    return {
+      title: str(item.title),
+      description: str(item.description),
+      iconMediaId: item.iconMediaId === undefined || item.iconMediaId === null
+        ? undefined
+        : Number(item.iconMediaId),
     }
-  } catch (error) {
-    ElMessage.error(error instanceof ApiError ? error.message : '内容加载失败')
-  } finally {
-    loading.value = false
-  }
+  })
 }
 
-function buildDraft(): Record<string, unknown> | null {
-  let extra: Record<string, unknown> = {}
-  if (advancedJson.value.trim()) {
-    try {
-      extra = JSON.parse(advancedJson.value)
-    } catch {
-      advancedError.value = '高级字段不是合法 JSON'
-      return null
-    }
-  }
-  advancedError.value = ''
+function outcomeList(value: unknown): OutcomeItem[] {
+  if (!Array.isArray(value)) return []
+  return value.map((raw) => {
+    const item = (raw ?? {}) as Partial<OutcomeItem>
+    return { displayValue: str(item.displayValue), label: str(item.label) }
+  })
+}
 
-  const draft: Record<string, unknown> = { ...extra, title: form.title.trim(), summary: form.summary.trim() }
-  if (form.bodyHtml.trim()) draft.bodyHtml = form.bodyHtml
-  if (hasCategory.value && form.categoryId) draft.categoryId = Number(form.categoryId)
-  draft.sortOrder = form.sortOrder
-  if (isNews.value && form.displayTime) draft.displayTime = form.displayTime
-  if (hasCapabilities.value) {
-    const list = form.capabilities.split(/[，,]/).map((item) => item.trim()).filter(Boolean)
-    if (list.length > 0) draft.capabilities = list
-    else delete draft.capabilities
-  }
-  if (hasIndustry.value && form.industry.trim()) draft.industry = form.industry.trim()
-  if (form.coverId) {
-    draft.coverMediaId = Number(form.coverId)
-    draft.coverAlt = form.title.trim()
-  } else {
-    delete draft.coverMediaId
-    delete draft.coverAlt
-  }
-  return draft
+function idList(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => Number(item)).filter((n) => Number.isFinite(n) && n > 0)
+}
+
+function cleanTitled(items: TitledItem[]) {
+  return items
+    .filter((item) => item.title.trim() || item.description.trim())
+    .map((item) => {
+      const result: Record<string, unknown> = {
+        title: item.title.trim(),
+        description: item.description.trim(),
+      }
+      if (item.iconMediaId) result.iconMediaId = Number(item.iconMediaId)
+      return result
+    })
+}
+
+function fill(data: ContentDetail) {
+  const source = (data.draft ?? {}) as Record<string, unknown>
+  const seo = (source.seo ?? {}) as Record<string, unknown>
+  const values = form.value
+  values.title = str(source.title)
+  values.summary = str(source.summary)
+  values.bodyHtml = str(source.bodyHtml)
+  values.categoryId = source.categoryId ? String(source.categoryId) : ''
+  values.sortOrder = typeof source.sortOrder === 'number' ? source.sortOrder : 100
+  values.displayTime = str(source.displayTime)
+  values.coverId = numStr(source.coverMediaId)
+  values.heroId = numStr(source.heroMediaId)
+  values.logoId = numStr(source.logoMediaId)
+  values.logoAlt = str(source.logoAlt)
+  values.websiteUrl = str(source.websiteUrl)
+  values.customerName = str(source.customerName)
+  values.industry = str(source.industry)
+  values.author = str(source.author)
+  values.sourceName = str(source.sourceName)
+  values.sourceUrl = str(source.sourceUrl)
+  values.quoteText = str(source.quoteText)
+  values.quoteAuthor = str(source.quoteAuthor)
+  values.seoTitle = str(seo.title)
+  values.seoDescription = str(seo.description)
+  values.features = titled(source.features)
+  values.pains = titled(source.pains)
+  values.benefits = titled(source.benefits)
+  values.outcomes = outcomeList(source.outcomes)
+  values.relatedCaseIds = idList(source.relatedCaseIds)
+  values.relatedProductIds = idList(source.relatedProductIds)
+  values.relatedSolutionIds = idList(source.relatedSolutionIds)
 }
 
 function reportError(error: unknown) {
@@ -139,68 +213,189 @@ function reportError(error: unknown) {
   }
 }
 
-async function save(): Promise<ContentDetail | null> {
-  if (!form.title.trim()) {
-    ElMessage.warning('请填写标题')
-    return null
-  }
-  const draft = buildDraft()
-  if (!draft) return null
+function thumb(id: string | number) {
+  return `/api/admin/media/${id}`
+}
 
-  saving.value = true
-  try {
-    const saved = isNew.value
-      ? await createContent(contentType.value, draft)
-      : await saveDraft(contentId.value, draft, detail.value!.content.lockVersion)
+function openPicker(target: PickerTarget) {
+  pickerTarget.value = target
+  pickerOpen.value = true
+}
 
-    detail.value = saved
-    fill(saved)
-    if (isNew.value) {
-      ElMessage.success('草稿已创建')
-      await router.replace(`/contents/${slug.value}/${saved.content.id}/edit`)
-    } else {
-      ElMessage.success('草稿已保存')
-    }
-    return saved
-  } catch (error) {
-    reportError(error)
-    return null
-  } finally {
-    saving.value = false
+function onPick(media: { id: string | number }) {
+  const target = pickerTarget.value
+  const values = form.value
+  if (target.kind === 'cover') values.coverId = String(media.id)
+  if (target.kind === 'hero') values.heroId = String(media.id)
+  if (target.kind === 'logo') values.logoId = String(media.id)
+  if (target.kind === 'featureIcon') {
+    const item = values.features[target.index]
+    if (item) item.iconMediaId = Number(media.id)
   }
 }
 
-async function saveAndPublish() {
-  const saved = await save()
-  if (!saved) return
-
-  try {
-    await ElMessageBox.confirm('发布后官网立即生效，确认发布？', '确认发布', {
-      confirmButtonText: '发布',
-      cancelButtonText: '取消',
-    })
-  } catch {
+function addTitled(list: TitledItem[], max: number) {
+  if (list.length >= max) {
+    ElMessage.warning('最多 ' + max + ' 条')
     return
   }
+  list.push({ title: '', description: '' })
+}
 
-  publishing.value = true
+function addOutcome() {
+  if (form.value.outcomes.length >= 4) {
+    ElMessage.warning('最多 4 条')
+    return
+  }
+  form.value.outcomes.push({ displayValue: '', label: '' })
+}
+
+function statusText(status: string) {
+  if (status === 'PUBLISHED') return '已发布'
+  if (status === 'OFFLINE') return '已下线'
+  return '未发布'
+}
+
+function back() {
+  router.push(`/contents/${slug}`)
+}
+
+function buildDraft() {
+  const values = form.value
+  const payload: Record<string, unknown> = {
+    title: values.title.trim(),
+    sortOrder: values.sortOrder,
+  }
+
+  if (isCustomer.value) {
+    if (values.logoId) payload.logoMediaId = Number(values.logoId)
+    if (values.logoAlt.trim()) payload.logoAlt = values.logoAlt.trim()
+    if (values.websiteUrl.trim()) payload.websiteUrl = values.websiteUrl.trim()
+    return payload
+  }
+
+  payload.summary = values.summary.trim()
+  if (values.bodyHtml.trim()) payload.bodyHtml = values.bodyHtml
+  if (values.categoryId) payload.categoryId = Number(values.categoryId)
+  if (values.coverId) payload.coverMediaId = Number(values.coverId)
+  if (values.heroId) payload.heroMediaId = Number(values.heroId)
+  if (values.seoTitle.trim() || values.seoDescription.trim()) {
+    payload.seo = {
+      ...(values.seoTitle.trim() ? { title: values.seoTitle.trim() } : {}),
+      ...(values.seoDescription.trim() ? { description: values.seoDescription.trim() } : {}),
+  }
+  }
+
+  if (isProduct.value) {
+    const features = cleanTitled(values.features)
+    if (features.length) payload.features = features
+    if (values.relatedCaseIds.length) payload.relatedCaseIds = values.relatedCaseIds
+  }
+  if (isSolution.value) {
+    if (values.industry.trim()) payload.industry = values.industry.trim()
+    const pains = cleanTitled(values.pains)
+    if (pains.length) payload.pains = pains
+    const benefits = cleanTitled(values.benefits)
+    if (benefits.length) payload.benefits = benefits
+    if (values.relatedProductIds.length) payload.relatedProductIds = values.relatedProductIds
+  }
+  if (isCase.value) {
+    if (values.customerName.trim()) payload.customerName = values.customerName.trim()
+    if (values.industry.trim()) payload.industry = values.industry.trim()
+    const outcomes = values.outcomes
+      .filter((item) => item.displayValue.trim() || item.label.trim())
+      .map((item) => ({ displayValue: item.displayValue.trim(), label: item.label.trim() }))
+    if (outcomes.length) payload.outcomes = outcomes
+    if (values.quoteText.trim()) payload.quoteText = values.quoteText.trim()
+    if (values.quoteAuthor.trim()) payload.quoteAuthor = values.quoteAuthor.trim()
+    if (values.relatedProductIds.length) payload.relatedProductIds = values.relatedProductIds
+    if (values.relatedSolutionIds.length) payload.relatedSolutionIds = values.relatedSolutionIds
+  }
+  if (isNews.value) {
+    if (values.displayTime) payload.displayTime = values.displayTime
+    if (values.author.trim()) payload.author = values.author.trim()
+    if (values.sourceName.trim()) payload.sourceName = values.sourceName.trim()
+    if (values.sourceUrl.trim()) payload.sourceUrl = values.sourceUrl.trim()
+  }
+  return payload
+}
+
+async function load() {
+  loading.value = true
   try {
-    await publishContent(saved.content.id, saved.content.lockVersion, saved.content.draftVersion)
-    ElMessage.success('已发布')
-    const refreshed = await getContent(saved.content.id)
-    detail.value = refreshed
-    fill(refreshed)
+    await loadCategories()
+    if (!isNew.value) {
+      const data = await getContent(contentId.value)
+      detail.value = data
+      fill(data)
+    } else {
+      form.value = blankForm()
+    }
   } catch (error) {
     reportError(error)
   } finally {
+    loading.value = false
+  }
+}
+
+async function loadCategories() {
+  if (isCustomer.value) {
+    categories.value = []
+    return
+  }
+  try {
+    const result = await listCategories({ categoryType: contentType.value, page: 1, pageSize: 50 })
+    categories.value = result.items
+  } catch (error) {
+    reportError(error)
+  }
+}
+
+async function submit(publish: boolean) {
+  const draft = buildDraft()
+  if (publish) publishing.value = true
+  else saving.value = true
+  try {
+    let data: ContentDetail
+    if (isNew.value) {
+      data = await createContent(contentType.value, draft)
+    } else {
+      data = await saveDraft(contentId.value, draft, detail.value?.content.lockVersion ?? 0)
+    }
+    if (publish) {
+      await publishContent(data.content.id, data.content.lockVersion, data.content.draftVersion)
+      data = await getContent(data.content.id)
+    }
+    detail.value = data
+    fill(data)
+    ElMessage.success(publish ? '已保存并发布' : '草稿已保存')
+    if (isNew.value) await router.replace(`/contents/${slug}/${data.content.id}`)
+  } catch (error) {
+    reportError(error)
+  } finally {
+    saving.value = false
     publishing.value = false
   }
 }
 
-function onSelectCover(media: { id: string; originalName: string }) {
-  form.coverId = media.id
-  form.coverName = media.originalName
-  pickerOpen.value = false
+async function offline() {
+  try {
+    await ElMessageBox.confirm('下线后官网将不再展示该内容，确认继续？', '下线确认', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  if (!detail.value) return
+  try {
+    await offlineContent(contentId.value, detail.value.content.lockVersion)
+    const data = await getContent(contentId.value)
+    detail.value = data
+    fill(data)
+    ElMessage.success('已下线')
+  } catch (error) {
+    reportError(error)
+  }
 }
 
 onMounted(load)
@@ -212,114 +407,272 @@ onMounted(load)
       <template #header>
         <div class="head">
           <span>{{ isNew ? '新建' : '编辑' }}{{ route.meta.title }}</span>
-          <el-button @click="router.push(`/contents/${slug}`)">返回列表</el-button>
+    <el-button @click="back">返回列表</el-button>
         </div>
       </template>
 
-      <el-form label-width="96px" label-position="right">
-        <el-form-item label="标题" required>
-          <el-input v-model="form.title" maxlength="120" show-word-limit placeholder="建议 20 字以内，写清对象与价值" />
-        </el-form-item>
-
-        <el-form-item label="摘要">
+      <el-form label-width="104px" label-position="right">
+        <el-form-item :label="titleLabel" required>
           <el-input
-            v-model="form.summary"
-            type="textarea"
-            :rows="2"
-            maxlength="300"
+            v-model="form.title"
+            :maxlength="isCustomer ? 60 : 120"
             show-word-limit
-            placeholder="用于列表页与分享描述，60~80 字为宜"
+            :placeholder="isCustomer ? '对外展示的客户名称' : '建议 20 字以内，写清对象与价值'"
           />
         </el-form-item>
 
-        <el-form-item v-if="hasCategory" label="分类">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" clearable style="width: 260px">
-            <el-option v-for="item in categories" :key="item.id" :label="`${item.name}（${item.status === 'PUBLISHED' ? '已发布' : '未发布'}）`" :value="item.id" />
-          </el-select>
-          <RouterLink to="/contents/categories" class="tip-link">管理分类</RouterLink>
-        </el-form-item>
-
-        <el-form-item v-if="isNews" label="展示日期">
-          <el-date-picker v-model="form.displayTime" type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
-        </el-form-item>
-
-        <el-form-item label="封面">
-          <div class="cover">
-            <img v-if="form.coverId" :src="`/api/admin/media/${form.coverId}/file`" alt="封面预览" class="cover__img" />
-            <div v-else class="cover__empty">未选择</div>
-            <div class="cover__actions">
-              <el-button size="small" @click="pickerOpen = true">选择图片</el-button>
-              <el-button v-if="form.coverId" size="small" link type="danger" @click="form.coverId = ''; form.coverName = ''">
+        <template v-if="isCustomer">
+          <el-form-item label="客户 Logo" required>
+            <div class="media">
+              <img v-if="form.logoId" :src="thumb(form.logoId)" alt="客户 Logo" />
+              <span v-else class="media__empty">未选择</span>
+    <el-button size="small" @click="openPicker({ kind: 'logo' })">选择图片</el-button>
+              <el-button v-if="form.logoId" size="small" link type="danger" @click="form.logoId = ''">
                 清除
               </el-button>
-              <p class="cover__name">{{ form.coverName || '建议 4:3 或 16:9，宽度 1200px 以上' }}</p>
             </div>
+            <p class="field-hint">建议 PNG 透明底，前台按 contain 显示，不会拉伸。</p>
+          </el-form-item>
+          <el-form-item label="Logo 替代文字">
+            <el-input v-model="form.logoAlt" maxlength="120" placeholder="不填时使用客户名称" />
+          </el-form-item>
+          <el-form-item label="客户网址">
+            <el-input v-model="form.websiteUrl" maxlength="500" placeholder="https://，选填" />
+          </el-form-item>
+        </template>
+
+        <template v-if="!isCustomer">
+          <el-form-item label="摘要">
+            <el-input
+              v-model="form.summary"
+              type="textarea"
+              :rows="2"
+              maxlength="300"
+              show-word-limit
+              placeholder="用于列表页与分享描述，60~80 字为宜"
+            />
+          </el-form-item>
+
+          <el-form-item v-if="hasCategory" label="分类">
+            <el-select v-model="form.categoryId" placeholder="请选择分类" clearable style="width: 260px">
+              <el-option
+                v-for="item in categories"
+                :key="item.id"
+                :label="item.name + '（' + (item.status === 'PUBLISHED' ? '已发布' : '未发布') + '）'"
+                :value="item.id"
+              />
+            </el-select>
+            <RouterLink to="/contents/categories" class="tip-link">管理分类</RouterLink>
+          </el-form-item>
+
+          <el-form-item v-if="isNews" label="展示日期" required>
+            <el-date-picker
+              v-model="form.displayTime"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="不能晚于今天"
+            />
+          </el-form-item>
+
+          <el-form-item label="封面" required>
+            <div class="media">
+              <img v-if="form.coverId" :src="thumb(form.coverId)" alt="封面预览" />
+              <span v-else class="media__empty">未选择</span>
+            <el-button size="small" @click="openPicker({ kind: 'cover' })">选择图片</el-button>
+              <el-button v-if="form.coverId" size="small" link type="danger" @click="form.coverId = ''">
+                清除
+              </el-button>
+            </div>
+            <p class="field-hint">列表与详情复用同一张封面，建议 16:9。</p>
+          </el-form-item>
+
+          <el-form-item v-if="!isNews" label="主图">
+            <div class="media">
+              <img v-if="form.heroId" :src="thumb(form.heroId)" alt="主图预览" />
+            <span v-else class="media__empty">未选择时使用封面</span>
+              <el-button size="small" @click="openPicker({ kind: 'hero' })">选择图片</el-button>
+              <el-button v-if="form.heroId" size="small" link type="danger" @click="form.heroId = ''">
+                清除
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <el-form-item v-if="isSolution || isCase" label="所属行业">
+            <el-input v-model="form.industry" maxlength="60" placeholder="例如：汽车零部件" style="width: 260px" />
+          </el-form-item>
+
+          <el-form-item v-if="isCase" label="客户名称" required>
+            <el-input v-model="form.customerName" maxlength="60" placeholder="可按协议使用简称" style="width: 260px" />
+          </el-form-item>
+        </template>
+
+        <!-- 产品能力 -->
+        <template v-if="isProduct">
+          <el-divider content-position="left">核心能力（最多 8 条）</el-divider>
+          <div v-for="(item, index) in form.features" :key="'feature-' + index" class="row">
+            <el-input v-model="item.title" maxlength="30" placeholder="能力标题" style="width: 180px" />
+            <el-input v-model="item.description" maxlength="200" placeholder="一句话说明" style="width: 300px" />
+            <el-button size="small" @click="openPicker({ kind: 'featureIcon', index })">图标</el-button>
+            <el-button link type="danger" @click="form.features.splice(index, 1)">删除</el-button>
           </div>
-        </el-form-item>
+          <el-button class="add" @click="addTitled(form.features, 8)">添加能力</el-button>
+        </template>
 
-        <el-form-item v-if="hasCapabilities" label="能力标签">
-          <el-input v-model="form.capabilities" placeholder="用逗号分隔，例如：多协议接入，台账与巡检" />
-        </el-form-item>
+        <!-- 方案痛点与价值 -->
+        <template v-if="isSolution">
+          <el-divider content-position="left">业务痛点（最多 6 条）</el-divider>
+          <div v-for="(item, index) in form.pains" :key="'pain-' + index" class="row">
+            <el-input v-model="item.title" maxlength="30" placeholder="痛点标题" style="width: 180px" />
+            <el-input v-model="item.description" maxlength="200" placeholder="一句话说明" style="width: 320px" />
+            <el-button link type="danger" @click="form.pains.splice(index, 1)">删除</el-button>
+          </div>
+          <el-button class="add" @click="addTitled(form.pains, 6)">添加痛点</el-button>
 
-        <el-form-item v-if="hasIndustry" label="所属行业">
-          <el-input v-model="form.industry" placeholder="例如：汽车零部件" />
-        </el-form-item>
+            <el-divider content-position="left">方案价值（最多 6 条）</el-divider>
+          <div v-for="(item, index) in form.benefits" :key="'benefit-' + index" class="row">
+            <el-input v-model="item.title" maxlength="30" placeholder="价值标题" style="width: 180px" />
+            <el-button link type="danger" @click="form.benefits.splice(index, 1)">删除</el-button>
+          </div>
+          <el-button class="add" @click="addTitled(form.benefits, 6)">添加价值</el-button>
+        </template>
 
-        <el-form-item label="正文">
+        <!-- 案例成果与引用 -->
+        <template v-if="isCase">
+          <el-divider content-position="left">项目成果（最多 4 条）</el-divider>
+          <div v-for="(item, index) in form.outcomes" :key="'outcome-' + index" class="row">
+            <el-input v-model="item.displayValue" maxlength="20" placeholder="例如 30%" style="width: 140px" />
+            <el-input v-model="item.label" maxlength="40" placeholder="例如 非计划停机下降" style="width: 260px" />
+            <el-button link type="danger" @click="form.outcomes.splice(index, 1)">删除</el-button>
+          </div>
+          <el-button class="add" @click="addOutcome">添加成果</el-button>
+
+          <el-divider content-position="left">客户引用（成对填写）</el-divider>
+          <el-form-item label="引用语">
+            <el-input v-model="form.quoteText" type="textarea" :rows="2" maxlength="300" show-word-limit />
+          </el-form-item>
+          <el-form-item label="引用人">
+            <el-input v-model="form.quoteAuthor" maxlength="60" placeholder="例如：生产总监 王先生" style="width: 260px" />
+          </el-form-item>
+        </template>
+
+        <!-- 新闻来源 -->
+        <template v-if="isNews">
+          <el-divider content-position="left">来源信息</el-divider>
+          <el-form-item label="作者">
+            <el-input v-model="form.author" maxlength="50" style="width: 220px" />
+          </el-form-item>
+          <el-form-item label="来源名称">
+            <el-input v-model="form.sourceName" maxlength="100" style="width: 260px" />
+          </el-form-item>
+          <el-form-item label="来源链接">
+            <el-input v-model="form.sourceUrl" maxlength="500" placeholder="https://，填链接必须填来源名" />
+          </el-form-item>
+        </template>
+
+        <!-- 关联内容 -->
+        <template v-if="isProduct">
+          <el-divider content-position="left">相关案例（最多 6 条）</el-divider>
+          <el-form-item label="已选案例">
+            <ContentPicker v-model="form.relatedCaseIds" content-type="CASE" :max="6" />
+          </el-form-item>
+        </template>
+
+        <template v-if="isSolution">
+          <el-divider content-position="left">用到的产品（最多 6 条）</el-divider>
+          <el-form-item label="已选产品">
+            <ContentPicker v-model="form.relatedProductIds" content-type="PRODUCT" :max="6" />
+          </el-form-item>
+        </template>
+
+        <template v-if="isCase">
+          <el-divider content-position="left">用到的产品（最多 6 条）</el-divider>
+          <el-form-item label="已选产品">
+            <ContentPicker v-model="form.relatedProductIds" content-type="PRODUCT" :max="6" />
+          </el-form-item>
+          <el-form-item label="相关方案">
+            <ContentPicker v-model="form.relatedSolutionIds" content-type="SOLUTION" :max="6" />
+          </el-form-item>
+        </template>
+
+        <!-- 正文 -->
+        <el-form-item v-if="hasBody" label="正文" required>
           <el-input
             v-model="form.bodyHtml"
             type="textarea"
             :rows="12"
             placeholder="支持基础 HTML，例如 <h2>解决什么问题</h2><p>…</p>"
           />
-          <p class="field-hint">当前为 HTML 源码输入，所见即所得编辑器在后续版本接入。</p>
+          <p class="field-hint">当前为 HTML 源码输入，保存时服务端会做白名单清洗。</p>
         </el-form-item>
 
-        <el-form-item label="高级字段">
-          <el-input v-model="advancedJson" type="textarea" :rows="6" spellcheck="false" />
-          <p class="field-hint">
-            结构化字段（results、actions、outcome、quote 等）以 JSON 维护，保存时与其他字段合并。
-          </p>
-          <p v-if="advancedError" class="field-error">{{ advancedError }}</p>
+        <el-divider content-position="left">SEO（可选）</el-divider>
+        <el-form-item label="SEO 标题">
+          <el-input v-model="form.seoTitle" maxlength="80" show-word-limit placeholder="不填时使用内容标题" />
+        </el-form-item>
+        <el-form-item label="SEO 描述">
+          <el-input
+            v-model="form.seoDescription"
+            type="textarea"
+            :rows="2"
+            maxlength="200"
+            show-word-limit
+            placeholder="不填时使用摘要"
+          />
         </el-form-item>
 
         <el-form-item label="排序">
           <el-input-number v-model="form.sortOrder" :min="0" :max="9999" />
-          <span class="field-hint inline">数值越小越靠前</span>
         </el-form-item>
       </el-form>
     </el-card>
 
-    <aside class="side">
-      <el-card shadow="never">
-        <template #header>状态</template>
-        <div v-if="detail" class="status">
-          <p class="row"><span>发布状态</span><el-tag size="small">{{ detail.content.status }}</el-tag></p>
-          <p class="row"><span>草稿版本</span><span>v{{ detail.content.draftVersion }}</span></p>
-          <p class="row"><span>线上版本</span><span>v{{ detail.content.publishedVersion ?? '—' }}</span></p>
-          <p v-if="detail.content.hasUnpublishedChanges" class="warn">有未发布的修改</p>
-        </div>
-        <p v-else class="muted">保存后显示版本信息</p>
+    <el-card shadow="never" class="side">
+      <template #header>状态</template>
+      <div v-if="detail" class="status">
+        <p>
+          <span class="status__label">当前状态</span>
+          <span class="status__value">{{ statusText(detail.content.status) }}</span>
+        </p>
+        <p>
+          <span class="status__label">草稿版本</span>
+          <span class="status__value">v{{ detail.content.draftVersion }}</span>
+        </p>
+        <p>
+          <span class="status__label">线上版本</span>
+          <span class="status__value">
+            {{ detail.content.publishedVersion ? 'v' + detail.content.publishedVersion : '未发布' }}
+          </span>
+        </p>
+        <p v-if="detail.content.hasUnpublishedChanges" class="warn">有未发布的修改</p>
+      </div>
+      <p v-else class="muted">保存后显示版本信息</p>
 
-        <div class="actions">
-          <el-button type="primary" :loading="saving" @click="save">保存草稿</el-button>
-          <el-button type="success" :loading="publishing" @click="saveAndPublish">保存并发布</el-button>
-        </div>
-      </el-card>
-    </aside>
+      <div class="actions">
+        <el-button :loading="saving" @click="submit(false)">保存草稿</el-button>
+        <el-button type="primary" :loading="publishing" @click="submit(true)">保存并发布</el-button>
+        <el-button v-if="!isNew" type="warning" plain @click="offline">下线</el-button>
+      </div>
+    </el-card>
 
-    <MediaPicker
-      v-model="pickerOpen"
-      :selected-id="form.coverId"
-      @select="onSelectCover"
-    />
+    <el-card shadow="never" class="side">
+      <template #header>发布规则</template>
+      <ul class="rules">
+        <li>保存草稿只写草稿，官网不受影响。</li>
+        <li>发布会把当前草稿整体变成线上版本。</li>
+        <li>发布要求：标题、摘要、正文、封面齐全；所选分类必须已发布。</li>
+        <li>新闻必须填写不晚于今天的展示日期。</li>
+        <li>已发布的内容不能直接删除，请先下线。</li>
+      </ul>
+    </el-card>
+
+    <MediaPicker v-model="pickerOpen" :selected-id="null" @select="onPick" />
   </div>
 </template>
 
 <style scoped>
 .editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
   align-items: start;
 }
@@ -330,88 +683,87 @@ onMounted(load)
   justify-content: space-between;
 }
 
-.cover {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.cover__img,
-.cover__empty {
-  width: 160px;
-  height: 110px;
-  border-radius: 8px;
-  border: 1px solid var(--a-border);
-  object-fit: cover;
+.media {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--a-text-muted);
-  font-size: 12px;
-  background: #f6f8fa;
+  gap: 10px;
 }
 
-.cover__actions {
+.media img {
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  border: 1px solid var(--a-border);
+  border-radius: 6px;
+}
+
+.media__empty {
+  font-size: 12px;
+  color: var(--a-text-subtle);
+}
+
+.row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cover__name {
-  font-size: 12px;
-  color: var(--a-text-muted);
-}
-
-.tip-link {
-  margin-left: 12px;
-  font-size: 13px;
-  color: #185fa5;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .field-hint {
-  margin-top: 4px;
+  margin: 6px 0 0;
   font-size: 12px;
-  color: var(--a-text-muted);
-  line-height: 1.6;
+  color: var(--a-text-subtle);
 }
 
-.field-hint.inline {
-  margin-left: 10px;
-}
-
-.field-error {
+.add {
   margin-top: 4px;
-  font-size: 12px;
-  color: #c0392b;
 }
 
-.status .row {
+.status p {
   display: flex;
   justify-content: space-between;
+  margin: 0 0 8px;
   font-size: 13px;
-  padding: 6px 0;
+}
+
+.status__label {
   color: var(--a-text-muted);
 }
 
 .warn {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #b26a00;
+  color: var(--a-warning);
+  font-size: 13px;
 }
 
 .muted {
+  color: var(--a-text-subtle);
   font-size: 13px;
-  color: var(--a-text-muted);
 }
 
 .actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--a-border);
 }
 
-@media (max-width: 1100px) {
+.rules {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--a-text-muted);
+  line-height: 1.9;
+}
+
+.tip-link {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--a-brand);
+}
+
+@media (max-width: 1080px) {
   .editor {
     grid-template-columns: 1fr;
   }

@@ -348,10 +348,10 @@ public class HomeAggregateService {
                 }
                 JsonNode json = content.published();
                 Map<String, Object> view = card(content, mediaMap);
-                view.put("client", text(json, "client"));
+                view.put("customerName", text(json, "customerName"));
                 view.put("industry", text(json, "industry"));
-                JsonNode results = json == null ? null : json.get("results");
-                view.put("results", results == null || results.isNull() ? List.of() : results);
+                JsonNode outcomes = json == null ? null : json.get("outcomes");
+                view.put("outcomes", outcomes == null || outcomes.isNull() ? List.of() : outcomes);
                 items.add(view);
             }
         }

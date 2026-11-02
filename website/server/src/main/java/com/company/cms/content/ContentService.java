@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.time.LocalDate;
@@ -34,7 +35,7 @@ public class ContentService {
 
     private static final int MAX_TITLE = 120;
     private static final int MAX_SUMMARY = 300;
-    private static final int MAX_BODY = 60_000;
+    private static final int MAX_BODY = 100_000;
 
     private final ContentRepository contents;
     private final CategoryRepository categories;
@@ -201,18 +202,27 @@ public class ContentService {
     // ---------- 校验与引用 ----------
 
     /**
-     * 草稿与发布共用一套校验；发布时额外要求分类已发布、新闻必须有展示时间。
+     * 草稿与发布共用一套结构校验；发布时额外要求必填项、分类已发布、关联内容已发布。
+     * 字段范围按文档 6.1 通用字段与 6.5～6.9 类型专属字段收敛，未定义字段一律丢弃。
      */
     private JsonNode validate(ContentType type, JsonNode draft, boolean forPublish, Long selfId) {
         if (draft == null || !draft.isObject()) {
             throw ApiException.validation("draft", "内容必须是 JSON 对象");
         }
         List<FieldErrorItem> errors = new ArrayList<>();
+        if (type == ContentType.CUSTOMER) {
+            return validateCustomer(draft, forPublish, errors);
+        }
+
         ObjectNode normalized = objectMapper.createObjectNode();
 
         String title = text(draft, "title").trim();
-        if (title.isEmpty() || title.length() > MAX_TITLE) {
-            errors.add(new FieldErrorItem("title", "标题长度需在 1 到 " + MAX_TITLE + " 之间"));
+        if (title.isEmpty()) {
+            if (forPublish) {
+                errors.add(new FieldErrorItem("title", "发布前必须填写标题"));
+            }
+        } else if (title.length() > MAX_TITLE) {
+            errors.add(new FieldErrorItem("title", "标题不能超过 " + MAX_TITLE + " 字"));
         }
         normalized.put("title", title);
 
@@ -220,93 +230,134 @@ public class ContentService {
         if (summary.length() > MAX_SUMMARY) {
             errors.add(new FieldErrorItem("summary", "摘要不能超过 " + MAX_SUMMARY + " 字"));
         }
+        if (forPublish && summary.isEmpty() && type != ContentType.NEWS) {
+            errors.add(new FieldErrorItem("summary", "发布前必须填写摘要"));
+        }
         normalized.put("summary", summary);
 
-        // 正文入库前必须清洗：编辑器侧过滤可被绕过，后端是唯一可信边界
         String bodyHtml = htmlSanitizer.sanitize(text(draft, "bodyHtml"));
         if (bodyHtml.length() > MAX_BODY) {
             errors.add(new FieldErrorItem("bodyHtml", "正文不能超过 " + MAX_BODY + " 字符"));
+        }
+        if (forPublish && bodyHtml.isBlank()) {
+            errors.add(new FieldErrorItem("bodyHtml", "发布前必须填写正文"));
         }
         if (!bodyHtml.isEmpty()) {
             normalized.put("bodyHtml", bodyHtml);
         }
 
-        int sortOrder = 9999;
-        JsonNode sortNode = draft.get("sortOrder");
-        if (sortNode != null && !sortNode.isNull()) {
-            if (!sortNode.canConvertToInt() || sortNode.asInt() < 0 || sortNode.asInt() > 9999) {
-                errors.add(new FieldErrorItem("sortOrder", "排序值需在 0 到 9999 之间"));
-            } else {
-                sortOrder = sortNode.asInt();
-            }
-        }
-        normalized.put("sortOrder", sortOrder);
+        normalized.put("sortOrder", sortOrder(draft, errors));
 
-        // 分类
+        // 分类：类型必须匹配；发布时案例与新闻必填
         Long categoryId = longOrNull(draft.get("categoryId"));
-        if (type.requiresCategory() && categoryId == null && forPublish) {
-            errors.add(new FieldErrorItem("categoryId", "请选择分类"));
-        }
-        if (categoryId != null) {
+        if (categoryId == null) {
+            if (forPublish && type.requiresCategoryOnPublish()) {
+                errors.add(new FieldErrorItem("categoryId", "该类型发布前必须选择分类"));
+            }
+        } else {
             CategoryRow category = categories.findById(categoryId).orElse(null);
             if (category == null || category.categoryType() != type) {
                 errors.add(new FieldErrorItem("categoryId", "分类不存在或类型不匹配"));
-            } else if (forPublish && !category.status().isPublished()) {
-                errors.add(new FieldErrorItem("categoryId", "分类尚未发布，请先发布分类"));
+            } else {
+                if (forPublish && !category.status().isPublished()) {
+                    errors.add(new FieldErrorItem("categoryId", "分类尚未发布，请先发布分类"));
+                }
+                normalized.put("categoryId", categoryId);
             }
-            normalized.put("categoryId", categoryId);
         }
 
         // 封面
-        Long coverId = longOrNull(draft.get("coverMediaId"));
+        Long coverId = mediaId(draft.get("coverMediaId"), "coverMediaId", "封面图片", errors);
+        if (coverId == null && forPublish) {
+            errors.add(new FieldErrorItem("coverMediaId", "发布前必须选择封面"));
+        }
         if (coverId != null) {
-            if (!mediaExists(coverId)) {
-                errors.add(new FieldErrorItem("coverMediaId", "封面图片不存在"));
-            } else {
-                normalized.put("coverMediaId", coverId);
-            }
+            normalized.put("coverMediaId", coverId);
+            String coverAlt = limit(text(draft, "coverAlt"), 120, "coverAlt", "封面替代文字", errors);
+            normalized.put("coverAlt", coverAlt.isEmpty() ? title : coverAlt);
         }
 
-        // 新闻展示时间
-        LocalDateTime displayTime = null;
-        if (type == ContentType.NEWS) {
-            String raw = text(draft, "displayTime").trim();
-            if (raw.isEmpty()) {
-                if (forPublish) {
-                    errors.add(new FieldErrorItem("displayTime", "新闻必须填写展示日期"));
+        // 可选主图：未填时前台回退封面
+        Long heroId = mediaId(draft.get("heroMediaId"), "heroMediaId", "主图", errors);
+        if (heroId != null) {
+            normalized.put("heroMediaId", heroId);
+        }
+
+        // SEO
+        JsonNode seo = draft.get("seo");
+        ObjectNode seoNode = objectMapper.createObjectNode();
+        String seoTitle = seo == null ? "" : limit(text(seo, "title"), 80, "seo.title", "SEO 标题", errors);
+        String seoDescription = seo == null ? ""
+                : limit(text(seo, "description"), 200, "seo.description", "SEO 描述", errors);
+        if (!seoTitle.isEmpty()) {
+            seoNode.put("title", seoTitle);
+        }
+        if (!seoDescription.isEmpty()) {
+            seoNode.put("description", seoDescription);
+        }
+        if (!seoNode.isEmpty()) {
+            normalized.set("seo", seoNode);
+        }
+
+        switch (type) {
+            case PRODUCT -> {
+                normalized.set("features", titledItems(draft.get("features"), "features", 8, true, errors));
+                normalized.set("relatedCaseIds",
+                        refIds(draft.get("relatedCaseIds"), "relatedCaseIds", 6,
+                                ContentType.CASE, forPublish, selfId, errors));
+            }
+            case SOLUTION -> {
+                normalized.put("industry", limit(text(draft, "industry"), 60, "industry", "所属行业", errors));
+                normalized.set("pains", titledItems(draft.get("pains"), "pains", 6, false, errors));
+                normalized.set("benefits", titledItems(draft.get("benefits"), "benefits", 6, false, errors));
+                normalized.set("relatedProductIds",
+                        refIds(draft.get("relatedProductIds"), "relatedProductIds", 6,
+                                ContentType.PRODUCT, forPublish, selfId, errors));
+            }
+            case CASE -> {
+                String customerName = limit(text(draft, "customerName"), 60,
+                        "customerName", "客户名称", errors);
+                if (forPublish && customerName.isBlank()) {
+                    errors.add(new FieldErrorItem("customerName", "发布前必须填写客户名称"));
                 }
-            } else {
-                try {
-                    LocalDate date = LocalDate.parse(raw.substring(0, Math.min(10, raw.length())));
-                    displayTime = date.atStartOfDay();
-                    normalized.put("displayTime", date.toString());
-                } catch (DateTimeParseException ex) {
-                    errors.add(new FieldErrorItem("displayTime", "日期格式需为 yyyy-MM-dd"));
+                normalized.put("customerName", customerName);
+                normalized.put("industry", limit(text(draft, "industry"), 60, "industry", "所属行业", errors));
+                normalized.set("outcomes", outcomes(draft.get("outcomes"), errors));
+                String quoteText = limit(text(draft, "quoteText"), 300, "quoteText", "引用语", errors);
+                String quoteAuthor = limit(text(draft, "quoteAuthor"), 60, "quoteAuthor", "引用人", errors);
+                if (quoteText.isEmpty() != quoteAuthor.isEmpty()) {
+                    errors.add(new FieldErrorItem("quoteText", "引用语与引用人需成对填写"));
+                }
+                if (!quoteText.isEmpty()) {
+                    normalized.put("quoteText", quoteText);
+                    normalized.put("quoteAuthor", quoteAuthor);
+                }
+                normalized.set("relatedProductIds",
+                        refIds(draft.get("relatedProductIds"), "relatedProductIds", 6,
+                                ContentType.PRODUCT, forPublish, selfId, errors));
+                normalized.set("relatedSolutionIds",
+                        refIds(draft.get("relatedSolutionIds"), "relatedSolutionIds", 6,
+                                ContentType.SOLUTION, forPublish, selfId, errors));
+            }
+            case NEWS -> {
+                normalized.put("author", limit(text(draft, "author"), 50, "author", "作者", errors));
+                String displayTime = displayTime(draft, forPublish, errors);
+                if (!displayTime.isEmpty()) {
+                    normalized.put("displayTime", displayTime);
+                }
+                String sourceName = limit(text(draft, "sourceName"), 100, "sourceName", "来源名称", errors);
+                String sourceUrl = externalUrl(draft.get("sourceUrl"), "sourceUrl", "来源链接", errors);
+                if (!sourceUrl.isEmpty() && sourceName.isEmpty()) {
+                    errors.add(new FieldErrorItem("sourceName", "填写来源链接时必须填写来源名称"));
+                }
+                normalized.put("sourceName", sourceName);
+                if (!sourceUrl.isEmpty()) {
+                    normalized.put("sourceUrl", sourceUrl);
                 }
             }
-        }
-
-        // 媒体引用必须存在
-        for (JsonRefs.MediaRef ref : JsonRefs.mediaRefs(draft)) {
-            if (!mediaExists(ref.mediaId())) {
-                errors.add(new FieldErrorItem(ref.path(), "引用的图片不存在"));
+            default -> {
             }
         }
-        // 关联内容必须存在且不能指向自己
-        for (JsonRefs.ContentRef ref : JsonRefs.contentRefs(draft)) {
-            if (selfId != null && ref.contentId() == selfId) {
-                errors.add(new FieldErrorItem(ref.path(), "不能关联自身"));
-                continue;
-            }
-            if (contents.findById(ref.contentId()).isEmpty()) {
-                errors.add(new FieldErrorItem(ref.path(), "关联的内容不存在"));
-            }
-        }
-
-        // 透传其余已定义的展示字段
-        copyIfPresent(draft, normalized, "capabilities", "relatedCaseIds", "relatedProductIds",
-                "relatedSolutionIds", "industry", "results", "client", "background", "actions",
-                "quote", "challenge", "approach", "outcome", "seoTitle", "seoDescription");
 
         if (!errors.isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR,
@@ -315,13 +366,228 @@ public class ContentService {
         return normalized;
     }
 
-    private void copyIfPresent(JsonNode source, ObjectNode target, String... fields) {
-        for (String field : fields) {
-            JsonNode value = source.get(field);
-            if (value != null && !value.isNull()) {
-                target.set(field, value);
-            }
+    /** 客户标识：只有名称、Logo、替代文字、客户网址与排序（文档 6.9）。 */
+    private JsonNode validateCustomer(JsonNode draft, boolean forPublish, List<FieldErrorItem> errors) {
+        ObjectNode normalized = objectMapper.createObjectNode();
+        String title = limit(text(draft, "title"), 60, "title", "客户名称", errors);
+        if (title.isEmpty() && forPublish) {
+            errors.add(new FieldErrorItem("title", "发布前必须填写客户名称"));
         }
+        normalized.put("title", title);
+
+        Long logoId = mediaId(draft.get("logoMediaId"), "logoMediaId", "客户 Logo", errors);
+        if (logoId == null && forPublish) {
+            errors.add(new FieldErrorItem("logoMediaId", "发布前必须上传客户 Logo"));
+        }
+        if (logoId != null) {
+            normalized.put("logoMediaId", logoId);
+        }
+        String logoAlt = limit(text(draft, "logoAlt"), 120, "logoAlt", "Logo 替代文字", errors);
+        normalized.put("logoAlt", logoAlt.isEmpty() ? title : logoAlt);
+
+        String website = externalUrl(draft.get("websiteUrl"), "websiteUrl", "客户网址", errors);
+        if (!website.isEmpty()) {
+            normalized.put("websiteUrl", website);
+        }
+        normalized.put("sortOrder", sortOrder(draft, errors));
+
+        if (!errors.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                    forPublish ? "请完善发布内容" : "请检查草稿内容", errors);
+        }
+        return normalized;
+    }
+
+    /** features / pains / benefits 的通用结构：标题、说明、可选图标。 */
+    private ArrayNode titledItems(JsonNode source, String field, int max, boolean withIcon,
+                                  List<FieldErrorItem> errors) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (source == null || source.isNull()) {
+            return result;
+        }
+        if (!source.isArray()) {
+            errors.add(new FieldErrorItem(field, "格式不正确"));
+            return result;
+        }
+        if (source.size() > max) {
+            errors.add(new FieldErrorItem(field, "最多 " + max + " 条"));
+        }
+        for (int i = 0; i < Math.min(source.size(), max); i++) {
+            JsonNode item = source.get(i);
+            String path = field + "[" + i + "]";
+            if (item == null || !item.isObject()) {
+                errors.add(new FieldErrorItem(path, "格式不正确"));
+                continue;
+            }
+            ObjectNode node = objectMapper.createObjectNode();
+            String itemTitle = limit(text(item, "title"), 30, path + ".title", "标题", errors);
+            if (itemTitle.isEmpty()) {
+                errors.add(new FieldErrorItem(path + ".title", "请填写标题"));
+            }
+            node.put("title", itemTitle);
+            node.put("description",
+                    limit(text(item, "description"), 200, path + ".description", "说明", errors));
+            if (withIcon) {
+                Long iconId = mediaId(item.get("iconMediaId"), path + ".iconMediaId", "图标", errors);
+                if (iconId != null) {
+                    node.put("iconMediaId", iconId);
+                }
+            }
+            result.add(node);
+        }
+        return result;
+    }
+
+    /** 案例成果：displayValue 1～20、label 1～40，最多 4 条（文档 6.7）。 */
+    private ArrayNode outcomes(JsonNode source, List<FieldErrorItem> errors) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (source == null || source.isNull()) {
+            return result;
+        }
+        if (!source.isArray()) {
+            errors.add(new FieldErrorItem("outcomes", "格式不正确"));
+            return result;
+        }
+        if (source.size() > 4) {
+            errors.add(new FieldErrorItem("outcomes", "成果最多 4 条"));
+        }
+        for (int i = 0; i < Math.min(source.size(), 4); i++) {
+            JsonNode item = source.get(i);
+            String path = "outcomes[" + i + "]";
+            if (item == null || !item.isObject()) {
+                errors.add(new FieldErrorItem(path, "格式不正确"));
+                continue;
+            }
+            ObjectNode node = objectMapper.createObjectNode();
+            String value = limit(text(item, "displayValue"), 20, path + ".displayValue", "成果数值", errors);
+            String label = limit(text(item, "label"), 40, path + ".label", "成果名称", errors);
+            if (value.isEmpty() || label.isEmpty()) {
+                errors.add(new FieldErrorItem(path, "成果数值与名称都必须填写"));
+            }
+            node.put("displayValue", value);
+            node.put("label", label);
+            result.add(node);
+        }
+        return result;
+    }
+
+    /**
+     * 关联内容 ID 数组。发布时目标必须已发布且类型一致，否则公开接口会出现死链接。
+     */
+    private ArrayNode refIds(JsonNode source, String field, int max, ContentType expected,
+                             boolean forPublish, Long selfId, List<FieldErrorItem> errors) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (source == null || source.isNull()) {
+            return result;
+        }
+        if (!source.isArray()) {
+            errors.add(new FieldErrorItem(field, "格式不正确"));
+            return result;
+        }
+        if (source.size() > max) {
+            errors.add(new FieldErrorItem(field, "最多关联 " + max + " 项"));
+        }
+        List<Long> seen = new ArrayList<>();
+        for (int i = 0; i < Math.min(source.size(), max); i++) {
+            Long id = longOrNull(source.get(i));
+            String path = field + "[" + i + "]";
+            if (id == null) {
+                errors.add(new FieldErrorItem(path, "内容 ID 不合法"));
+                continue;
+            }
+            if (seen.contains(id)) {
+                errors.add(new FieldErrorItem(path, "同一内容不能重复关联"));
+                continue;
+            }
+            if (selfId != null && id.equals(selfId)) {
+                errors.add(new FieldErrorItem(path, "不能关联自身"));
+                continue;
+            }
+            seen.add(id);
+            ContentRow target = contents.findById(id).orElse(null);
+            if (target == null) {
+                errors.add(new FieldErrorItem(path, "关联的内容不存在"));
+                continue;
+            }
+            if (target.contentType() != expected) {
+                errors.add(new FieldErrorItem(path, "关联内容类型不匹配"));
+                continue;
+            }
+            if (forPublish && !target.status().isPublished()) {
+                errors.add(new FieldErrorItem(path, "关联内容尚未发布"));
+                continue;
+            }
+            result.add(id);
+        }
+        return result;
+    }
+
+    private int sortOrder(JsonNode draft, List<FieldErrorItem> errors) {
+        JsonNode node = draft.get("sortOrder");
+        if (node == null || node.isNull()) {
+            return 100;
+        }
+        if (!node.canConvertToInt() || node.asInt() < 0 || node.asInt() > 9999) {
+            errors.add(new FieldErrorItem("sortOrder", "排序值需在 0 到 9999 之间"));
+            return 100;
+        }
+        return node.asInt();
+    }
+
+    private String displayTime(JsonNode draft, boolean forPublish, List<FieldErrorItem> errors) {
+        String raw = text(draft, "displayTime").trim();
+        if (raw.isEmpty()) {
+            if (forPublish) {
+                errors.add(new FieldErrorItem("displayTime", "新闻必须填写展示日期"));
+            }
+            return "";
+        }
+        try {
+            LocalDate date = LocalDate.parse(raw.substring(0, Math.min(10, raw.length())));
+            if (date.isAfter(LocalDate.now())) {
+                errors.add(new FieldErrorItem("displayTime", "展示日期不能晚于今天，首版不支持定时发布"));
+                return "";
+            }
+            return date.toString();
+        } catch (DateTimeParseException ex) {
+            errors.add(new FieldErrorItem("displayTime", "日期格式需为 yyyy-MM-dd"));
+            return "";
+        }
+    }
+
+    private Long mediaId(JsonNode node, String path, String label, List<FieldErrorItem> errors) {
+        Long id = longOrNull(node);
+        if (id == null) {
+            return null;
+        }
+        if (!mediaExists(id)) {
+            errors.add(new FieldErrorItem(path, label + "不存在"));
+            return null;
+        }
+        return id;
+    }
+
+    private String externalUrl(JsonNode node, String path, String label, List<FieldErrorItem> errors) {
+        if (node == null || node.isNull()) {
+            return "";
+        }
+        String url = node.asString().trim();
+        if (url.isEmpty()) {
+            return "";
+        }
+        String lower = url.toLowerCase();
+        if ((!lower.startsWith("http://") && !lower.startsWith("https://")) || url.length() > 500) {
+            errors.add(new FieldErrorItem(path, label + "必须是 http/https 完整地址"));
+            return "";
+        }
+        return url;
+    }
+
+    private String limit(String value, int max, String path, String label, List<FieldErrorItem> errors) {
+        if (value.length() > max) {
+            errors.add(new FieldErrorItem(path, label + "不能超过 " + max + " 字"));
+        }
+        return value;
     }
 
     private void replaceDraftRefs(String sourceKind, long sourceId, JsonNode draft) {

@@ -2,7 +2,7 @@
 
 日期：2026-11-02
 范围：`website/web`（公开站点），管理后台不在此文范围
-状态：九个页面全部实现，数据走可替换的 mock 层；公开接口尚未接入
+状态：九个页面全部实现，数据统一走 `/api/public/*`，示例数据层已删除
 
 ## 1. 页面与路由
 
@@ -10,40 +10,29 @@
 |---|---|---|
 | `/` | 首页 | 首屏、服务规模、核心产品、客户案例、服务行业、最新动态、行动区 |
 | `/products` | 产品列表 | 分类筛选、卡片网格、分页、空态 |
-| `/products/:id` | 产品详情 | 封面、能力标签、富文本正文、相关案例、粘性咨询卡 |
-| `/solutions` | 方案列表 | 图文方案卡，按行业 |
-| `/solutions/:id` | 方案详情 | 挑战、做法步骤、结果指标、相关产品 |
-| `/cases` | 案例列表 | 行业筛选、结果指标、分页 |
-| `/cases/:id` | 案例详情 | 关键结果、背景、动作步骤、客户引言、相关产品 |
+| `/products/:id` | 产品详情 | 封面、能力列表、富文本正文、相关案例、粘性咨询卡 |
+| `/solutions` | 方案列表 | 图文方案卡，按分类筛选、分页 |
+| `/solutions/:id` | 方案详情 | 业务痛点、正文、价值说明、相关产品、粘性咨询卡 |
+| `/cases` | 案例列表 | 分类筛选、结果指标、分页 |
+| `/cases/:id` | 案例详情 | 客户与行业、正文、关键结果、客户引言、关联内容 |
 | `/news` | 新闻列表 | 缩略图、日期、分类、分页 |
-| `/news/:id` | 新闻详情 | 正文、相邻文章、返回入口 |
+| `/news/:id` | 新闻详情 | 作者与来源、正文、相邻文章、返回入口 |
 | `/about` | 关于我们 | 简介、使命、发展时间轴、资质 |
 | `/contact` | 联系我们 | 联系信息、咨询表单（前端校验） |
 | `/privacy` | 隐私说明 | 正文与更新时间 |
 | 其他 | 404 | 返回入口，`noindex` |
 
-## 2. 数据来源与切换
+## 2. 数据来源
 
 页面只依赖 `src/api/public.ts` 导出的函数，返回结构按后端公开 DTO 定义（见 `src/data/types.ts`）。
 
-```ts
-const USE_MOCK = {
-  site: false,      // 已接真实接口
-  home: true,       // 首页编排待做（5-B）
-  products: false,  // 已接
-  solutions: true,
-  cases: true,
-  news: true,
-  about: false,     // 已接
-  contact: false,   // 已接
-  privacy: false,   // 已接
-}
-```
+- 列表与详情：`GET /api/public/{products|solutions|cases|news}`，支持 `page`、`pageSize`、`categoryId`、`keyword`。
+- 首页：`GET /api/public/home`，区块由后台 HOME 配置编排，失效引用由后端过滤。
+- 站点与单页：`GET /api/public/site-config`、`/api/public/pages/{ABOUT|PRIVACY|CONTACT}`。
+- 页面区分加载、空结果与请求失败；失败不会被静默当作空列表。
+- 正文由后端白名单清洗后以 `bodyHtml` 下发，前端 `v-html` 渲染，不做二次过滤。
 
-- `true`：读取 `src/data/mock.ts`，前端可独立开发与演示。
-- `false`：走 `GET /api/public/*`，函数体内已写好真实请求与参数。
-
-逐资源切换，避免整站被未完成接口卡住。mock 内容全部为示例，不代表真实业绩，上线前必须由后台内容替换。
+示例数据文件 `src/data/mock.ts` 已删除，避免演示内容与真实内容混用。
 
 ## 3. SEO 实现
 
@@ -86,14 +75,13 @@ const USE_MOCK = {
 | 390px 横向溢出 | 无（`scrollWidth` = 390） |
 | 1440px 横向溢出 | 无 |
 
-构建产物：JS 154 KB（gzip 55 KB）、CSS 30 KB（gzip 5.4 KB），无第三方 UI 框架。
+构建产物：JS 146.8 KB（gzip 50.0 KB）、CSS 33.3 KB（gzip 5.9 KB），无第三方 UI 框架。
 
 ## 6. 待接后端
 
-1. 公开接口：`/api/public/site-config`、`/home`、`/products`、`/solutions`、`/cases`、`/news`、`/pages/{ABOUT|PRIVACY}`。
-2. 咨询提交：联系页表单目前只做前端校验，提交后提示「演示模式，未真实发送」，接口在阶段 6 接入。
-3. 图片：当前为占位 SVG，需替换为素材库上传的真实图片。
-4. 详情页 slug：首版用稳定 ID，`canonical` 与 sitemap 需在内容发布后生成。
+1. 咨询提交：联系页与详情页表单目前只做前端校验，`POST /api/public/leads` 在阶段 6 接入。
+2. 详情页 sitemap：内容发布后由后端生成，当前 `sitemap.xml` 仅含主要栏目。
+3. 图片：开发库为一张占位 PNG，上线前替换为素材库上传的真实图片。
 
 ## 7. 已知限制
 

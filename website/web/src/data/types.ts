@@ -92,9 +92,9 @@ export interface HomeCard {
   summary: string
   cover: MediaRef | null
   url: string
-  client?: string
+  customerName?: string
   industry?: string
-  results?: ResultMetric[]
+  outcomes?: Array<{ displayValue: string; label: string }>
 }
 
 export interface HomeServiceGroup {
@@ -138,76 +138,80 @@ export interface Category {
   name: string
 }
 
-export interface ProductSummary {
+export interface SeoMeta {
+  title?: string
+  description?: string
+}
+
+export interface TitledItem {
+  title: string
+  description: string
+  icon?: MediaRef | null
+}
+
+export interface OutcomeMetric {
+  displayValue: string
+  label: string
+}
+
+/** 列表与首页卡片共用的摘要结构，字段与后端公开 DTO 一致 */
+export interface ContentSummary {
   id: string
   title: string
   summary: string
+  cover: MediaRef | null
+  coverAlt?: string
   categoryId: string | null
   categoryName: string | null
-  cover: MediaRef | null
+  industry?: string
+  customerName?: string
+  outcomes?: OutcomeMetric[]
+  displayTime?: string
 }
 
+export interface ProductSummary extends ContentSummary {}
+
 export interface ProductDetail extends ProductSummary {
-  bodyHtml: string
-  capabilities?: string[]
+  bodyHtml?: string
+  seo?: SeoMeta
+  hero?: MediaRef | null
+  features?: TitledItem[]
   relatedCases?: CaseSummary[]
 }
 
-export interface SolutionSummary {
-  id: string
-  title: string
-  summary: string
-  industry: string
-  cover: MediaRef | null
-}
+export interface SolutionSummary extends ContentSummary {}
 
 export interface SolutionDetail extends SolutionSummary {
-  challenge: string
-  approach: string[]
-  outcome: Metric[]
+  bodyHtml?: string
+  seo?: SeoMeta
+  hero?: MediaRef | null
+  pains?: TitledItem[]
+  benefits?: TitledItem[]
   relatedProducts?: ProductSummary[]
 }
 
-export interface Metric {
-  value: string
-  label: string
-}
-
-export interface ResultMetric {
-  label: string
-  value: string
-}
-
-export interface CaseSummary {
-  id: string
-  title: string
-  industry: string
-  summary: string
-  results: ResultMetric[]
-  cover: MediaRef | null
-}
+export interface CaseSummary extends ContentSummary {}
 
 export interface CaseDetail extends CaseSummary {
-  client: string
-  background: string
-  actions: string[]
-  quote: { text: string; author: string } | null
+  bodyHtml?: string
+  seo?: SeoMeta
+  hero?: MediaRef | null
+  quoteText?: string
+  quoteAuthor?: string
   relatedProducts?: ProductSummary[]
+  relatedSolutions?: SolutionSummary[]
 }
 
-export interface NewsSummary {
-  id: string
-  title: string
-  summary: string
-  displayTime: string
-  categoryName: string | null
-  cover: MediaRef | null
-}
+export interface NewsSummary extends ContentSummary {}
 
 export interface NewsDetail extends NewsSummary {
-  bodyHtml: string
-  prev: { id: string; title: string } | null
-  next: { id: string; title: string } | null
+  bodyHtml?: string
+  seo?: SeoMeta
+  author?: string
+  sourceName?: string
+  sourceUrl?: string
+  prev?: { id: string; title: string } | null
+  next?: { id: string; title: string } | null
 }
 
 export interface AboutPage {

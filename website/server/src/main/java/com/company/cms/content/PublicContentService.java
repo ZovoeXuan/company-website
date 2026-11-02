@@ -67,19 +67,25 @@ public class PublicContentService {
         item.put("title", text(json, "title"));
         item.put("summary", text(json, "summary"));
         item.put("cover", cover(json));
+        item.put("coverAlt", text(json, "coverAlt"));
         item.put("categoryId", row.publishedCategoryId() == null ? null
                 : String.valueOf(row.publishedCategoryId()));
         item.put("categoryName", categoryName(row.publishedCategoryId()));
 
-        copyIfPresent(json, item, "industry", "results", "displayTime");
+        copyIfPresent(json, item, "industry", "customerName", "outcomes", "displayTime");
         return item;
     }
 
     private Map<String, Object> toDetail(ContentRow row) {
         JsonNode json = row.published();
         Map<String, Object> detail = toSummary(row);
-        copyIfPresent(json, detail, "bodyHtml", "capabilities", "client", "background",
-                "actions", "quote", "challenge", "approach", "outcome");
+        copyIfPresent(json, detail, "bodyHtml", "seo", "author", "sourceName", "sourceUrl",
+                "quoteText", "quoteAuthor");
+
+        detail.put("hero", media(longOrNull(json.get("heroMediaId")), text(json, "title")));
+        detail.put("features", titledMediaItems(json.get("features"), "icon"));
+        detail.put("pains", titledPlainItems(json.get("pains")));
+        detail.put("benefits", titledPlainItems(json.get("benefits")));
 
         List<Long> targets = contentRefs.findPublishedTargets("CONTENT", row.id());
         List<Map<String, Object>> relatedCases = new ArrayList<>();
@@ -116,6 +122,55 @@ public class PublicContentService {
                             "id", String.valueOf(next.id()), "title", titleOf(next))));
         }
         return detail;
+    }
+
+    /** features 带可选图标，图标解析为公开媒体对象。 */
+    private List<Map<String, Object>> titledMediaItems(JsonNode source, String mediaField) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (source == null || !source.isArray()) {
+            return items;
+        }
+        for (JsonNode item : source) {
+            Map<String, Object> view = new LinkedHashMap<>();
+            view.put("title", text(item, "title"));
+            view.put("description", text(item, "description"));
+            view.put("icon", media(longOrNull(item.get(mediaField + "MediaId")), text(item, "title")));
+            items.add(view);
+        }
+        return items;
+    }
+
+    private List<Map<String, Object>> titledPlainItems(JsonNode source) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (source == null || !source.isArray()) {
+            return items;
+        }
+        for (JsonNode item : source) {
+            Map<String, Object> view = new LinkedHashMap<>();
+            view.put("title", text(item, "title"));
+            view.put("description", text(item, "description"));
+            items.add(view);
+        }
+        return items;
+    }
+
+    private Map<String, Object> media(Long id, String alt) {
+        if (id == null) {
+            return null;
+        }
+        MediaRow media;
+        try {
+            media = mediaService.require(id);
+        } catch (ApiException ex) {
+            return null;
+        }
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("id", String.valueOf(id));
+        view.put("url", "/api/public/media/" + id);
+        view.put("alt", alt == null ? "" : alt);
+        view.put("width", media.width());
+        view.put("height", media.height());
+        return view;
     }
 
     private String titleOf(ContentRow row) {

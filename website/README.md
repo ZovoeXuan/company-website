@@ -98,13 +98,13 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 | 1 | 三工程、迁移基线、统一响应、健康检查 | 已完成，真实 MySQL 8.4.13 验证通过（见 `docs/stage1-verification.md`） |
 | 2 | 登录、CSRF、角色、账号、审计 | 已完成，HTTP 与浏览器端到端验证通过（见 `docs/stage2-verification.md`） |
 | 3 | 素材、分类、产品纵向闭环 | 接口、发布链路与后台页面均完成（`docs/stage3-verification.md`） |
-| 4 | 方案、案例、新闻、客户标识 | 后端未开始；官网对应页面已完成（mock 数据） |
+| 4 | 方案、案例、新闻、客户标识 | 完成：结构化字段、后台编辑与官网页面接入（`docs/stage4-verification.md`） |
 | 5 | 站点配置、导航、首页、单页 | 完成：配置与单页见 `docs/stage5a-verification.md`，首页编排与导航见 `docs/stage5b-verification.md` |
 | 6 | 咨询闭环 | 未开始（联系页表单仅前端校验） |
 | 7 | 联调、测试、部署、恢复 | 未开始 |
 
-官网九个页面已完成，说明见 `docs/frontend-pages.md`。页面数据来自 `src/api/public.ts` 的
-逐资源开关：站点信息、首页、产品、单页已接入真实接口，方案/案例/新闻仍为示例数据，录入内容后逐项切换即可。
+官网九个页面已完成，说明见 `docs/frontend-pages.md`。页面数据全部来自 `/api/public/*`，示例数据层已删除；
+列表与详情区分加载、空态与请求失败三种状态。
 
 ### 素材存储
 
