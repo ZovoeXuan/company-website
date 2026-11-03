@@ -56,9 +56,10 @@ function go(target: number) {
 .pager {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 40px;
+  margin-top: 56px;
 }
 
 .pager__list {
@@ -73,34 +74,33 @@ function go(target: number) {
   min-width: 40px;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--c-border);
-  background: #fff;
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
   font-size: 14px;
-  color: var(--c-text);
+  color: var(--c-text-muted);
   cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .pager__btn:hover:not(:disabled) {
-  border-color: var(--c-brand);
-  color: var(--c-brand);
+  background: var(--c-surface);
+  color: var(--c-text);
 }
 
 .pager__btn:disabled {
   color: var(--c-text-subtle);
   cursor: not-allowed;
-  background: var(--c-surface);
 }
 
 .pager__btn.is-current {
-  background: var(--c-brand);
-  border-color: var(--c-brand);
+  background: var(--c-text);
   color: #fff;
 }
 
 .pager__total {
-  margin-left: 8px;
-  font-size: 13px;
-  color: var(--c-text-muted);
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--c-text-subtle);
 }
 </style>

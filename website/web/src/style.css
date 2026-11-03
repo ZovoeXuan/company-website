@@ -1,35 +1,38 @@
 /*
- * 全站样式基线。
- * 视觉参考工业科技类企业站：深蓝导航与页脚、整幅大图首屏、
- * 去边框的大卡片、克制的蓝色强调色。信息层级靠字号与留白，而非描边与阴影。
+ * 全站视觉基线：深黑首屏、紫色品牌强调、大字号编辑式排版与克制留白。
+ * 信息层级靠字号、字距与空间，不依赖阴影和描边。
  */
 :root {
   /* 文字 */
-  --c-text: #0e1726;
-  --c-text-muted: #55607a;
-  --c-text-subtle: #8b95a8;
+  --c-text: #101014;
+  --c-text-muted: #5f6470;
+  --c-text-subtle: #8b90a0;
   /* 线条与底色 */
-  --c-border: #e6e9f0;
-  --c-border-strong: #c9d1e0;
+  --c-border: rgba(16, 16, 20, 0.08);
+  --c-border-strong: rgba(16, 16, 20, 0.16);
   --c-bg: #ffffff;
-  --c-surface: #f4f6fa;
+  --c-surface: #f5f7fa;
+  --c-mist: #eaf0f8;
   /* 品牌与深色 */
-  --c-brand: #2f6bf0;
-  --c-brand-dark: #1e4fd1;
-  --c-brand-soft: #eaf0ff;
-  --c-navy: #0a1730;
-  --c-navy-2: #122344;
+  --c-brand: #5b4be8;
+  --c-brand-dark: #4636d6;
+  --c-brand-soft: #eeebff;
+  --c-navy: #08080c;
+  --c-navy-2: #121218;
   --c-on-dark: #ffffff;
-  --c-on-dark-muted: rgba(255, 255, 255, 0.72);
-  --c-on-dark-line: rgba(255, 255, 255, 0.16);
+  --c-on-dark-muted: rgba(255, 255, 255, 0.66);
+  --c-on-dark-line: rgba(255, 255, 255, 0.14);
   /* 形状与尺度 */
-  --radius-sm: 2px;
-  --radius: 2px;
-  --max-width: 1280px;
-  --header-height: 72px;
-  font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --radius-sm: 10px;
+  --radius: 20px;
+  --radius-lg: 28px;
+  --max-width: 1240px;
+  --header-height: 76px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: 'MiSans', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--c-text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -55,7 +58,7 @@ html {
 body {
   margin: 0;
   background: var(--c-bg);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.75;
 }
 
@@ -77,14 +80,14 @@ h1,
 h2,
 h3,
 h4 {
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  letter-spacing: -0.03em;
   color: var(--c-text);
 }
 
-img {
+img,
+video {
   max-width: 100%;
-  height: auto;
   display: block;
 }
 
@@ -94,14 +97,13 @@ ol {
   padding-left: 1.25em;
 }
 
-/* 键盘焦点必须可见：统一 2px 描边 + 偏移 */
 :focus-visible {
   outline: 2px solid var(--c-brand);
   outline-offset: 3px;
 }
 
-/* 深色区块内的焦点环要换成白色，否则看不见 */
-.on-dark :focus-visible {
+.on-dark :focus-visible,
+.section--dark :focus-visible {
   outline-color: #fff;
 }
 
@@ -110,6 +112,10 @@ ol {
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 0 40px;
+}
+
+.container--wide {
+  max-width: 1440px;
 }
 
 .skip-link {
@@ -127,26 +133,49 @@ ol {
   top: 12px;
 }
 
-/* 区块小标签：全站统一为无底色的细字，靠字距区分层级 */
-.eyebrow {
-  display: inline-block;
+/* 区块标签 */
+.eyebrow,
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--c-brand);
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
-.on-dark .eyebrow {
+.kicker::before {
+  content: '';
+  width: 22px;
+  height: 2px;
+  background: currentColor;
+}
+
+.on-dark .eyebrow,
+.section--dark .eyebrow,
+.on-dark .kicker,
+.section--dark .kicker {
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* 区块节奏 */
 .section {
-  padding: 96px 0;
+  padding: 120px 0;
+}
+
+.section--tight {
+  padding: 80px 0;
 }
 
 .section--surface {
   background: var(--c-surface);
+}
+
+.section--mist {
+  background: var(--c-mist);
 }
 
 .section--dark {
@@ -164,21 +193,22 @@ ol {
   align-items: flex-end;
   justify-content: space-between;
   gap: 32px;
-  margin-bottom: 44px;
+  margin-bottom: 48px;
 }
 
 .section-title {
-  font-size: 40px;
-  line-height: 1.25;
-  font-weight: 500;
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.035em;
 }
 
 .section-sub {
-  margin-top: 14px;
+  margin-top: 16px;
   font-size: 16px;
   color: var(--c-text-muted);
-  max-width: 680px;
-  line-height: 1.8;
+  max-width: 640px;
+  line-height: 1.85;
 }
 
 .section--dark .section-sub {
@@ -191,43 +221,56 @@ ol {
 }
 
 .link-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   color: var(--c-brand);
   white-space: nowrap;
 }
 
-.link-more:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+.link-more::after {
+  content: '→';
+  transition: transform 0.3s var(--ease-out);
+}
+
+.link-more:hover::after {
+  transform: translateX(4px);
 }
 
 .section--dark .link-more {
   color: var(--c-on-dark);
 }
 
-/* 按钮：直角、克制，不使用阴影 */
+/* 按钮 */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 48px;
+  gap: 10px;
+  min-height: 50px;
   padding: 0 26px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   border: 1px solid transparent;
   font-size: 15px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s var(--ease-out);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
 }
 
 .btn--primary {
-  background: var(--c-brand);
+  background: var(--c-text);
   color: #fff;
 }
 
 .btn--primary:hover {
-  background: var(--c-brand-dark);
+  background: var(--c-brand);
 }
 
 .btn--ghost {
@@ -240,10 +283,9 @@ ol {
   border-color: var(--c-text);
 }
 
-/* 深色背景上的描边按钮，参考站首屏用的就是这种 */
 .btn--outline-light {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.5);
   color: #fff;
 }
 
@@ -251,6 +293,32 @@ ol {
   background: #fff;
   border-color: #fff;
   color: var(--c-navy);
+}
+
+.btn--pill {
+  border-radius: 999px;
+  border-color: var(--c-brand);
+  color: var(--c-brand);
+  background: transparent;
+  min-height: 46px;
+}
+
+.btn--pill:hover {
+  background: var(--c-brand);
+  color: #fff;
+}
+
+.btn--accent {
+  background: var(--c-brand);
+  color: #fff;
+}
+
+.btn--accent:hover {
+  background: var(--c-brand-dark);
+}
+
+.btn--block {
+  width: 100%;
 }
 
 /* 卡片：去边框，靠图片与留白建立结构 */
@@ -264,13 +332,14 @@ ol {
 }
 
 .card__body {
-  padding: 22px 0 0;
+  padding: 24px 4px 0;
 }
 
 .card__title {
   font-size: 20px;
-  font-weight: 500;
-  line-height: 1.5;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
 }
 
 .card__desc {
@@ -281,11 +350,14 @@ ol {
 }
 
 .tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--c-text-muted);
-  padding: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 16, 20, 0.05);
 }
 
 .grid {
@@ -301,24 +373,83 @@ ol {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* 图片悬停：轻微放大，仅在允许动效时启用 */
+.grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* 图片卡：深色圆角画布 */
+.media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--c-navy-2);
+}
+
+.media-frame img,
+.media-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s var(--ease-out);
+}
+
+.media-frame:hover img,
+.media-frame:hover video {
+  transform: scale(1.04);
+}
+
 .media-zoom {
   overflow: hidden;
 }
 
 .media-zoom img {
-  transition: transform 0.5s ease;
+  transition: transform 0.6s var(--ease-out);
 }
 
 .media-zoom:hover img {
-  transform: scale(1.03);
+  transform: scale(1.04);
 }
 
-/* 富文本正文：后端下发前已清洗，前端只负责排版 */
+/* 滚动进场 */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 页面切换 */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.28s ease, transform 0.35s var(--ease-out);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+/* 富文本正文 */
 .prose {
   font-size: 16px;
   line-height: 1.95;
-  color: #2b3140;
+  color: #2b2b33;
 }
 
 .prose > * + * {
@@ -326,16 +457,17 @@ ol {
 }
 
 .prose h2 {
-  font-size: 24px;
-  font-weight: 500;
-  line-height: 1.45;
-  margin-top: 44px;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 48px;
+  letter-spacing: -0.02em;
 }
 
 .prose h3 {
-  font-size: 19px;
-  font-weight: 500;
-  margin-top: 32px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 34px;
 }
 
 .prose ul,
@@ -353,6 +485,10 @@ ol {
   text-underline-offset: 3px;
 }
 
+.prose img {
+  border-radius: var(--radius-sm);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -365,15 +501,37 @@ ol {
   border: 0;
 }
 
+/* 空态与骨架 */
+.state {
+  padding: 96px 24px;
+}
+
+.skeleton {
+  height: 320px;
+  border-radius: var(--radius);
+  background: linear-gradient(100deg, #f1f3f7 20%, #f8f9fb 40%, #f1f3f7 60%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton {
+  to {
+    background-position: -200% 0;
+  }
+}
+
 @media (max-width: 1080px) {
   .section {
-    padding: 72px 0;
+    padding: 88px 0;
   }
   .section-title {
-    font-size: 32px;
+    font-size: clamp(30px, 4.2vw, 42px);
   }
   .grid {
     gap: 24px;
+  }
+  .grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -382,33 +540,34 @@ ol {
     padding: 0 20px;
   }
   .grid--3,
-  .grid--2 {
+  .grid--2,
+  .grid--4 {
     grid-template-columns: 1fr;
   }
   .section {
-    padding: 56px 0;
-  }
-  .section-title {
-    font-size: 27px;
+    padding: 64px 0;
   }
   .section-head {
     flex-direction: column;
     align-items: flex-start;
     gap: 14px;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-size: clamp(28px, 7vw, 36px);
   }
   .card__title {
     font-size: 18px;
   }
 }
 
-/* 深色页头之后的第一个区块收紧上间距，避免标题与内容之间出现大片空白 */
+/* 深色页头之后的第一个区块收紧上间距 */
 .page-head + .section {
-  padding-top: 64px;
+  padding-top: 80px;
 }
 
 @media (max-width: 860px) {
   .page-head + .section {
-    padding-top: 40px;
+    padding-top: 48px;
   }
 }

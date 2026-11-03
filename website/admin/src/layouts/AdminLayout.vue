@@ -110,13 +110,15 @@ async function handleLogout() {
 .logo {
   width: 26px;
   height: 26px;
-  border-radius: 6px;
-  background: #e6f1fb;
-  color: var(--a-brand);
+  border-radius: 7px;
+  background: linear-gradient(135deg, #7a6bff, #5b4be8);
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(91, 75, 232, 0.3);
 }
 
 .brand-name {

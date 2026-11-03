@@ -27,6 +27,7 @@ onMounted(async () => {
   <div>
     <PageHeader
       title="隐私说明"
+      eyebrow="LEGAL"
       :crumbs="[{ label: '首页', path: '/' }, { label: '隐私说明' }]"
     />
 

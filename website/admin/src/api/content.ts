@@ -44,8 +44,10 @@ export interface MediaItem {
   id: string
   originalName: string
   mimeType: string
+  mediaType: 'IMAGE' | 'VIDEO'
   width: number
   height: number
+  durationMs: number | null
   byteSize: number
   url: string
   createdAt: string | null
@@ -164,14 +166,25 @@ export function deleteCategory(id: string, expectedLockVersion: number) {
 
 // ---- 素材 ----
 
-export function listMedia(params: { keyword?: string; referenced?: boolean; page: number; pageSize: number }) {
+export function listMedia(params: {
+  keyword?: string
+  type?: 'IMAGE' | 'VIDEO'
+  referenced?: boolean
+  page: number
+  pageSize: number
+}) {
   const query = new URLSearchParams({
     page: String(params.page),
     pageSize: String(params.pageSize),
   })
   if (params.keyword) query.set('keyword', params.keyword)
+  if (params.type) query.set('type', params.type)
   if (params.referenced) query.set('referenced', 'true')
   return get<MediaPage>(`/api/admin/media?${query.toString()}`)
+}
+
+export function getMedia(id: string) {
+  return get<MediaItem>(`/api/admin/media/${id}`)
 }
 
 export function deleteMedia(id: string) {

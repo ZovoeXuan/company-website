@@ -9,15 +9,17 @@ usePageMeta(() => ({
 </script>
 
 <template>
-  <section class="notfound">
+  <section class="notfound on-dark">
+    <div class="notfound__glow" aria-hidden="true"></div>
     <div class="container">
-      <p class="code">404</p>
+      <p class="kicker">404 / NOT FOUND</p>
+      <p class="code" aria-hidden="true">404</p>
       <h1 class="title">页面不存在</h1>
       <p class="desc">链接可能已失效，或者内容已下线。可以从下面的入口重新开始。</p>
       <div class="actions">
-        <RouterLink to="/" class="btn btn--primary">返回首页</RouterLink>
-        <RouterLink to="/products" class="btn btn--ghost">查看产品</RouterLink>
-        <RouterLink to="/contact" class="btn btn--ghost">联系我们</RouterLink>
+        <RouterLink to="/" class="btn btn--outline-light">返回首页</RouterLink>
+        <RouterLink to="/products" class="btn btn--outline-light">查看产品</RouterLink>
+        <RouterLink to="/contact" class="btn btn--outline-light">联系我们</RouterLink>
       </div>
     </div>
   </section>
@@ -25,34 +27,57 @@ usePageMeta(() => ({
 
 <style scoped>
 .notfound {
-  padding: 96px 0 64px;
+  position: relative;
+  overflow: hidden;
+  background: var(--c-navy);
+  color: #fff;
+  padding: 160px 0 140px;
+  min-height: 70vh;
+}
+
+.notfound__glow {
+  position: absolute;
+  width: 900px;
+  height: 700px;
+  left: 10%;
+  top: -20%;
+  background: radial-gradient(closest-side, rgba(91, 75, 232, 0.4), transparent 70%);
+  filter: blur(20px);
+}
+
+.container {
+  position: relative;
+  z-index: 1;
 }
 
 .code {
-  font-size: 64px;
-  font-weight: 500;
-  color: var(--c-brand);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: clamp(100px, 20vw, 240px);
+  line-height: 0.9;
+  font-weight: 600;
+  letter-spacing: -0.08em;
+  color: rgba(255, 255, 255, 0.12);
+  margin-top: 8px;
 }
 
 .title {
-  margin-top: 16px;
-  font-size: 28px;
-  font-weight: 500;
+  margin-top: -20px;
+  font-size: clamp(30px, 4vw, 44px);
+  color: #fff;
+  letter-spacing: -0.03em;
 }
 
 .desc {
-  margin-top: 12px;
+  margin-top: 14px;
   font-size: 15px;
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
   max-width: 520px;
+  line-height: 1.8;
 }
 
 .actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 28px;
+  margin-top: 36px;
 }
 </style>

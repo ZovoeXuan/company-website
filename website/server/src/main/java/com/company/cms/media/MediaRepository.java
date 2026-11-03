@@ -28,19 +28,22 @@ public class MediaRepository {
             rs.getString("original_name"),
             rs.getString("extension"),
             rs.getString("mime_type"),
+            rs.getString("media_type"),
             rs.getLong("byte_size"),
             rs.getInt("width"),
             rs.getInt("height"),
+            rs.getObject("duration_ms") == null ? null : ((Number) rs.getObject("duration_ms")).intValue(),
             rs.getObject("created_at", java.time.LocalDateTime.class)
     );
 
     public long insert(String storageKey, String originalName, String extension, String mimeType,
-                       long byteSize, int width, int height, long uploadedBy) {
+                       String mediaType, long byteSize, int width, int height, Integer durationMs,
+                       long uploadedBy) {
         String sql = """
                 INSERT INTO cms_media
-                    (storage_key, original_name, extension, mime_type, byte_size, width, height,
-                     uploaded_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (storage_key, original_name, extension, mime_type, media_type, byte_size,
+                     width, height, duration_ms, uploaded_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(connection -> {
@@ -49,11 +52,13 @@ public class MediaRepository {
             ps.setString(2, originalName);
             ps.setString(3, extension);
             ps.setString(4, mimeType);
-            ps.setLong(5, byteSize);
-            ps.setInt(6, width);
-            ps.setInt(7, height);
-            ps.setLong(8, uploadedBy);
-            ps.setObject(9, UtcTime.now());
+            ps.setString(5, mediaType);
+            ps.setLong(6, byteSize);
+            ps.setInt(7, width);
+            ps.setInt(8, height);
+            ps.setObject(9, durationMs);
+            ps.setLong(10, uploadedBy);
+            ps.setObject(11, UtcTime.now());
             return ps;
         }, keyHolder);
         Number key = keyHolder.getKey();
@@ -82,21 +87,15 @@ public class MediaRepository {
     public record MediaListItem(MediaRow media, boolean referenced) {
     }
 
-    public List<MediaListItem> findPage(String keyword, boolean referencedOnly, int offset, int limit) {
+    public List<MediaListItem> findPage(String keyword, String mediaType, boolean referencedOnly,
+                                        int offset, int limit) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder("""
                 SELECT m.*, EXISTS(SELECT 1 FROM cms_media_ref r WHERE r.media_id = m.id) AS referenced
                   FROM cms_media m
                  WHERE m.deleted = 0
                 """);
-        if (keyword != null && !keyword.isBlank()) {
-            sql.append(" AND m.original_name LIKE ?");
-            args.add("%" + keyword.trim()
-                    .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
-        }
-        if (referencedOnly) {
-            sql.append(" AND EXISTS(SELECT 1 FROM cms_media_ref r WHERE r.media_id = m.id)");
-        }
+        appendFilters(sql, args, keyword, mediaType, referencedOnly);
         sql.append(" ORDER BY m.created_at DESC, m.id DESC LIMIT ? OFFSET ?");
         args.add(limit);
         args.add(offset);
@@ -107,19 +106,28 @@ public class MediaRepository {
         ), args.toArray());
     }
 
-    public long count(String keyword, boolean referencedOnly) {
+    public long count(String keyword, String mediaType, boolean referencedOnly) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM cms_media m WHERE m.deleted = 0");
+        appendFilters(sql, args, keyword, mediaType, referencedOnly);
+        Long total = jdbc.queryForObject(sql.toString(), Long.class, args.toArray());
+        return total == null ? 0 : total;
+    }
+
+    private void appendFilters(StringBuilder sql, List<Object> args, String keyword,
+                               String mediaType, boolean referencedOnly) {
         if (keyword != null && !keyword.isBlank()) {
             sql.append(" AND m.original_name LIKE ?");
             args.add("%" + keyword.trim()
                     .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%");
         }
+        if (mediaType != null && !mediaType.isBlank()) {
+            sql.append(" AND m.media_type = ?");
+            args.add(mediaType);
+        }
         if (referencedOnly) {
             sql.append(" AND EXISTS(SELECT 1 FROM cms_media_ref r WHERE r.media_id = m.id)");
         }
-        Long total = jdbc.queryForObject(sql.toString(), Long.class, args.toArray());
-        return total == null ? 0 : total;
     }
 
     public int logicalDelete(long id) {

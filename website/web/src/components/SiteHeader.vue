@@ -15,10 +15,16 @@ const route = useRoute()
 const open = ref(false)
 const openMenu = ref<string | null>(null)
 const openMobile = ref<string | null>(null)
+const scrolled = ref(false)
 
 function close() {
   open.value = false
   openMobile.value = null
+  openMenu.value = null
+}
+
+function onScroll() {
+  scrolled.value = window.scrollY > 24
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -46,17 +52,26 @@ function isActive(item: NavItem): boolean {
   return route.path === item.path || route.path.startsWith(`${item.path}/`)
 }
 
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
+onMounted(() => {
+  document.addEventListener('keydown', onKeydown)
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('scroll', onScroll)
+})
 </script>
 
 <template>
-  <header class="header">
-    <div class="container header__inner">
+  <header class="header" :class="{ 'is-scrolled': scrolled }">
+    <div class="header__inner container container--wide">
       <RouterLink to="/" class="brand" :aria-label="`${props.siteName} 首页`">
         <img v-if="logoUrl" :src="logoUrl" :alt="logoAlt || siteName" class="brand__logo" />
         <template v-else>
-          <span class="brand__mark" aria-hidden="true">{{ siteName.slice(0, 1) }}</span>
+          <span class="brand__mark" aria-hidden="true">
+            <span>{{ siteName.slice(0, 1) }}</span>
+          </span>
           <span class="brand__name">{{ siteName }}</span>
         </template>
       </RouterLink>
@@ -68,43 +83,54 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               <button
                 type="button"
                 class="nav__link nav__button"
-                :class="{ 'router-link-active': isActive(item) }"
+                :class="{ 'is-active': isActive(item), 'is-open': openMenu === item.label }"
                 :aria-expanded="openMenu === item.label"
                 @click="toggleMenu(item)"
               >
                 {{ item.label }}
-                <span class="caret" aria-hidden="true">▾</span>
+                <span class="caret" aria-hidden="true"></span>
               </button>
-              <ul v-if="openMenu === item.label" class="sub">
-                <li v-for="child in item.children" :key="child.label">
-                  <button
-                    v-if="child.linkType === 'CONSULT'"
-                    type="button"
-                    class="sub__link sub__button"
-                    @click="consult()"
-                  >
-                    {{ child.label }}
-                  </button>
-                  <a
-                    v-else-if="child.url"
-                    :href="child.url"
-                    class="sub__link"
-                    :target="child.newWindow ? '_blank' : undefined"
-                    :rel="child.newWindow ? 'noopener noreferrer' : undefined"
-                    @click="openMenu = null"
-                  >
-                    {{ child.label }}
-                  </a>
-                  <RouterLink v-else :to="child.path" class="sub__link" @click="openMenu = null">
-                    {{ child.label }}
-                  </RouterLink>
-                </li>
-              </ul>
+              <Transition name="menu">
+                <div v-if="openMenu === item.label" class="mega">
+                  <div class="mega__head">
+                    <span class="mega__kicker">产品与能力</span>
+                    <span class="mega__note">选择方向，查看对应内容</span>
+                  </div>
+                  <ul class="mega__list">
+                    <li v-for="child in item.children" :key="child.label">
+                      <button
+                        v-if="child.linkType === 'CONSULT'"
+                        type="button"
+                        class="mega__link"
+                        @click="consult()"
+                      >
+                        <span>{{ child.label }}</span>
+                        <span class="mega__arrow" aria-hidden="true">→</span>
+                      </button>
+                      <a
+                        v-else-if="child.url"
+                        :href="child.url"
+                        class="mega__link"
+                        :target="child.newWindow ? '_blank' : undefined"
+                        :rel="child.newWindow ? 'noopener noreferrer' : undefined"
+                        @click="openMenu = null"
+                      >
+                        <span>{{ child.label }}</span>
+                        <span class="mega__arrow" aria-hidden="true">→</span>
+                      </a>
+                      <RouterLink v-else :to="child.path" class="mega__link" @click="openMenu = null">
+                        <span>{{ child.label }}</span>
+                        <span class="mega__arrow" aria-hidden="true">→</span>
+                      </RouterLink>
+                    </li>
+                  </ul>
+                </div>
+              </Transition>
             </template>
             <button
               v-else-if="item.linkType === 'CONSULT'"
               type="button"
-              class="nav__link nav__button"
+              class="nav__link"
               @click="consult()"
             >
               {{ item.label }}
@@ -118,15 +144,21 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             >
               {{ item.label }}
             </a>
-            <RouterLink v-else :to="item.path" class="nav__link">{{ item.label }}</RouterLink>
+            <RouterLink
+              v-else
+              :to="item.path"
+              class="nav__link"
+              :class="{ 'is-active': isActive(item) }"
+            >
+              {{ item.label }}
+            </RouterLink>
           </li>
         </ul>
       </nav>
 
       <div class="actions">
-        <button type="button" class="btn btn--primary actions__cta" @click="consult('OTHER_CTA')">
-          咨询我们
-        </button>
+        <span class="lang" aria-hidden="true">中文</span>
+        <button type="button" class="actions__cta" @click="consult('OTHER_CTA')">预约演示</button>
         <button
           type="button"
           class="toggle"
@@ -135,101 +167,115 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
           @click="open = !open"
         >
           <span class="visually-hidden">{{ open ? '关闭菜单' : '打开菜单' }}</span>
-          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-            <path v-if="!open" d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.6" />
-            <path v-else d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" />
-          </svg>
+          <span class="toggle__line" :class="{ 'is-open': open }"></span>
         </button>
       </div>
     </div>
 
-    <nav v-if="open" id="mobile-nav" class="mobile" aria-label="移动端导航">
-      <ul class="mobile__list">
-        <li v-for="item in nav" :key="item.label">
-          <template v-if="item.children?.length">
+    <Transition name="mobile">
+      <nav v-if="open" id="mobile-nav" class="mobile" aria-label="移动端导航">
+        <ul class="mobile__list">
+          <li v-for="item in nav" :key="item.label">
+            <template v-if="item.children?.length">
+              <button
+                type="button"
+                class="mobile__link mobile__button"
+                :aria-expanded="openMobile === item.label"
+                @click="openMobile = openMobile === item.label ? null : item.label"
+              >
+                {{ item.label }}
+                <span class="caret" aria-hidden="true"></span>
+              </button>
+              <ul v-if="openMobile === item.label" class="mobile__sub">
+                <li v-for="child in item.children" :key="child.label">
+                  <button
+                    v-if="child.linkType === 'CONSULT'"
+                    type="button"
+                    class="mobile__sublink mobile__sublink--button"
+                    @click="consult()"
+                  >
+                    {{ child.label }}
+                  </button>
+                  <a
+                    v-else-if="child.url"
+                    :href="child.url"
+                    class="mobile__sublink"
+                    :target="child.newWindow ? '_blank' : undefined"
+                    :rel="child.newWindow ? 'noopener noreferrer' : undefined"
+                    @click="close"
+                  >
+                    {{ child.label }}
+                  </a>
+                  <RouterLink v-else :to="child.path" class="mobile__sublink" @click="close">
+                    {{ child.label }}
+                  </RouterLink>
+                </li>
+              </ul>
+            </template>
             <button
+              v-else-if="item.linkType === 'CONSULT'"
               type="button"
-              class="mobile__link mobile__button"
-              :aria-expanded="openMobile === item.label"
-              @click="openMobile = openMobile === item.label ? null : item.label"
+              class="mobile__link"
+              @click="consult()"
             >
               {{ item.label }}
-              <span class="caret" aria-hidden="true">{{ openMobile === item.label ? '▴' : '▾' }}</span>
             </button>
-            <ul v-if="openMobile === item.label" class="mobile__sub">
-              <li v-for="child in item.children" :key="child.label">
-                <button
-                  v-if="child.linkType === 'CONSULT'"
-                  type="button"
-                  class="mobile__sublink mobile__sublink--button"
-                  @click="consult()"
-                >
-                  {{ child.label }}
-                </button>
-                <a
-                  v-else-if="child.url"
-                  :href="child.url"
-                  class="mobile__sublink"
-                  :target="child.newWindow ? '_blank' : undefined"
-                  :rel="child.newWindow ? 'noopener noreferrer' : undefined"
-                  @click="close"
-                >
-                  {{ child.label }}
-                </a>
-                <RouterLink v-else :to="child.path" class="mobile__sublink" @click="close">
-                  {{ child.label }}
-                </RouterLink>
-              </li>
-            </ul>
-          </template>
-          <button
-            v-else-if="item.linkType === 'CONSULT'"
-            type="button"
-            class="mobile__link"
-            @click="consult()"
-          >
-            {{ item.label }}
-          </button>
-          <a
-            v-else-if="item.url"
-            :href="item.url"
-            class="mobile__link"
-            :target="item.newWindow ? '_blank' : undefined"
-            :rel="item.newWindow ? 'noopener noreferrer' : undefined"
-            @click="close"
-          >
-            {{ item.label }}
-          </a>
-          <RouterLink
-            v-else
-            :to="item.path"
-            class="mobile__link"
-            :class="{ 'is-active': isActive(item) }"
-            @click="close"
-          >
-            {{ item.label }}
-          </RouterLink>
-        </li>
-      </ul>
-    </nav>
+            <a
+              v-else-if="item.url"
+              :href="item.url"
+              class="mobile__link"
+              :target="item.newWindow ? '_blank' : undefined"
+              :rel="item.newWindow ? 'noopener noreferrer' : undefined"
+              @click="close"
+            >
+              {{ item.label }}
+            </a>
+            <RouterLink
+              v-else
+              :to="item.path"
+              class="mobile__link"
+              :class="{ 'is-active': isActive(item) }"
+              @click="close"
+            >
+              {{ item.label }}
+            </RouterLink>
+          </li>
+        </ul>
+        <button type="button" class="btn btn--primary mobile__cta" @click="consult('OTHER_CTA')">
+          预约演示
+        </button>
+      </nav>
+    </Transition>
   </header>
 </template>
 
 <style scoped>
-/* 深蓝导航：与首屏大图衔接，滚动时保持不透明，避免文字压到浅色内容上看不清 */
 .header {
   position: sticky;
   top: 0;
-  z-index: 30;
-  background: var(--c-navy);
-  color: var(--c-on-dark);
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.header.is-scrolled {
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom-color: var(--c-border);
+  box-shadow: 0 8px 32px rgba(10, 12, 20, 0.05);
 }
 
 .header__inner {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 36px;
   height: var(--header-height);
+  transition: height 0.3s var(--ease-out);
+}
+
+.header.is-scrolled .header__inner {
+  height: 68px;
 }
 
 .brand {
@@ -241,27 +287,28 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
 .brand__logo {
   max-height: 34px;
-  max-width: 160px;
+  max-width: 168px;
   object-fit: contain;
 }
 
 .brand__mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 2px;
-  background: var(--c-brand);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7a6bff 0%, #5b4be8 60%, #3a2ac4 100%);
   color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(91, 75, 232, 0.28);
 }
 
 .brand__name {
   font-size: 17px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--c-on-dark);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .nav {
@@ -271,7 +318,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
 .nav__list {
   display: flex;
-  gap: 34px;
+  gap: 32px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -282,86 +329,173 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 }
 
 .nav__link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: var(--header-height);
-  padding: 0;
+  padding: 10px 0;
   font-size: 15px;
-  color: var(--c-on-dark-muted);
-  border-bottom: 2px solid transparent;
+  color: var(--c-text-muted);
   background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
+  border: none;
   cursor: pointer;
   font-family: inherit;
-  transition: color 0.16s ease;
+  transition: color 0.2s ease;
 }
 
-.nav__link:hover {
-  color: var(--c-on-dark);
+.nav__link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 2px;
+  background: var(--c-brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s var(--ease-out);
 }
 
-.nav__link.router-link-active,
-.nav__button.router-link-active {
-  color: var(--c-on-dark);
-  border-bottom-color: var(--c-brand);
+.nav__link:hover,
+.nav__link.is-active {
+  color: var(--c-text);
+}
+
+.nav__link.is-active::after {
+  transform: scaleX(1);
 }
 
 .caret {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.7;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.25s var(--ease-out);
 }
 
-/* 下拉面板：白底，与深色导航形成强对比，便于快速定位子项 */
-.sub {
+.nav__button.is-open .caret {
+  transform: rotate(225deg) translateY(-2px);
+}
+
+.mega {
   position: absolute;
-  top: calc(var(--header-height) - 8px);
-  left: -20px;
-  min-width: 200px;
-  list-style: none;
-  margin: 0;
-  padding: 10px;
+  top: calc(100% + 10px);
+  left: -24px;
+  width: 440px;
+  padding: 22px 24px 18px;
   background: #fff;
   border: 1px solid var(--c-border);
-  box-shadow: 0 18px 40px rgba(8, 20, 44, 0.16);
-  z-index: 20;
+  border-radius: 18px;
+  box-shadow: 0 28px 64px rgba(10, 12, 20, 0.14);
+  z-index: 30;
 }
 
-.sub__link {
-  display: block;
-  padding: 10px 14px;
+.mega__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 8px;
+}
+
+.mega__kicker {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-brand);
+  font-weight: 600;
+}
+
+.mega__note {
+  font-size: 12px;
+  color: var(--c-text-subtle);
+}
+
+.mega__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 18px;
+}
+
+.mega__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 10px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-family: inherit;
   font-size: 14px;
-  color: var(--c-text-muted);
+  color: var(--c-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.sub__link:hover {
-  background: var(--c-surface);
+.mega__link:hover {
+  background: var(--c-brand-soft);
   color: var(--c-brand);
 }
 
-.sub__button {
-  width: 100%;
-  border: none;
-  background: none;
-  text-align: left;
-  font-family: inherit;
-  cursor: pointer;
+.mega__arrow {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.2s ease, transform 0.25s var(--ease-out);
+}
+
+.mega__link:hover .mega__arrow {
+  opacity: 1;
+  transform: none;
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.2s ease, transform 0.25s var(--ease-out);
+}
+
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 18px;
   flex: none;
 }
 
+.lang {
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
 .actions__cta {
-  min-height: 40px;
+  min-height: 42px;
   padding: 0 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--c-text);
+  color: #fff;
   font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s var(--ease-out);
+}
+
+.actions__cta:hover {
+  background: var(--c-brand);
+  transform: translateY(-1px);
 }
 
 .toggle {
@@ -370,21 +504,68 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   height: 40px;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: 1px solid var(--c-on-dark-line);
-  color: var(--c-on-dark);
+  background: #fff;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 10px;
   cursor: pointer;
 }
 
+.toggle__line,
+.toggle__line::before,
+.toggle__line::after {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: var(--c-text);
+  transition: transform 0.25s var(--ease-out), opacity 0.2s ease;
+}
+
+.toggle__line {
+  position: relative;
+}
+
+.toggle__line::before,
+.toggle__line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.toggle__line::before {
+  top: -6px;
+}
+
+.toggle__line::after {
+  top: 6px;
+}
+
+.toggle__line.is-open {
+  background: transparent;
+}
+
+.toggle__line.is-open::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.toggle__line.is-open::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
 .mobile {
-  border-top: 1px solid var(--c-on-dark-line);
-  background: var(--c-navy);
+  display: none;
+  border-top: 1px solid var(--c-border);
+  background: #fff;
+  padding: 8px 20px 24px;
+  max-height: calc(100dvh - var(--header-height));
+  overflow-y: auto;
 }
 
 .mobile__list {
   list-style: none;
   margin: 0;
-  padding: 8px 20px 20px;
+  padding: 0;
 }
 
 .mobile__link {
@@ -392,63 +573,94 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 14px 4px;
-  font-size: 16px;
-  color: var(--c-on-dark);
-  border-bottom: 1px solid var(--c-on-dark-line);
+  padding: 16px 4px;
+  font-size: 17px;
+  color: var(--c-text);
+  border: none;
+  border-bottom: 1px solid var(--c-border);
   background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .mobile__link.is-active {
-  color: #fff;
-  font-weight: 500;
+  color: var(--c-brand);
+  font-weight: 600;
 }
 
 .mobile__sub {
   list-style: none;
   margin: 0;
-  padding: 4px 0 10px 14px;
+  padding: 6px 0 10px 14px;
 }
 
 .mobile__sublink {
   display: block;
   padding: 11px 4px;
   font-size: 14px;
-  color: var(--c-on-dark-muted);
-  border-bottom: 1px solid var(--c-on-dark-line);
+  color: var(--c-text-muted);
 }
 
 .mobile__sublink--button {
   width: 100%;
   border: none;
-  border-bottom: 1px solid var(--c-on-dark-line);
   background: none;
   text-align: left;
   font-family: inherit;
   cursor: pointer;
 }
 
-@media (max-width: 980px) {
+.mobile__cta {
+  margin-top: 18px;
+  width: 100%;
+}
+
+.mobile-enter-active,
+.mobile-leave-active {
+  transition: opacity 0.2s ease, transform 0.3s var(--ease-out);
+}
+
+.mobile-enter-from,
+.mobile-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@media (max-width: 1080px) {
+  .nav__list {
+    gap: 22px;
+  }
+  .lang {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
   .nav {
     display: none;
   }
   .toggle {
     display: inline-flex;
   }
+  .mobile {
+    display: block;
+  }
   .actions {
     margin-left: auto;
+    gap: 12px;
+  }
+  .header__inner {
+    gap: 16px;
   }
 }
 
 @media (max-width: 520px) {
   .actions__cta {
     display: none;
+  }
+  .brand__name {
+    font-size: 16px;
   }
 }
 </style>

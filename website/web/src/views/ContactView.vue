@@ -29,12 +29,16 @@ onMounted(async () => {
     <PageHeader
       :title="page?.title || '联系我们'"
       :description="page?.description || '先了解你的场景，再决定是否值得合作。工作时间内通常 4 小时内回复。'"
+      eyebrow="CONTACT"
+      tone="light"
+      centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '联系我们' }]"
     />
 
     <section class="section">
       <div class="container layout">
-        <div class="info">
+        <div class="info" v-reveal>
+          <p class="kicker">DIRECT LINE</p>
           <h2 class="info__title">直接联系</h2>
           <dl class="info__list">
             <div v-if="site?.contact.phone" class="info__row">
@@ -58,10 +62,20 @@ onMounted(async () => {
               <dd>{{ site.contact.hours }}</dd>
             </div>
           </dl>
+
+          <div class="map" aria-hidden="true">
+            <div class="map__grid"></div>
+            <div class="map__pin"></div>
+            <p class="map__label">HQ · 示例科技</p>
+          </div>
         </div>
 
-        <div class="form-wrap">
-          <h2 class="form__title">在线咨询</h2>
+        <div class="form-wrap" v-reveal="120">
+          <div class="form-head">
+            <p class="kicker">START A CONVERSATION</p>
+            <h2 class="form__title">在线咨询</h2>
+            <p class="form__desc">留下联系方式与场景，我们会在一个工作日内回复。</p>
+          </div>
           <ConsultForm source-position="CONTACT" :success-text="page?.successText" />
         </div>
       </div>
@@ -72,62 +86,121 @@ onMounted(async () => {
 <style scoped>
 .layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 64px;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 80px;
   align-items: start;
 }
 
 .info__title {
-  font-size: 20px;
-  font-weight: 500;
-  margin-bottom: 20px;
+  font-size: clamp(26px, 3vw, 36px);
+  letter-spacing: -0.03em;
+  margin-bottom: 28px;
 }
 
 .info__list {
   margin: 0;
+  border-top: 1px solid var(--c-border);
 }
 
 .info__row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px 0;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 0;
   border-bottom: 1px solid var(--c-border);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .info__row dt {
-  color: var(--c-text-muted);
-  font-size: 14px;
+  color: var(--c-text-subtle);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding-top: 3px;
 }
 
 .info__link {
-  color: var(--c-brand);
+  color: var(--c-text);
+  font-weight: 500;
 }
 
 .info__link:hover {
-  text-decoration: underline;
+  color: var(--c-brand);
 }
 
-/* 表单不做成描边卡片，改为浅底块，与深色页头形成层次 */
+.map {
+  position: relative;
+  margin-top: 36px;
+  height: 230px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 40%, rgba(91, 75, 232, 0.18), transparent 55%),
+    #eef3fa;
+}
+
+.map__grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(16, 16, 20, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 16, 20, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.map__pin {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-brand);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 10px rgba(91, 75, 232, 0.16), 0 0 0 22px rgba(91, 75, 232, 0.08);
+}
+
+.map__label {
+  position: absolute;
+  left: 24px;
+  bottom: 20px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--c-text-muted);
+}
+
 .form-wrap {
-  background: var(--c-surface);
-  padding: 40px;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 44px;
+  box-shadow: 0 24px 64px rgba(10, 12, 20, 0.08);
+}
+
+.form-head {
+  padding-bottom: 28px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--c-border);
 }
 
 .form__title {
-  font-size: 22px;
-  font-weight: 500;
-  margin-bottom: 28px;
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -0.03em;
+}
+
+.form__desc {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--c-text-muted);
+  line-height: 1.8;
 }
 
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 48px;
   }
   .form-wrap {
-    padding: 24px;
+    padding: 28px;
+  }
+  .map {
+    height: 180px;
   }
 }
 </style>

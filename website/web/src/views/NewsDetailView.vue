@@ -68,6 +68,7 @@ onMounted(load)
   <article v-else class="article">
     <PageHeader
       :title="data.title"
+      eyebrow="NEWS"
       :crumbs="[{ label: '首页', path: '/' }, { label: '新闻', path: '/news' }, { label: data.categoryName || '正文' }]"
     />
 
@@ -75,6 +76,8 @@ onMounted(load)
       <div class="meta">
         <time :datetime="data.displayTime">{{ data.displayTime }}</time>
         <span v-if="data.categoryName" class="tag">{{ data.categoryName }}</span>
+        <span v-if="data.author">作者：{{ data.author }}</span>
+        <span v-if="data.sourceName">来源：{{ data.sourceName }}</span>
       </div>
 
       <figure v-if="data.cover" class="cover">
@@ -104,28 +107,30 @@ onMounted(load)
 
 <style scoped>
 .article__body {
-  max-width: 820px;
-  padding-top: 40px;
+  max-width: 900px;
+  padding-top: 56px;
 }
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   font-size: 13px;
   color: var(--c-text-subtle);
   font-variant-numeric: tabular-nums;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .cover {
-  margin-bottom: 32px;
+  margin-bottom: 40px;
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .cover img {
   width: 100%;
   border-radius: var(--radius);
-  border: 1px solid var(--c-border);
 }
 
 .adjacent {

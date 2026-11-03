@@ -5,3 +5,7 @@
 .DS_Store
 Thumbs.db
 .idea/
+
+# 本地参考录屏等大文件，不纳入版本库
+/httpswww.g7.com.cn的官网参考/
+*.mp4

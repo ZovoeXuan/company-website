@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApiError, upload } from '@/api/http'
 import { listMedia, type MediaItem } from '@/api/content'
 
-const props = defineProps<{ modelValue: boolean; selectedId?: string | null }>()
+const props = defineProps<{
+  modelValue: boolean
+  selectedId?: string | null
+  kind?: 'IMAGE' | 'VIDEO' | 'ALL'
+}>()
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   select: [media: MediaItem]
@@ -16,10 +20,35 @@ const keyword = ref('')
 const uploading = ref(false)
 const fileInput = ref<HTMLInputElement>()
 
+const filterType = computed<'IMAGE' | 'VIDEO' | undefined>(() => {
+  if (props.kind === 'VIDEO') return 'VIDEO'
+  if (props.kind === 'IMAGE') return 'IMAGE'
+  return undefined
+})
+const accept = computed(() => {
+  if (props.kind === 'VIDEO') return 'video/mp4,video/webm'
+  if (props.kind === 'IMAGE') return 'image/png,image/jpeg,image/webp'
+  return 'image/png,image/jpeg,image/webp,video/mp4,video/webm'
+})
+const dialogTitle = computed(() => (props.kind === 'VIDEO' ? '选择视频' : props.kind === 'ALL' ? '选择素材' : '选择图片'))
+const uploadLabel = computed(() => (props.kind === 'VIDEO' ? '上传新视频' : props.kind === 'ALL' ? '上传新素材' : '上传新图片'))
+const hint = computed(() =>
+  props.kind === 'VIDEO'
+    ? '支持 MP4、WebM 视频，单个不超过 50 MB。视频将静音循环播放。'
+    : props.kind === 'ALL'
+      ? '支持 JPG、PNG、WebP 图片（≤5 MB）与 MP4、WebM 视频（≤50 MB）。'
+      : '支持 JPG、PNG、WebP，单张不超过 5 MB。缩略图为后台鉴权地址，前台公开地址在发布后生效。',
+)
+
 async function load() {
   loading.value = true
   try {
-    const data = await listMedia({ keyword: keyword.value, page: 1, pageSize: 40 })
+    const data = await listMedia({
+      keyword: keyword.value,
+      type: filterType.value,
+      page: 1,
+      pageSize: 40,
+    })
     items.value = data.items
   } catch (error) {
     ElMessage.error(error instanceof ApiError ? error.message : '素材加载失败')
@@ -74,7 +103,7 @@ function thumbUrl(media: MediaItem) {
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="选择图片"
+    :title="dialogTitle"
     width="820px"
     top="6vh"
     @update:model-value="(v: boolean) => emit('update:modelValue', v)"
@@ -89,11 +118,11 @@ function thumbUrl(media: MediaItem) {
       />
       <el-button @click="load">查询</el-button>
       <div class="spacer"></div>
-      <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden @change="onFileChange" />
-      <el-button type="primary" :loading="uploading" @click="fileInput?.click()">上传新图片</el-button>
+      <input ref="fileInput" type="file" :accept="accept" hidden @change="onFileChange" />
+      <el-button type="primary" :loading="uploading" @click="fileInput?.click()">{{ uploadLabel }}</el-button>
     </div>
 
-    <p class="hint">支持 JPG、PNG、WebP，单张不超过 5 MB。缩略图为后台鉴权地址，前台公开地址在发布后生效。</p>
+    <p class="hint">{{ hint }}</p>
 
     <div v-loading="loading" class="grid">
       <button
@@ -104,10 +133,20 @@ function thumbUrl(media: MediaItem) {
         :class="{ 'is-selected': media.id === selectedId }"
         @click="choose(media)"
       >
-        <img :src="thumbUrl(media)" :alt="media.originalName" loading="lazy" />
-        <span class="item__meta">{{ media.width }}×{{ media.height }}</span>
+        <video
+          v-if="media.mediaType === 'VIDEO'"
+          :src="thumbUrl(media)"
+          class="item__media"
+          muted
+          playsinline
+          preload="metadata"
+        ></video>
+        <img v-else :src="thumbUrl(media)" :alt="media.originalName" class="item__media" loading="lazy" />
+        <span class="item__meta">
+          {{ media.mediaType === 'VIDEO' ? '视频' : `${media.width}×${media.height}` }}
+        </span>
       </button>
-      <el-empty v-if="!loading && items.length === 0" description="还没有素材，先上传一张" />
+      <el-empty v-if="!loading && items.length === 0" description="还没有素材，先上传一个" />
     </div>
 
     <template #footer>
@@ -153,7 +192,7 @@ function thumbUrl(media: MediaItem) {
   overflow: hidden;
 }
 
-.item img {
+.item__media {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;

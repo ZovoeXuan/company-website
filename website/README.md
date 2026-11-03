@@ -13,7 +13,7 @@ website/
       common/              统一响应、错误码、异常处理、requestId
       config/              安全基线
     src/main/resources/
-      db/migration/        Flyway 迁移（V1 业务表，V2 会话表）
+      db/migration/        Flyway 迁移（V1 业务表，V2 会话表，V3 媒体视频字段）
       application.yml
   web/                     官网 Vue 3
   admin/                   管理后台 Vue 3 + Element Plus
@@ -106,16 +106,25 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 | 6 | 咨询闭环 | 完成：官网表单、幂等与限流、后台线索处理（`docs/stage6-verification.md`） |
 | 7 | 联调、测试、部署、恢复 | 未开始 |
 
-官网九个页面已完成，说明见 `docs/frontend-pages.md`。页面数据全部来自 `/api/public/*`，示例数据层已删除；
-列表与详情区分加载、空态与请求失败三种状态。
+官网九个页面已完成，说明见 `docs/frontend-pages.md`；视觉与媒体增强见 `docs/ui-redesign.md`。
+页面数据全部来自 `/api/public/*`，示例数据层已删除；列表与详情区分加载、空态与请求失败三种状态。
 
 ### 素材存储
 
-上传的图片默认落在 `server/data/media/{年}/{月}/`，可用 `CMS_MEDIA_ROOT` 覆盖。
-该目录已在 `.gitignore` 中排除。公开访问地址为 `/api/public/media/{id}`，只有被
-已发布内容引用时才可读取。
+上传的图片与视频默认落在 `server/data/media/{年}/{月}/`，可用 `CMS_MEDIA_ROOT` 覆盖。
+该目录已在 `.gitignore` 中排除。
 
-后台页面在登录未接入前可直接访问，顶部有醒目提示，**不得**当作可交付状态。
+| 类型 | 上限 | 识别方式 | 用途 |
+|---|---|---|---|
+| 图片 | 5MB | 文件头判断 PNG / JPEG / WebP | 封面、正文图、Logo、首屏背景 |
+| 视频 | 50MB | 文件头判断 MP4（`ftyp`）/ WebM | 首页首屏、内容主图 |
+
+- 扩展名与 MIME 只作为初筛，最终以文件头为准；视频不做像素校验。
+- 公开访问地址为 `/api/public/media/{id}`，只有被**已发布**内容或已发布配置引用时才可读取，草稿引用返回 404。
+- 视频接口支持 `Range`，返回 `206` 与 `Content-Range`，单段最多 8MB，其余流式输出，进度条可拖动。
+- 后台素材列表可按「全部 / 图片 / 视频」筛选；首页首屏的桌面端与手机端可分别配置图片或视频。
+
+后台需要登录后访问，分为 `ADMIN` 与 `EDITOR` 两个角色：编辑只能保存草稿，发布与下架仅管理员可操作。
 
 ## 5. 已实现的接口约定
 

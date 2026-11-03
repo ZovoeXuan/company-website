@@ -38,6 +38,7 @@ onMounted(load)
     <PageHeader
       title="新闻中心"
       description="产品更新、公司动态与技术文章。技术类内容只写我们实际验证过的结论。"
+      eyebrow="NEWSROOM"
       :crumbs="[{ label: '首页', path: '/' }, { label: '新闻' }]"
     />
 
@@ -52,17 +53,17 @@ onMounted(load)
         <EmptyState v-else-if="!result || result.items.length === 0" title="暂无新闻" description="稍后再来看看。" />
 
         <ul v-else class="list">
-          <li v-for="item in result.items" :key="item.id" class="item">
+          <li v-for="(item, index) in result.items" :key="item.id" v-reveal="index * 60" class="item">
             <RouterLink :to="`/news/${item.id}`" class="item__link">
-              <img
-                v-if="item.cover"
-                :src="item.cover.url"
-                :alt="item.cover.alt"
-                :width="item.cover.width"
-                :height="item.cover.height"
-                loading="lazy"
-                class="item__cover"
-              />
+              <div v-if="item.cover" class="item__media media-frame">
+                <img
+                  :src="item.cover.url"
+                  :alt="item.cover.alt"
+                  :width="item.cover.width"
+                  :height="item.cover.height"
+                  loading="lazy"
+                />
+              </div>
               <div class="item__body">
                 <div class="item__meta">
                   <time :datetime="item.displayTime">{{ item.displayTime }}</time>
@@ -70,6 +71,7 @@ onMounted(load)
                 </div>
                 <h2 class="item__title">{{ item.title }}</h2>
                 <p class="item__desc">{{ item.summary }}</p>
+                <span class="item__more">阅读全文 <span aria-hidden="true">→</span></span>
               </div>
             </RouterLink>
           </li>
@@ -101,33 +103,46 @@ onMounted(load)
 
 .item__link {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 24px;
-  padding: 24px 0;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 36px;
+  align-items: center;
+  padding: 30px 8px;
+  transition: background-color 0.3s ease, padding 0.3s var(--ease-out);
 }
 
-.item__cover {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+.item__link:hover {
+  background: var(--c-surface);
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.item__media {
+  aspect-ratio: 16 / 10;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--c-border);
+}
+
+.item__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .item__meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 12px;
   color: var(--c-text-subtle);
   font-variant-numeric: tabular-nums;
 }
 
 .item__title {
-  margin: 8px 0 6px;
-  font-size: 19px;
-  font-weight: 500;
-  line-height: 1.5;
+  margin: 12px 0 8px;
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  transition: color 0.2s ease;
 }
 
 .item__link:hover .item__title {
@@ -138,25 +153,44 @@ onMounted(load)
   font-size: 14px;
   color: var(--c-text-muted);
   line-height: 1.8;
+  max-width: 620px;
+}
+
+.item__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--c-brand);
+}
+
+.item__more span {
+  transition: transform 0.3s var(--ease-out);
+}
+
+.item__link:hover .item__more span {
+  transform: translateX(4px);
 }
 
 .skeleton {
-  height: 120px;
+  height: 150px;
   border-radius: var(--radius-sm);
   background: var(--c-surface);
   margin-bottom: 12px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .item__link {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 18px;
+    padding: 24px 4px;
   }
-  .item__cover {
-    max-width: 100%;
+  .item__media {
+    aspect-ratio: 16 / 8;
   }
   .item__title {
-    font-size: 17px;
+    font-size: 18px;
   }
 }
 </style>

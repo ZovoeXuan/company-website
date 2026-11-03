@@ -9,6 +9,8 @@ export interface MediaRef {
   alt: string
   width: number
   height: number
+  type?: 'IMAGE' | 'VIDEO'
+  durationMs?: number | null
 }
 
 export interface PageResult<T> {

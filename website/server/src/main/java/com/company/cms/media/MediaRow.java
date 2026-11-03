@@ -8,9 +8,11 @@ public record MediaRow(
         String originalName,
         String extension,
         String mimeType,
+        String mediaType,
         long byteSize,
         int width,
         int height,
+        Integer durationMs,
         LocalDateTime createdAt
 ) {
 }

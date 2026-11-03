@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
@@ -7,7 +7,7 @@ import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
 import { get } from '@/api/http'
-import type { MediaItem } from '@/api/content'
+import { getMedia, type MediaItem } from '@/api/content'
 
 interface HeroItem {
   key?: string
@@ -195,7 +195,33 @@ function fill() {
   form.consultation.subtitle = draft.consultation?.subtitle ?? ''
   form.consultation.buttonText = draft.consultation?.buttonText ?? ''
   form.consultation.link = (draft.consultation?.link as LinkValue | null) ?? { type: 'CONSULT' }
+  syncMedia()
 }
+
+const mediaCache = reactive<Record<number, MediaItem>>({})
+
+async function syncMedia() {
+  const ids = form.hero.items
+    .flatMap((item) => [item.desktopMediaId, item.mobileMediaId])
+    .filter((id): id is number => Boolean(id && !mediaCache[id]))
+  await Promise.all(ids.map(async (id) => {
+    try {
+      mediaCache[id] = await getMedia(String(id))
+    } catch {
+      // 素材被删除时保留空预览，不阻断表单
+    }
+  }))
+}
+
+function isVideoMedia(id?: number): boolean {
+  return Boolean(id && mediaCache[id]?.mediaType === 'VIDEO')
+}
+
+watch(
+  () => form.hero.items.map((item) => [item.desktopMediaId, item.mobileMediaId]),
+  () => syncMedia(),
+  { deep: true },
+)
 
 async function onSave() {
   const payload = JSON.parse(JSON.stringify(form)) as HomeDraft
@@ -264,6 +290,9 @@ type PickerTarget =
 
 const pickerOpen = ref(false)
 const pickerTarget = ref<PickerTarget | null>(null)
+const pickerKind = computed<'IMAGE' | 'ALL'>(() =>
+  pickerTarget.value?.kind === 'group' ? 'IMAGE' : 'ALL',
+)
 
 function openPicker(target: PickerTarget) {
   pickerTarget.value = target
@@ -365,18 +394,44 @@ onMounted(async () => {
           <el-form-item label="副标题">
             <el-input v-model="item.subtitle" maxlength="100" show-word-limit />
           </el-form-item>
-          <el-form-item label="桌面图片" required>
+          <el-form-item label="桌面媒体（图片或视频）" required>
             <div class="media">
-              <img v-if="item.desktopMediaId" :src="thumb(item.desktopMediaId)" alt="桌面首屏图" />
-              <span v-else class="media__empty">未选择（建议 1920×800）</span>
+              <video
+                v-if="item.desktopMediaId && isVideoMedia(item.desktopMediaId)"
+                :src="thumb(item.desktopMediaId)"
+                class="media__preview"
+                muted
+                playsinline
+                preload="metadata"
+              ></video>
+              <img
+                v-else-if="item.desktopMediaId"
+                :src="thumb(item.desktopMediaId)"
+                alt="桌面首屏素材"
+                class="media__preview"
+              />
+              <span v-else class="media__empty">未选择（建议 1920×900，视频 16:9）</span>
               <el-button size="small" @click="openPicker({ kind: 'heroDesktop', index })">选择</el-button>
               <el-button v-if="item.desktopMediaId" size="small" link type="danger" @click="item.desktopMediaId = undefined">清除</el-button>
             </div>
           </el-form-item>
-          <el-form-item label="手机图片">
+          <el-form-item label="手机媒体">
             <div class="media">
-              <img v-if="item.mobileMediaId" :src="thumb(item.mobileMediaId)" alt="手机首屏图" />
-              <span v-else class="media__empty">未选择时前台回退桌面图（建议 750×1000）</span>
+              <video
+                v-if="item.mobileMediaId && isVideoMedia(item.mobileMediaId)"
+                :src="thumb(item.mobileMediaId)"
+                class="media__preview"
+                muted
+                playsinline
+                preload="metadata"
+              ></video>
+              <img
+                v-else-if="item.mobileMediaId"
+                :src="thumb(item.mobileMediaId)"
+                alt="手机首屏素材"
+                class="media__preview"
+              />
+              <span v-else class="media__empty">未选择时前台回退桌面素材（建议 750×1000）</span>
               <el-button size="small" @click="openPicker({ kind: 'heroMobile', index })">选择</el-button>
               <el-button v-if="item.mobileMediaId" size="small" link type="danger" @click="item.mobileMediaId = undefined">清除</el-button>
             </div>
@@ -568,7 +623,7 @@ onMounted(async () => {
       <p class="hint">只允许咨询动作或联系页；联系页表单关闭时，前台自动退到「联系我们」入口。</p>
     </el-card>
 
-    <MediaPicker v-model="pickerOpen" :selected-id="null" @select="onPick" />
+    <MediaPicker v-model="pickerOpen" :selected-id="null" :kind="pickerKind" @select="onPick" />
 
     <template #tips>
       <p>首页引用的内容必须是已发布状态。内容改名后无需重发首页，前台始终显示最新发布版。</p>
@@ -642,12 +697,14 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.media img {
+.media img,
+.media__preview {
   width: 96px;
   height: 54px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid var(--a-border);
+  background: #0b0b10;
 }
 
 .media__empty {

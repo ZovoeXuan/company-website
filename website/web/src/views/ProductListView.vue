@@ -55,32 +55,33 @@ onMounted(async () => {
 
     <section class="section">
       <div class="container">
-        <div class="filters" role="group" aria-label="按分类筛选">
-          <button
-            type="button"
-            class="filters__btn"
-            :class="{ 'is-active': categoryId === null }"
-            :aria-pressed="categoryId === null"
-            @click="selectCategory(null)"
-          >
-            全部
-          </button>
-          <button
-            v-for="item in categories"
-            :key="item.id"
-            type="button"
-            class="filters__btn"
-            :class="{ 'is-active': categoryId === item.id }"
-            :aria-pressed="categoryId === item.id"
-            @click="selectCategory(item.id)"
-          >
-            {{ item.name }}
-          </button>
+        <div class="list-head">
+          <div class="filters" role="group" aria-label="按分类筛选">
+            <button
+              type="button"
+              class="filters__btn"
+              :class="{ 'is-active': categoryId === null }"
+              :aria-pressed="categoryId === null"
+              @click="selectCategory(null)"
+            >
+              全部
+            </button>
+            <button
+              v-for="item in categories"
+              :key="item.id"
+              type="button"
+              class="filters__btn"
+              :class="{ 'is-active': categoryId === item.id }"
+              :aria-pressed="categoryId === item.id"
+              @click="selectCategory(item.id)"
+            >
+              {{ item.name }}
+            </button>
+          </div>
+          <p class="count" role="status">
+            {{ loading ? '正在加载…' : `共 ${result?.total ?? 0} 个产品` }}
+          </p>
         </div>
-
-        <p class="count" role="status">
-          {{ loading ? '正在加载…' : `共 ${result?.total ?? 0} 个产品` }}
-        </p>
 
         <div v-if="loading" class="grid grid--3" aria-busy="true">
           <div v-for="n in 3" :key="n" class="skeleton"></div>
@@ -101,16 +102,25 @@ onMounted(async () => {
         </EmptyState>
 
         <div v-else class="grid grid--3">
-          <RouterLink v-for="item in result.items" :key="item.id" :to="`/products/${item.id}`" class="card product">
-            <img
-              v-if="item.cover"
-              :src="item.cover.url"
-              :alt="item.cover.alt"
-              :width="item.cover.width"
-              :height="item.cover.height"
-              loading="lazy"
-              class="product__cover"
-            />
+          <RouterLink
+            v-for="(item, index) in result.items"
+            :key="item.id"
+            :to="`/products/${item.id}`"
+            v-reveal="index * 70"
+            class="card product"
+          >
+            <div class="product__media media-frame">
+              <img
+                v-if="item.cover"
+                :src="item.cover.url"
+                :alt="item.cover.alt"
+                :width="item.cover.width"
+                :height="item.cover.height"
+                loading="lazy"
+              />
+              <div v-else class="product__placeholder"></div>
+              <span class="product__arrow" aria-hidden="true">→</span>
+            </div>
             <div class="card__body">
               <span v-if="item.categoryName" class="tag">{{ item.categoryName }}</span>
               <h2 class="card__title product__title">{{ item.title }}</h2>
@@ -132,63 +142,95 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 28px;
-  border-bottom: 1px solid var(--c-border);
+  gap: 8px;
 }
 
-/* 筛选器做成下划线标签，避免一排彩色胶囊按钮抢走视线 */
 .filters__btn {
-  position: relative;
-  min-height: 46px;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 15px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
   color: var(--c-text-muted);
   cursor: pointer;
-  transition: color 0.16s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .filters__btn:hover {
+  border-color: var(--c-border-strong);
   color: var(--c-text);
 }
 
 .filters__btn.is-active {
-  color: var(--c-text);
-  font-weight: 500;
-}
-
-.filters__btn.is-active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: var(--c-brand);
+  background: var(--c-text);
+  border-color: var(--c-text);
+  color: #fff;
 }
 
 .count {
-  margin: 20px 0 20px;
-  font-size: 14px;
-  color: var(--c-text-muted);
+  font-size: 13px;
+  color: var(--c-text-subtle);
 }
 
 .product {
   display: block;
 }
 
-.product__cover {
-  width: 100%;
+.product__media {
   aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+}
+
+.product__media img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
+.product__placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #17171f, #0a0a10);
+}
+
+.product__arrow {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translate(-6px, 6px);
+  transition: opacity 0.3s ease, transform 0.3s var(--ease-out);
+}
+
+.product:hover .product__arrow {
+  opacity: 1;
+  transform: none;
+}
+
 .product__title {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .empty-action {
@@ -199,5 +241,11 @@ onMounted(async () => {
   height: 280px;
   border-radius: var(--radius);
   background: var(--c-surface);
+}
+
+@media (max-width: 640px) {
+  .list-head {
+    align-items: flex-start;
+  }
 }
 </style>

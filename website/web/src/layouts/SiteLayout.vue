@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import ConsultDialog from '@/components/ConsultDialog.vue'
@@ -7,6 +8,7 @@ import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
 import type { SiteConfig } from '@/data/types'
 
+const route = useRoute()
 const config = ref<SiteConfig | null>(null)
 const notice = ref('')
 
@@ -35,7 +37,11 @@ onMounted(async () => {
 
     <main id="main" class="site__main" tabindex="-1">
       <div v-if="notice" class="container notice" role="status">{{ notice }}</div>
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" :key="route.fullPath" />
+        </Transition>
+      </RouterView>
     </main>
 
     <SiteFooter v-if="config" :config="config" />

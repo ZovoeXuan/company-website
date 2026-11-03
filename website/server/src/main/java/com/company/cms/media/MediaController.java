@@ -5,24 +5,21 @@ import com.company.cms.common.ApiResponse;
 import com.company.cms.common.PageQuery;
 import com.company.cms.common.RequestIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -48,24 +45,27 @@ public class MediaController {
     @GetMapping
     public ApiResponse<MediaService.MediaPage> list(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String type,
             @RequestParam(required = false, defaultValue = "false") boolean referenced,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
             HttpServletRequest request) {
         PageQuery query = PageQuery.of(page, pageSize, 24);
-        return ApiResponse.ok(mediaService.list(keyword, referenced, query.page(), query.pageSize()),
+        return ApiResponse.ok(mediaService.list(keyword, referenced, type, query.page(), query.pageSize()),
                 RequestIdFilter.currentId(request));
     }
 
+    @GetMapping("/{id}")
+    public ApiResponse<MediaItem> detail(@PathVariable long id, HttpServletRequest request) {
+        return ApiResponse.ok(mediaService.item(id), RequestIdFilter.currentId(request));
+    }
+
     @GetMapping("/{id}/file")
-    public ResponseEntity<Resource> file(@PathVariable long id) {
+    public void file(@PathVariable long id,
+                     @RequestHeader(value = "Range", required = false) String range,
+                     HttpServletResponse response) throws IOException {
         MediaService.StoredFile file = mediaService.load(id);
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(file.mimeType()))
-                .cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename*=UTF-8''" + encode(file.originalName()))
-                .body(new FileSystemResource(file.path()));
+        MediaHttp.write(response, file, range, CacheControl.noStore().getHeaderValue(), true);
     }
 
     @GetMapping("/{id}/references")
@@ -88,9 +88,5 @@ public class MediaController {
                                     HttpServletRequest request) {
         mediaService.delete(id, actor);
         return ApiResponse.ok(null, RequestIdFilter.currentId(request));
-    }
-
-    private String encode(String name) {
-        return java.net.URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
     }
 }

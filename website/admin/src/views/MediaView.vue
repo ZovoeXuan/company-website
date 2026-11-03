@@ -8,7 +8,7 @@ const loading = ref(false)
 const uploading = ref(false)
 const rows = ref<MediaItem[]>([])
 const total = ref(0)
-const query = reactive({ keyword: '', page: 1, pageSize: 20 })
+const query = reactive({ keyword: '', type: '' as '' | 'IMAGE' | 'VIDEO', page: 1, pageSize: 20 })
 const fileInput = ref<HTMLInputElement>()
 
 const refDialog = ref(false)
@@ -18,7 +18,12 @@ const refRows = ref<Array<Record<string, string>>>([])
 async function load() {
   loading.value = true
   try {
-    const data = await listMedia({ keyword: query.keyword || undefined, page: query.page, pageSize: query.pageSize })
+    const data = await listMedia({
+      keyword: query.keyword || undefined,
+      type: query.type || undefined,
+      page: query.page,
+      pageSize: query.pageSize,
+    })
     rows.value = data.items
     total.value = data.total
   } catch (error) {
@@ -90,6 +95,12 @@ function formatSize(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`
 }
 
+function formatDuration(ms: number | null) {
+  if (!ms) return '—'
+  const total = Math.round(ms / 1000)
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+}
+
 /** 接口返回 UTC ISO 字符串，列表按本地时区展示到分钟。 */
 function formatTime(value: string | null) {
   if (!value) return '—'
@@ -116,9 +127,20 @@ onMounted(load)
               style="width: 200px"
               @keyup.enter="query.page = 1; load()"
             />
+            <el-select v-model="query.type" style="width: 110px" @change="query.page = 1; load()">
+              <el-option value="" label="全部" />
+              <el-option value="IMAGE" label="图片" />
+              <el-option value="VIDEO" label="视频" />
+            </el-select>
             <el-button @click="query.page = 1; load()">查询</el-button>
-            <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden @change="onFileChange" />
-            <el-button type="primary" :loading="uploading" @click="fileInput?.click()">上传图片</el-button>
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"
+              hidden
+              @change="onFileChange"
+            />
+            <el-button type="primary" :loading="uploading" @click="fileInput?.click()">上传素材</el-button>
           </div>
         </div>
       </template>
@@ -127,19 +149,42 @@ onMounted(load)
         type="info"
         :closable="false"
         show-icon
-        title="支持 JPG、PNG、WebP，单张不超过 5 MB、2000 万像素。公开地址只在内容发布后可访问。"
+        title="支持 JPG、PNG、WebP 图片（≤5 MB）与 MP4、WebM 视频（≤50 MB）。首屏与内容主图可选择视频，公开地址只在内容发布后可访问。"
         class="tip"
       />
 
       <el-table v-loading="loading" :data="rows" border>
         <el-table-column label="预览" width="120">
           <template #default="{ row }">
-            <img :src="`/api/admin/media/${row.id}/file`" :alt="row.originalName" class="thumb" loading="lazy" />
+            <video
+              v-if="row.mediaType === 'VIDEO'"
+              :src="`/api/admin/media/${row.id}/file`"
+              class="thumb"
+              muted
+              playsinline
+              preload="metadata"
+            ></video>
+            <img
+              v-else
+              :src="`/api/admin/media/${row.id}/file`"
+              :alt="row.originalName"
+              class="thumb"
+              loading="lazy"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="originalName" label="文件名" min-width="200" />
+        <el-table-column label="类型" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.mediaType === 'VIDEO' ? 'warning' : 'info'">
+              {{ row.mediaType === 'VIDEO' ? '视频' : '图片' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="尺寸" width="120">
-          <template #default="{ row }">{{ row.width }}×{{ row.height }}</template>
+          <template #default="{ row }">
+            {{ row.mediaType === 'VIDEO' ? formatDuration(row.durationMs) : `${row.width}×${row.height}` }}
+          </template>
         </el-table-column>
         <el-table-column label="大小" width="100">
           <template #default="{ row }">{{ formatSize(row.byteSize) }}</template>

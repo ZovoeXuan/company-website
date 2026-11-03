@@ -1,10 +1,17 @@
 :root {
-  --a-text: #1f2329;
-  --a-text-muted: #5f6b7a;
-  --a-border: #e3e6eb;
-  --a-bg: #f6f8fa;
-  --a-brand: #185fa5;
-  font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --a-text: #101014;
+  --a-text-muted: #5f6470;
+  --a-border: rgba(16, 16, 20, 0.1);
+  --a-bg: #f5f7fa;
+  --a-brand: #5b4be8;
+  --a-brand-soft: #eeebff;
+  --el-color-primary: #5b4be8;
+  --el-color-primary-light-3: #8b7df0;
+  --el-color-primary-light-5: #aaa0f4;
+  --el-color-primary-light-7: #c9c2f8;
+  --el-color-primary-light-9: #f0edff;
+  --el-border-radius-base: 8px;
+  font-family: 'MiSans', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--a-text);
   -webkit-font-smoothing: antialiased;
 }

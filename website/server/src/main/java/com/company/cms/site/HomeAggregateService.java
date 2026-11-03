@@ -529,6 +529,8 @@ public class HomeAggregateService {
         view.put("alt", alt == null ? "" : alt);
         view.put("width", media.width());
         view.put("height", media.height());
+        view.put("type", media.mediaType());
+        view.put("durationMs", media.durationMs());
         return view;
     }
 

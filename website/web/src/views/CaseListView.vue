@@ -95,18 +95,29 @@ onMounted(async () => {
         />
 
         <div v-else class="grid grid--3 list">
-          <RouterLink v-for="item in result.items" :key="item.id" :to="`/cases/${item.id}`" class="card case">
-            <img
-              v-if="item.cover"
-              :src="item.cover.url"
-              :alt="item.cover.alt"
-              :width="item.cover.width"
-              :height="item.cover.height"
-              loading="lazy"
-              class="case__cover"
-            />
+          <RouterLink
+            v-for="(item, index) in result.items"
+            :key="item.id"
+            :to="`/cases/${item.id}`"
+            v-reveal="index * 70"
+            class="card case"
+          >
+            <div class="case__media media-frame">
+              <img
+                v-if="item.cover"
+                :src="item.cover.url"
+                :alt="item.cover.alt"
+                :width="item.cover.width"
+                :height="item.cover.height"
+                loading="lazy"
+              />
+              <div v-else class="case__placeholder"></div>
+            </div>
             <div class="case__body">
-              <span class="tag">{{ item.industry }}</span>
+              <div class="case__meta">
+                <span v-if="item.industry" class="tag">{{ item.industry }}</span>
+                <span v-if="item.customerName" class="case__customer">{{ item.customerName }}</span>
+              </div>
               <h2 class="case__title">{{ item.title }}</h2>
               <p class="card__desc">{{ item.summary }}</p>
               <dl v-if="item.outcomes?.length" class="case__results">
@@ -135,79 +146,102 @@ onMounted(async () => {
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 28px;
-  border-bottom: 1px solid var(--c-border);
+  gap: 8px;
+  margin-bottom: 36px;
 }
 
-/* 筛选器做成下划线标签，避免一排彩色胶囊按钮抢走视线 */
 .filters__btn {
-  position: relative;
-  min-height: 46px;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 15px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
   color: var(--c-text-muted);
   cursor: pointer;
-  transition: color 0.16s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .filters__btn:hover {
+  border-color: var(--c-border-strong);
   color: var(--c-text);
 }
 
 .filters__btn.is-active {
-  color: var(--c-text);
-  font-weight: 500;
+  background: var(--c-text);
+  border-color: var(--c-text);
+  color: #fff;
 }
 
-.filters__btn.is-active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: var(--c-brand);
+.list {
+  align-items: start;
 }
 
 .case {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: transform 0.4s var(--ease-out);
 }
 
-.case__cover {
+.case:hover {
+  transform: translateY(-6px);
+}
+
+.case__media {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+}
+
+.case__media img {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   object-fit: cover;
 }
 
-.case__body {
-  padding: 24px;
+.case__placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #17171f, #0a0a10);
+}
+
+.case__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.case__customer {
+  font-size: 12px;
+  color: var(--c-text-muted);
 }
 
 .case__title {
   margin: 12px 0 8px;
-  font-size: 19px;
-  font-weight: 500;
-  line-height: 1.5;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
 }
 
 .case__results {
   display: flex;
-  gap: 28px;
+  gap: 26px;
   margin: 18px 0 0;
 }
 
 .case__result dt {
-  font-size: 13px;
-  color: var(--c-text-muted);
+  font-size: 11px;
+  color: var(--c-text-subtle);
 }
 
 .case__result dd {
   margin: 2px 0 0;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--c-brand);
+  letter-spacing: -0.02em;
 }
 
 .skeleton {

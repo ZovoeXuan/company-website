@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuth } from '@/stores/auth'
@@ -7,12 +7,14 @@ import { ApiError } from '@/api/http'
 import {
   createContent,
   getContent,
+  getMedia,
   listCategories,
   offlineContent,
   publishContent,
   saveDraft,
   type CategoryView,
   type ContentDetail,
+  type MediaItem,
 } from '@/api/content'
 import ContentPicker from '@/components/ContentPicker.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
@@ -145,8 +147,23 @@ type PickerTarget =
   | { kind: 'featureIcon'; index: number }
 
 const pickerTarget = ref<PickerTarget>({ kind: 'cover' })
+const pickerKind = computed<'IMAGE' | 'ALL'>(() => (pickerTarget.value.kind === 'hero' ? 'ALL' : 'IMAGE'))
+const heroMedia = ref<MediaItem | null>(null)
 
 const form = ref<ContentForm>(blankForm())
+
+watch(
+  () => form.value.heroId,
+  async (id) => {
+    heroMedia.value = null
+    if (!id) return
+    try {
+      heroMedia.value = await getMedia(id)
+    } catch {
+      // 素材被删除时保留空预览
+    }
+  },
+)
 
 function blankForm(): ContentForm {
   return {
@@ -554,15 +571,24 @@ onMounted(load)
             <p class="field-hint">列表与详情复用同一张封面，建议 16:9。</p>
           </el-form-item>
 
-          <el-form-item v-if="!isNews" label="主图">
+          <el-form-item v-if="!isNews" label="主图（图片或视频）">
             <div class="media">
-              <img v-if="form.heroId" :src="thumb(form.heroId)" alt="主图预览" />
+              <video
+                v-if="form.heroId && heroMedia?.mediaType === 'VIDEO'"
+                :src="thumb(form.heroId)"
+                class="media__preview"
+                muted
+                playsinline
+                preload="metadata"
+              ></video>
+              <img v-else-if="form.heroId" :src="thumb(form.heroId)" alt="主图预览" />
             <span v-else class="media__empty">未选择时使用封面</span>
-              <el-button size="small" @click="openPicker({ kind: 'hero' })">选择图片</el-button>
+              <el-button size="small" @click="openPicker({ kind: 'hero' })">选择素材</el-button>
               <el-button v-if="form.heroId" size="small" link type="danger" @click="form.heroId = ''">
                 清除
               </el-button>
             </div>
+            <p class="field-hint">视频会静音自动播放，建议 16:9、15 秒内。</p>
           </el-form-item>
 
           <el-form-item v-if="isSolution || isCase" label="所属行业">
@@ -737,7 +763,7 @@ onMounted(load)
       </ul>
     </el-card>
 
-    <MediaPicker v-model="pickerOpen" :selected-id="null" @select="onPick" />
+    <MediaPicker v-model="pickerOpen" :selected-id="null" :kind="pickerKind" @select="onPick" />
   </div>
 </template>
 
@@ -761,12 +787,14 @@ onMounted(load)
   gap: 10px;
 }
 
-.media img {
+.media img,
+.media__preview {
   width: 96px;
   height: 54px;
   object-fit: cover;
   border: 1px solid var(--a-border);
-  border-radius: 6px;
+  border-radius: 8px;
+  background: #0b0b10;
 }
 
 .media__empty {

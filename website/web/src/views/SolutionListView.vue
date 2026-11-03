@@ -32,6 +32,7 @@ onMounted(async () => {
     <PageHeader
       title="解决方案"
       description="按行业组织的落地方案。先看问题是否相似，再看做法能否复用。"
+      eyebrow="SOLUTIONS"
       :crumbs="[{ label: '首页', path: '/' }, { label: '解决方案' }]"
     />
 
@@ -50,9 +51,9 @@ onMounted(async () => {
         />
 
         <div v-else class="list">
-          <article v-for="item in items" :key="item.id" class="solution">
+          <article v-for="(item, index) in items" :key="item.id" v-reveal="index * 70" class="solution">
             <RouterLink :to="`/solutions/${item.id}`" class="solution__link">
-              <div class="solution__media">
+              <div class="solution__media media-frame">
                 <img
                   v-if="item.cover"
                   :src="item.cover.url"
@@ -61,12 +62,16 @@ onMounted(async () => {
                   :height="item.cover.height"
                   loading="lazy"
                 />
+                <div v-else class="solution__placeholder"></div>
               </div>
               <div class="solution__body">
-                <span class="tag">{{ item.industry }}</span>
+                <div class="solution__meta">
+                  <span class="tag">{{ item.industry || item.categoryName }}</span>
+                  <span class="solution__index">{{ String(index + 1).padStart(2, '0') }}</span>
+                </div>
                 <h2 class="solution__title">{{ item.title }}</h2>
                 <p class="solution__desc">{{ item.summary }}</p>
-                <span class="solution__more">查看方案 →</span>
+                <span class="solution__more">查看方案 <span aria-hidden="true">→</span></span>
               </div>
             </RouterLink>
           </article>
@@ -80,28 +85,34 @@ onMounted(async () => {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .solution {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: border-color 0.15s ease;
+  transition: transform 0.4s var(--ease-out);
 }
 
 .solution:hover {
-  border-color: var(--c-brand);
+  transform: translateY(-4px);
 }
 
 .solution__link {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 44px;
+  align-items: center;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  transition: background-color 0.3s ease;
+}
+
+.solution:hover .solution__link {
+  background: var(--c-surface);
 }
 
 .solution__media {
-  background: var(--c-surface);
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius);
 }
 
 .solution__media img {
@@ -110,28 +121,55 @@ onMounted(async () => {
   object-fit: cover;
 }
 
-.solution__body {
-  padding: 28px 32px;
+.solution__placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #17171f, #0a0a10);
+}
+
+.solution__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.solution__index {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--c-text-subtle);
 }
 
 .solution__title {
-  margin: 12px 0 10px;
-  font-size: 22px;
-  font-weight: 500;
-  line-height: 1.45;
+  margin: 16px 0 10px;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
 }
 
 .solution__desc {
   font-size: 15px;
   color: var(--c-text-muted);
-  line-height: 1.8;
+  line-height: 1.85;
+  max-width: 560px;
 }
 
 .solution__more {
-  display: inline-block;
-  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
   font-size: 14px;
   color: var(--c-brand);
+}
+
+.solution__more span {
+  transition: transform 0.3s var(--ease-out);
+}
+
+.solution:hover .solution__more span {
+  transform: translateX(5px);
 }
 
 .skeleton {
@@ -140,18 +178,17 @@ onMounted(async () => {
   background: var(--c-surface);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .solution__link {
     grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 12px;
   }
-  .solution__media img {
+  .solution__media {
     aspect-ratio: 16 / 9;
   }
-  .solution__body {
-    padding: 20px;
-  }
   .solution__title {
-    font-size: 18px;
+    font-size: 22px;
   }
 }
 </style>
