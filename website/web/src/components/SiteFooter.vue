@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { openConsult } from '@/composables/consult'
 import type { SiteConfig } from '@/data/types'
 
 const props = defineProps<{ config: SiteConfig }>()
@@ -33,8 +34,16 @@ function telHref(phone: string) {
         <p class="footer__title">{{ group.title }}</p>
         <ul class="footer__list">
           <li v-for="item in group.links" :key="item.label + (item.path || item.url || '')">
+            <button
+              v-if="item.linkType === 'CONSULT'"
+              type="button"
+              class="footer__link footer__link--button"
+              @click="openConsult({ sourcePosition: 'FOOTER' })"
+            >
+              {{ item.label }}
+            </button>
             <a
-              v-if="item.url"
+              v-else-if="item.url"
               :href="item.url"
               class="footer__link"
               :target="item.newWindow ? '_blank' : undefined"
@@ -146,6 +155,16 @@ function telHref(phone: string) {
 .footer__link:hover {
   color: var(--c-brand);
   text-decoration: underline;
+}
+
+.footer__link--button {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .footer__bottom {

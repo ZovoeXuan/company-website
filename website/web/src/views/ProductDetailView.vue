@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getProduct } from '@/api/public'
+import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
 import type { ProductDetail } from '@/data/types'
 
@@ -83,7 +84,13 @@ onMounted(load)
           <div class="aside-card">
             <p class="aside-card__title">需要针对你的场景评估？</p>
             <p class="aside-card__desc">留下联系方式，我们会先了解设备类型与现有系统，再给建议。</p>
-            <RouterLink to="/contact" class="btn btn--primary aside-card__btn">预约演示</RouterLink>
+            <button
+              type="button"
+              class="btn btn--primary aside-card__btn"
+              @click="openConsult({ sourcePosition: 'PRODUCT_DETAIL', contentType: 'PRODUCT', contentId: data.id })"
+            >
+              预约演示
+            </button>
             <p class="aside-card__note">不会转交第三方，也不会用于电话推销。</p>
           </div>
 

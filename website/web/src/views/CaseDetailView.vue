@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getCase } from '@/api/public'
+import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
 import type { CaseDetail } from '@/data/types'
 
@@ -108,7 +109,13 @@ onMounted(load)
           <div class="aside__card">
             <p class="aside__title">想了解同类场景的做法？</p>
             <p class="aside__desc">我们可以在沟通前先给出判断：这个问题是否值得做、大概需要多少投入。</p>
-            <RouterLink to="/contact" class="btn btn--primary aside__btn">联系我们</RouterLink>
+            <button
+              type="button"
+              class="btn btn--primary aside__btn"
+              @click="openConsult({ sourcePosition: 'CASE_DETAIL', contentType: 'CASE', contentId: data.id })"
+            >
+              联系我们
+            </button>
           </div>
         </aside>
       </div>

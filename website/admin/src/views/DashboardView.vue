@@ -60,7 +60,7 @@ onMounted(async () => {
       :closable="false"
       show-icon
       title="当前进度"
-      description="登录、CSRF、角色、会话撤销、账号管理与审计已完成；内容管理、素材、配置与咨询在后续阶段接入。"
+      description="内容、站点配置与首页编排已完成；咨询管理已接入官网表单，可查看并按状态处理线索。"
       class="hint"
     />
   </div>

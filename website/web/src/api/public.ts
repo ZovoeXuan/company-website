@@ -2,13 +2,15 @@
  * 公开内容数据源。全部走后端 `/api/public/*`，不再保留示例数据分支：
  * 页面区分 loading / 空结果 / 请求失败，不能把失败静默当空数组。
  */
-import { apiGet } from './http'
+import { apiGet, apiPost } from './http'
 import type {
   AboutPage,
   CaseDetail,
   CaseSummary,
   ContactPage,
   HomeView,
+  LeadSubmitPayload,
+  LeadSubmitResult,
   NewsDetail,
   NewsSummary,
   PageResult,
@@ -130,6 +132,16 @@ export function getPrivacy(): Promise<PrivacyPage> {
 
 export function getContactPage(): Promise<ContactPage> {
   return getPage<ContactPage>('CONTACT')
+}
+
+/** 咨询提交。每次独立咨询使用一个 UUID 幂等键，失败重试沿用同一个键。 */
+export function submitLead(
+  payload: LeadSubmitPayload,
+  idempotencyKey: string,
+): Promise<LeadSubmitResult> {
+  return apiPost<LeadSubmitResult>('/api/public/leads', payload, {
+    'Idempotency-Key': idempotencyKey,
+  })
 }
 
 /** 单页接口返回 {code, content}，这里统一拆开。 */

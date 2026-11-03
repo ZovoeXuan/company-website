@@ -224,11 +224,13 @@ public class SiteConfigService {
             entry.put("path", "");
             entry.put("url", path);
             entry.put("newWindow", Boolean.TRUE.equals(action.get("newWindow")));
+            entry.put("linkType", action.get("type"));
             return entry;
         }
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("label", text(item, "label"));
         entry.put("path", path == null ? "" : path);
+        entry.put("linkType", action == null ? null : action.get("type"));
         return entry;
     }
 
@@ -259,6 +261,7 @@ public class SiteConfigService {
                             link.put("url", url);
                         }
                         link.put("newWindow", Boolean.TRUE.equals(action.get("newWindow")));
+                        link.put("linkType", action.get("type"));
                         groupLinks.add(link);
                     }
                 }

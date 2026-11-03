@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getSolution } from '@/api/public'
+import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
 import type { SolutionDetail } from '@/data/types'
 
@@ -98,7 +99,13 @@ onMounted(load)
           <div class="aside__card">
             <p class="aside__title">你的场景和这个类似？</p>
             <p class="aside__desc">带上设备类型与现有系统情况，我们会判断是否适用，而不是先卖方案。</p>
-            <RouterLink to="/contact" class="btn btn--primary aside__btn">聊聊你的场景</RouterLink>
+            <button
+              type="button"
+              class="btn btn--primary aside__btn"
+              @click="openConsult({ sourcePosition: 'SOLUTION_DETAIL', contentType: 'SOLUTION', contentId: data.id })"
+            >
+              聊聊你的场景
+            </button>
           </div>
         </aside>
       </div>

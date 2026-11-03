@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { openConsult } from '@/composables/consult'
 import type { NavItem } from '@/data/types'
 
 const props = defineProps<{
@@ -31,6 +32,12 @@ function onKeydown(event: KeyboardEvent) {
 
 function toggleMenu(item: NavItem) {
   openMenu.value = openMenu.value === item.label ? null : item.label
+}
+
+function consult(position = 'NAVIGATION') {
+  openMenu.value = null
+  openMobile.value = null
+  openConsult({ sourcePosition: position })
 }
 
 function isActive(item: NavItem): boolean {
@@ -70,8 +77,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               </button>
               <ul v-if="openMenu === item.label" class="sub">
                 <li v-for="child in item.children" :key="child.label">
+                  <button
+                    v-if="child.linkType === 'CONSULT'"
+                    type="button"
+                    class="sub__link sub__button"
+                    @click="consult()"
+                  >
+                    {{ child.label }}
+                  </button>
                   <a
-                    v-if="child.url"
+                    v-else-if="child.url"
                     :href="child.url"
                     class="sub__link"
                     :target="child.newWindow ? '_blank' : undefined"
@@ -86,6 +101,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
                 </li>
               </ul>
             </template>
+            <button
+              v-else-if="item.linkType === 'CONSULT'"
+              type="button"
+              class="nav__link nav__button"
+              @click="consult()"
+            >
+              {{ item.label }}
+            </button>
             <a
               v-else-if="item.url"
               :href="item.url"
@@ -101,7 +124,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       </nav>
 
       <div class="actions">
-        <RouterLink to="/contact" class="btn btn--primary actions__cta">咨询我们</RouterLink>
+        <button type="button" class="btn btn--primary actions__cta" @click="consult('OTHER_CTA')">
+          咨询我们
+        </button>
         <button
           type="button"
           class="toggle"
@@ -133,8 +158,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             </button>
             <ul v-if="openMobile === item.label" class="mobile__sub">
               <li v-for="child in item.children" :key="child.label">
+                <button
+                  v-if="child.linkType === 'CONSULT'"
+                  type="button"
+                  class="mobile__sublink mobile__sublink--button"
+                  @click="consult()"
+                >
+                  {{ child.label }}
+                </button>
                 <a
-                  v-if="child.url"
+                  v-else-if="child.url"
                   :href="child.url"
                   class="mobile__sublink"
                   :target="child.newWindow ? '_blank' : undefined"
@@ -149,6 +182,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
               </li>
             </ul>
           </template>
+          <button
+            v-else-if="item.linkType === 'CONSULT'"
+            type="button"
+            class="mobile__link"
+            @click="consult()"
+          >
+            {{ item.label }}
+          </button>
           <a
             v-else-if="item.url"
             :href="item.url"
@@ -298,6 +339,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   color: var(--c-text);
 }
 
+.sub__button {
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -370,6 +420,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   font-size: 14px;
   color: var(--c-text-muted);
   border-bottom: 1px dashed var(--c-border);
+}
+
+.mobile__sublink--button {
+  width: 100%;
+  border: none;
+  border-bottom: 1px dashed var(--c-border);
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 @media (max-width: 980px) {

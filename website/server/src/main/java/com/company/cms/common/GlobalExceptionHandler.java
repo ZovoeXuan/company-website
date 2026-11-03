@@ -28,6 +28,15 @@ public class GlobalExceptionHandler {
         return build(ex.code(), ex.getMessage(), ex.fieldErrors(), request);
     }
 
+    @ExceptionHandler(RateLimitedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimited(RateLimitedException ex,
+                                                               HttpServletRequest request) {
+        return ResponseEntity.status(ErrorCode.RATE_LIMITED.status())
+                .header("Retry-After", String.valueOf(ex.retryAfterSeconds()))
+                .body(ApiResponse.failure(ErrorCode.RATE_LIMITED, ex.getMessage(), null,
+                        RequestIdFilter.currentId(request)));
+    }
+
     /**
      * 方法级权限拒绝（@PreAuthorize）发生在 Controller 调用中，不会经过安全过滤器的
      * AccessDeniedHandler，必须在这里转成 403，否则会被兜底处理成 500。

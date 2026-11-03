@@ -63,6 +63,13 @@ cms:
       max-failures: 5
       window-minutes: 5
       lock-minutes: 10
+  lead:
+    encryption-key: "${CMS_LEAD_ENCRYPTION_KEY:}"
+    hash-key: "${CMS_LEAD_HASH_KEY:}"
+    rate:
+      general-per-minute: 20
+      ip-per-minute: 3
+      phone-per-10-minutes: 3
   init:
     username: "${CMS_INIT_USERNAME:}"
     password: "${CMS_INIT_PASSWORD:}"

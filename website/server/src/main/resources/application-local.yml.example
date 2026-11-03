@@ -7,3 +7,9 @@ spring:
   flyway:
     user: cms_migrator
     password: 你的迁移账号密码
+
+cms:
+  lead:
+    # openssl rand -base64 32 生成
+    encryption-key: 你的手机号加密密钥
+    hash-key: 你的摘要密钥

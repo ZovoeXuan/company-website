@@ -20,14 +20,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  })
-
+async function handle<T>(response: Response): Promise<T> {
   const text = await response.text()
   let body: any = null
   try {
@@ -47,4 +40,25 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
 
   return body.data as T
+}
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  })
+  return handle<T>(response)
+}
+
+export async function apiPost<T>(path: string, payload: unknown, headers: Record<string, string> = {}): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
+  return handle<T>(response)
 }

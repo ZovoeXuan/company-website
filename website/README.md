@@ -58,12 +58,15 @@ mysql -u root -p < ../db/00-init-env.sql
 | `CMS_DB_PASSWORD` | 空 | 应用账号密码 |
 | `CMS_MIGRATION_USER` | `cms_migrator` | Flyway 专用账号 |
 | `CMS_MIGRATION_PASSWORD` | 空 | 迁移账号密码 |
+| `CMS_LEAD_ENCRYPTION_KEY` | 空 | 咨询手机号 AES-256-GCM 密钥，Base64 32 字节 |
+| `CMS_LEAD_HASH_KEY` | 空 | 幂等载荷与限流摘要 HMAC 密钥，Base64 32 字节 |
 
 本机开发已创建 `server/src/main/resources/application-local.yml`（已被 .gitignore 排除），
 用 `--spring.profiles.active=local` 激活即可，不需要每次导出环境变量。
 新机器请复制 `application-local.yml.example` 后填写。
 
-生产环境另需：手机号加密密钥、摘要密钥、限流参数、素材目录（阶段 6 接入）。
+生产环境另需：素材目录、限流参数，以及上面两个咨询密钥。密钥可用
+`openssl rand -base64 32` 生成；密钥丢失将无法解密历史手机号。
 
 > 端口提示：若环境中存在 `SERVER__PORT` 变量（宽松绑定会覆盖 `server.port`），启动时用
 > `--server.port=18080` 显式指定；命令行参数优先级高于环境变量。
@@ -100,7 +103,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 | 3 | 素材、分类、产品纵向闭环 | 接口、发布链路与后台页面均完成（`docs/stage3-verification.md`） |
 | 4 | 方案、案例、新闻、客户标识 | 完成：结构化字段、后台编辑与官网页面接入（`docs/stage4-verification.md`） |
 | 5 | 站点配置、导航、首页、单页 | 完成：配置与单页见 `docs/stage5a-verification.md`，首页编排与导航见 `docs/stage5b-verification.md` |
-| 6 | 咨询闭环 | 未开始（联系页表单仅前端校验） |
+| 6 | 咨询闭环 | 完成：官网表单、幂等与限流、后台线索处理（`docs/stage6-verification.md`） |
 | 7 | 联调、测试、部署、恢复 | 未开始 |
 
 官网九个页面已完成，说明见 `docs/frontend-pages.md`。页面数据全部来自 `/api/public/*`，示例数据层已删除；
@@ -120,6 +123,7 @@ cd website/admin  && npm run build                 # dist/，base 为 /admin/
 - 失败：同时使用正确 HTTP 状态码，并带 `code`、`message`、可选 `fieldErrors`、`requestId`
 - 每个响应带 `X-Request-Id` 头；异常日志按该 ID 可追踪
 - `/api/public/**` 允许匿名；`/api/admin/**` 除 `auth/csrf`、`auth/login` 外需要登录
+- `POST /api/public/leads` 是唯一排除 CSRF 的公开写接口，必须携带 UUID 格式的 `Idempotency-Key`
 - 未登录返回 401 JSON，CSRF 失败返回 403 `CSRF_INVALID`，不返回 HTML 登录页
 
 ### 认证流程（阶段 2）
@@ -146,11 +150,14 @@ CMS_INIT_USERNAME=admin CMS_INIT_PASSWORD='至少12位的密码' ./mvnw spring-b
 2. **TypeScript 6**：`baseUrl` 已废弃，路径别名改用 `paths` 相对 `tsconfig` 的写法。
 3. **MySQL 已升级到 8.4.13 LTS**：升级后复核了迁移校验、CHECK 约束、生成列、`cms_*` 账号认证插件与四字节字符往返，均正常；原先「8.0.46 代替 8.4」的偏差已消除。注意 8.4 默认禁用 `mysql_native_password`，新建账号必须使用 `caching_sha2_password`。
 4. **产品详情按 P0 做图文正文**：参考站的模块化区块（硬件卡片、角色价值拆分）列入二期，不在首版范围。
-5. **咨询表单内嵌在产品/方案/案例详情页**，与参考站「按钮跳转联系页」不同，属于本项目改进。
+5. **咨询表单在联系页内嵌，首页与详情页通过同一咨询弹窗打开**，与参考站「按钮跳转联系页」不同，属于本项目改进。
 6. **后台首版全量引入 Element Plus**，构建产物约 1 MB；上线前可改为按需引入。
 
 ## 7. 安全注意
 
 - `db/00-init-env.sql` 中是占位密码，执行后不要把真实密码写回文件或提交。
 - 不存在默认管理员账号；初始管理员通过部署时一次性初始化创建（阶段 2 实现）。
+- 咨询密钥只从环境变量加载，禁止写入源码、数据库或日志；生产密钥需单独受控备份。
+- 咨询手机号加密存储，列表仅返回末四位；查看完整号码与状态处理都写审计。
+- 限流为进程内滑动窗口，仅适用于单实例；多实例部署时需改为共享存储。
 - 公开接口不返回草稿、版本号、后台备注或线索信息。

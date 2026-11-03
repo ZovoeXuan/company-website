@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getHome } from '@/api/public'
+import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
 import type { HomeHeroItem, HomeLink, HomeView } from '@/data/types'
 
@@ -17,10 +18,9 @@ usePageMeta(() => ({
   description: '面向制造企业的设备管理、预测性维护与能耗监测平台，帮助降低非计划停机、定位高耗能环节。',
 }))
 
-/** 咨询动作在表单未上线前统一落到联系页，不伪造弹窗 */
+/** 非咨询动作的跳转地址；CONSULT 由弹窗承接，不再伪造链接 */
 function hrefOf(link: HomeLink | null): string | null {
-  if (!link) return null
-  if (link.type === 'CONSULT') return '/contact'
+  if (!link || link.type === 'CONSULT') return null
   return link.url ?? null
 }
 
@@ -45,9 +45,17 @@ onMounted(async () => {
         <div class="hero__copy">
           <h1 class="hero__title">{{ current.title }}</h1>
           <p v-if="current.subtitle" class="hero__sub">{{ current.subtitle }}</p>
-          <div v-if="current.buttonText && hrefOf(current.link)" class="hero__actions">
+          <div v-if="current.buttonText && current.link" class="hero__actions">
+            <button
+              v-if="current.link.type === 'CONSULT'"
+              type="button"
+              class="btn btn--primary"
+              @click="openConsult({ sourcePosition: 'HOME_HERO', contentType: current.link.contentType, contentId: current.link.contentId })"
+            >
+              {{ current.buttonText }}
+            </button>
             <a
-              v-if="isExternal(current.link)"
+              v-else-if="isExternal(current.link)"
               :href="hrefOf(current.link) ?? '#'"
               class="btn btn--primary"
               :target="current.link?.newWindow ? '_blank' : undefined"
@@ -251,8 +259,16 @@ onMounted(async () => {
           <h2 class="cta__title">{{ data.consultation.title }}</h2>
           <p v-if="data.consultation.subtitle" class="cta__desc">{{ data.consultation.subtitle }}</p>
         </div>
+        <button
+          v-if="data.consultation.link.type === 'CONSULT'"
+          type="button"
+          class="btn btn--primary"
+          @click="openConsult({ sourcePosition: 'HOME_BOTTOM', contentType: data.consultation.link.contentType, contentId: data.consultation.link.contentId })"
+        >
+          {{ data.consultation.buttonText }}
+        </button>
         <a
-          v-if="data.consultation.link.type === 'EXTERNAL'"
+          v-else-if="data.consultation.link.type === 'EXTERNAL'"
           :href="data.consultation.link.url"
           class="btn btn--primary"
           :target="data.consultation.link.newWindow ? '_blank' : undefined"

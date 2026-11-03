@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import ConsultDialog from '@/components/ConsultDialog.vue'
 import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
 import type { SiteConfig } from '@/data/types'
@@ -38,6 +39,8 @@ onMounted(async () => {
     </main>
 
     <SiteFooter v-if="config" :config="config" />
+
+    <ConsultDialog />
   </div>
 </template>
 

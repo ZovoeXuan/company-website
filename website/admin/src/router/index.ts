@@ -15,13 +15,8 @@ import AboutPageView from '@/views/AboutPageView.vue'
 import ContactPageView from '@/views/ContactPageView.vue'
 import PrivacyPageView from '@/views/PrivacyPageView.vue'
 import HomeManageView from '@/views/HomeManageView.vue'
-import TodoView from '@/views/TodoView.vue'
+import LeadListView from '@/views/LeadListView.vue'
 import { useAuth } from '@/stores/auth'
-
-const page = (title: string, phase: string) => ({
-  component: TodoView,
-  meta: { title, phase },
-})
 
 const contentRoutes = (slug: string, contentType: string, title: string) => [
   {
@@ -64,7 +59,7 @@ const router = createRouter({
         { path: 'pages/contact', component: ContactPageView, meta: { title: '联系我们' } },
         { path: 'pages/privacy', component: PrivacyPageView, meta: { title: '隐私说明' } },
         { path: 'media', component: MediaView, meta: { title: '素材管理' } },
-        { path: 'leads', ...page('咨询管理', '阶段 6') },
+        { path: 'leads', component: LeadListView, meta: { title: '咨询管理', role: 'ADMIN' } },
         { path: 'system/users', component: UsersView, meta: { title: '账号管理', role: 'ADMIN' } },
         { path: 'system/audit-logs', component: AuditLogsView, meta: { title: '操作日志', role: 'ADMIN' } },
         { path: 'profile/password', component: PasswordView, meta: { title: '修改密码' } },

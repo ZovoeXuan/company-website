@@ -20,10 +20,12 @@ export interface PageResult<T> {
 
 export interface NavItem {
   label: string
-  /** 站内路径；纯外链项此处为空字符串，改用 url */
+  /** 站内路径；纯外链项与咨询动作此处为空字符串 */
   path: string
   url?: string | null
   newWindow?: boolean
+  /** PAGE / CONTENT / EXTERNAL / CONSULT / ANCHOR */
+  linkType?: string | null
   children?: NavItem[]
 }
 
@@ -235,4 +237,22 @@ export interface ContactPage {
   email?: string
   address?: string
   hours?: string
+}
+
+export interface LeadSubmitPayload {
+  name: string
+  phone: string
+  companyName: string
+  demand: string
+  sourcePath: string
+  sourcePosition: string
+  contentType?: string
+  contentId?: number
+  consent: boolean
+  consentVersion: number
+}
+
+export interface LeadSubmitResult {
+  accepted: boolean
+  receiptNo: string
 }
