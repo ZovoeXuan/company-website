@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
 import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
+import { get } from '@/api/http'
 import type { MediaItem } from '@/api/content'
 
 interface HeroItem {
@@ -60,6 +61,11 @@ interface HomeDraft {
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<HomeDraft & Record<string, unknown>>('HOME')
 
+/** 预览用后台会话，新窗口打开；首屏与区块取草稿，关联内容取线上版本 */
+function openPreview() {
+  window.open(`${import.meta.env.BASE_URL}preview/home`, '_blank', 'noopener')
+}
+
 function emptyDraft(): HomeDraft {
   return {
     hero: { items: [] },
@@ -73,6 +79,41 @@ function emptyDraft(): HomeDraft {
 }
 
 const form = reactive<HomeDraft>(emptyDraft())
+
+// 已发布内容索引：用来发现草稿里指向「已下线/已删除」内容的引用
+const publishedIndex = ref<Map<string, string>>(new Map())
+
+const missingRefs = computed(() => {
+  const missing: string[] = []
+  const check = (ids: number[] | undefined, label: string) => {
+    for (const id of ids ?? []) {
+      if (!publishedIndex.value.has(String(id))) {
+        missing.push(`${label} #${id}`)
+      }
+    }
+  }
+  for (const group of form.services.groups) {
+    check(group.contentIds, `产品服务/${group.title || '未命名分组'}`)
+  }
+  check(form.cases.contentIds, '客户案例')
+  check(form.customers.contentIds, '客户标识')
+  if (form.news.mode === 'SELECTED') {
+    check(form.news.contentIds, '新闻')
+  }
+  return missing
+})
+
+async function loadPublishedIndex() {
+  try {
+    const data = await get<{ items: Array<{ id: string; title: string }> }>(
+      '/api/admin/contents?publicationStatus=PUBLISHED&page=1&pageSize=50',
+    )
+    publishedIndex.value = new Map(data.items.map((item) => [String(item.id), item.title]))
+  } catch {
+    // 索引加载失败不阻断编辑，失效提示会退化为「全部标红」，因此这里静默
+    publishedIndex.value = new Map()
+  }
+}
 
 function blockOf(source: unknown, fallback: BlockShape): BlockShape {
   const value = (source ?? {}) as Partial<BlockShape>
@@ -259,6 +300,7 @@ function move<T extends { sortOrder: number }>(list: T[], index: number, delta: 
 onMounted(async () => {
   await load()
   fill()
+  loadPublishedIndex()
 })
 </script>
 
@@ -275,12 +317,24 @@ onMounted(async () => {
     @save="onSave"
     @publish="onPublish"
   >
+    <template #header-actions>
+      <el-button size="small" @click="openPreview">预览草稿</el-button>
+    </template>
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
     <el-alert
       type="info"
       :closable="false"
       class="err"
       title="首页顺序固定：首屏 → 指标 → 产品服务 → 客户案例 → 客户标识 → 新闻 → 咨询区。区块开关与文案都要发布后才生效。"
+    />
+    <el-alert
+      v-if="missingRefs.length"
+      type="warning"
+      :closable="false"
+      class="err"
+      title="以下引用指向的内容已下线或删除，发布前请移除或替换："
+      :description="missingRefs.join('、')"
+      show-icon
     />
 
     <!-- 首屏 -->

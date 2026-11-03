@@ -16,6 +16,8 @@ export interface ContentView {
   sortOrder: number
   displayTime: string | null
   publishedAt: string | null
+  coverMediaId: string | null
+  updatedAt: string | null
 }
 
 export interface ContentDetail {

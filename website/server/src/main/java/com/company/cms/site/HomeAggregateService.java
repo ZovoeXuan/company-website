@@ -8,6 +8,7 @@ import com.company.cms.media.MediaRow;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,7 +49,24 @@ public class HomeAggregateService {
         if (!row.status().isPublished() || row.published() == null) {
             throw ApiException.notFound("首页尚未发布");
         }
-        JsonNode cfg = row.published();
+        return build(row.published(), row.publishedVersion(), row.publishedAt());
+    }
+
+    /**
+     * 草稿预览：首屏与各区块取当前草稿，关联内容仍只取各自已发布版本（文档 5.4）。
+     * 与公开接口共用同一段聚合逻辑，避免预览和线上出现两套结构。
+     */
+    public Map<String, Object> previewHome() {
+        SiteConfigRow row = configs.find(SiteConfigKey.HOME)
+                .orElseThrow(() -> ApiException.notFound("首页尚未初始化"));
+        JsonNode draft = row.draft();
+        if (draft == null || draft.isEmpty()) {
+            throw ApiException.notFound("首页草稿尚未填写");
+        }
+        return build(draft, row.draftVersion(), row.publishedAt());
+    }
+
+    private Map<String, Object> build(JsonNode cfg, Integer version, LocalDateTime publishedAt) {
         boolean formEnabled = formEnabled();
 
         // ---- 第一批：关联内容（一次 IN 查询）
@@ -86,9 +104,9 @@ public class HomeAggregateService {
                 .collect(Collectors.toMap(MediaRow::id, Function.identity()));
 
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("version", row.publishedVersion());
-        data.put("publishedAt", row.publishedAt() == null ? null
-                : row.publishedAt().atOffset(ZoneOffset.UTC).toString());
+        data.put("version", version);
+        data.put("publishedAt", publishedAt == null ? null
+                : publishedAt.atOffset(ZoneOffset.UTC).toString());
 
         // ---- 各区块先组装，再据此判断锚点是否可用
         Map<String, Object> hero = hero(cfg.get("hero"), mediaMap);

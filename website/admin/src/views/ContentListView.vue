@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApiError } from '@/api/http'
+import { useAuth } from '@/stores/auth'
 import {
   deleteContent,
   listContents,
@@ -13,6 +14,10 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+
+// 编辑角色看不到发布、下线入口；服务端对越权调用仍返回 403
+const { current } = useAuth()
+const canPublish = computed(() => current.value?.role === 'ADMIN')
 
 const contentType = computed(() => String(route.meta.contentType ?? 'PRODUCT'))
 const slug = computed(() => String(route.meta.slug ?? 'products'))
@@ -26,6 +31,15 @@ const statusMeta: Record<string, { text: string; type: 'success' | 'info' | 'war
   PUBLISHED: { text: '已发布', type: 'success' },
   UNPUBLISHED: { text: '草稿', type: 'info' },
   OFFLINE: { text: '已下线', type: 'warning' },
+}
+
+/** 后端统一输出 UTC，列表按本地时区显示到分钟 */
+function formatTime(value: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 async function load() {
@@ -51,6 +65,11 @@ async function load() {
 function reloadFromFirstPage() {
   query.page = 1
   load()
+}
+
+function openPreview(row: ContentView) {
+  const { href } = router.resolve({ path: `/preview/${slug.value}/${row.id}` })
+  window.open(href, '_blank', 'noopener')
 }
 
 async function publish(row: ContentView) {
@@ -129,6 +148,17 @@ onMounted(load)
       </template>
 
       <el-table v-loading="loading" :data="rows" border>
+        <el-table-column label="封面" width="76">
+          <template #default="{ row }">
+            <img
+              v-if="row.coverMediaId"
+              :src="`/api/admin/media/${row.coverMediaId}/file`"
+              class="thumb"
+              alt=""
+            />
+            <div v-else class="thumb thumb--empty" aria-hidden="true"></div>
+          </template>
+        </el-table-column>
         <el-table-column label="标题" min-width="260">
           <template #default="{ row }">
             <div class="title-cell">
@@ -152,12 +182,16 @@ onMounted(load)
             草稿 v{{ row.draftVersion }} / 上线 v{{ row.publishedVersion ?? '—' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="最后修改" width="150">
+          <template #default="{ row }">{{ formatTime(row.updatedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="router.push(`/contents/${slug}/${row.id}/edit`)">编辑</el-button>
-            <el-button v-if="row.hasUnpublishedChanges" link type="success" @click="publish(row)">发布</el-button>
-            <el-button v-if="row.status === 'PUBLISHED'" link type="warning" @click="offline(row)">下线</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <el-button link @click="openPreview(row)">预览</el-button>
+            <el-button v-if="canPublish && row.hasUnpublishedChanges" link type="success" @click="publish(row)">发布</el-button>
+            <el-button v-if="canPublish && row.status === 'PUBLISHED'" link type="warning" @click="offline(row)">下线</el-button>
+            <el-button v-if="canPublish" link type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -194,6 +228,19 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.thumb {
+  width: 52px;
+  height: 32px;
+  border-radius: 3px;
+  object-fit: cover;
+  background: var(--a-surface);
+  display: block;
+}
+
+.thumb--empty {
+  border: 1px dashed var(--a-border);
 }
 
 .pager {

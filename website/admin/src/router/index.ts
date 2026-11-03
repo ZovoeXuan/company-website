@@ -16,6 +16,8 @@ import ContactPageView from '@/views/ContactPageView.vue'
 import PrivacyPageView from '@/views/PrivacyPageView.vue'
 import HomeManageView from '@/views/HomeManageView.vue'
 import LeadListView from '@/views/LeadListView.vue'
+import PreviewContentView from '@/views/PreviewContentView.vue'
+import PreviewHomeView from '@/views/PreviewHomeView.vue'
 import { useAuth } from '@/stores/auth'
 
 const contentRoutes = (slug: string, contentType: string, title: string) => [
@@ -40,6 +42,17 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
+    // 草稿预览不放在后台框架内，尽量接近官网真实观感；仍需登录会话
+    {
+      path: '/preview/home',
+      component: PreviewHomeView,
+      meta: { title: '首页草稿预览' },
+    },
+    {
+      path: '/preview/:slug/:id',
+      component: PreviewContentView,
+      meta: { title: '草稿预览' },
+    },
     {
       path: '/',
       component: AdminLayout,

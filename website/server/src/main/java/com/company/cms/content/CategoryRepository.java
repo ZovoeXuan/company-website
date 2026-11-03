@@ -141,6 +141,18 @@ public class CategoryRepository {
                 UtcTime.now(), id, expectedLockVersion);
     }
 
+    /** 同类型下是否已有同名分类草稿；更新时排除自身。 */
+    public boolean existsDraftName(ContentType type, String name, Long excludeId) {
+        String sql = "SELECT COUNT(*) FROM cms_category c WHERE c.category_type = ? AND c.deleted = 0 "
+                + "AND TRIM(JSON_UNQUOTE(JSON_EXTRACT(c.draft_json, '$.name'))) = ?"
+                + (excludeId == null ? "" : " AND c.id <> ?");
+        Object[] args = excludeId == null
+                ? new Object[]{type.name(), name}
+                : new Object[]{type.name(), name, excludeId};
+        Long count = jdbc.queryForObject(sql, Long.class, args);
+        return count != null && count > 0;
+    }
+
     public long countPublishedContents(Long categoryId) {
         Long count = jdbc.queryForObject("""
                 SELECT COUNT(*) FROM cms_content

@@ -34,6 +34,9 @@ const editing = reactive({
   initialPassword: '',
 })
 
+// 记录打开弹窗时的状态，用于判断是否发生了禁用或降级
+const original = reactive({ enabled: true, roleCode: 'EDITOR' as 'ADMIN' | 'EDITOR' })
+
 const rules: FormRules = {
   displayName: [{ required: true, message: '请输入显示名称', trigger: 'blur' }],
 }
@@ -58,6 +61,7 @@ function openCreate() {
   Object.assign(editing, {
     id: '', lockVersion: 0, username: '', displayName: '', roleCode: 'EDITOR', enabled: true, initialPassword: '',
   })
+  Object.assign(original, { enabled: true, roleCode: 'EDITOR' })
   formVisible.value = true
 }
 
@@ -72,13 +76,42 @@ function openEdit(row: UserRow) {
     enabled: row.enabled,
     initialPassword: '',
   })
+  Object.assign(original, { enabled: row.enabled, roleCode: row.role })
   formVisible.value = true
+}
+
+async function confirmSensitiveChange() {
+  if (formMode.value !== 'edit') return true
+  if (original.enabled && !editing.enabled) {
+    try {
+      await ElMessageBox.confirm(
+        `禁用后「${editing.displayName || editing.username}」将立即退出登录，且无法再进入后台。确认禁用？`,
+        '禁用账号确认',
+        { type: 'warning', confirmButtonText: '确认禁用', cancelButtonText: '取消' },
+      )
+    } catch {
+      return false
+    }
+  }
+  if (original.roleCode === 'ADMIN' && editing.roleCode === 'EDITOR') {
+    try {
+      await ElMessageBox.confirm(
+        `降级后「${editing.displayName || editing.username}」将失去发布、下线、删除与咨询处理权限。确认降级？`,
+        '角色变更确认',
+        { type: 'warning', confirmButtonText: '确认降级', cancelButtonText: '取消' },
+      )
+    } catch {
+      return false
+    }
+  }
+  return true
 }
 
 async function submit() {
   if (!formRef.value) return
   await formRef.value.validate(async (valid) => {
     if (!valid) return
+    if (!(await confirmSensitiveChange())) return
     submitting.value = true
     try {
       if (formMode.value === 'create') {

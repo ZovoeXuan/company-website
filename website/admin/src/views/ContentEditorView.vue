@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuth } from '@/stores/auth'
 import { ApiError } from '@/api/http'
 import {
   createContent,
@@ -80,6 +81,62 @@ const publishing = ref(false)
 const detail = ref<ContentDetail | null>(null)
 const categories = ref<CategoryView[]>([])
 const pickerOpen = ref(false)
+
+// 权限：编辑角色只能保存草稿，发布与下线按钮不渲染（服务端仍会二次校验）
+const { current } = useAuth()
+const canPublish = computed(() => current.value?.role === 'ADMIN')
+
+// 未保存离开提醒：以最后一次加载/保存的表单序列化为基线
+const savedSignature = ref<string | null>(null)
+const dirty = computed(() => {
+  if (savedSignature.value === null) {
+    const values = form.value
+    return values.title.trim() !== '' || values.summary.trim() !== '' || values.bodyHtml.trim() !== ''
+  }
+  return JSON.stringify(buildDraft()) !== savedSignature.value
+})
+
+onBeforeRouteLeave(async () => {
+  if (!dirty.value || saving.value || publishing.value) return true
+  try {
+    await ElMessageBox.confirm(
+      '有未保存的修改，离开后这些内容会丢失。确定离开？',
+      '未保存提醒',
+      { type: 'warning', confirmButtonText: '离开', cancelButtonText: '继续编辑' },
+    )
+    return true
+  } catch {
+    return false
+  }
+})
+
+function markSaved() {
+  savedSignature.value = JSON.stringify(buildDraft())
+}
+
+// 官网地址：开发环境是独立的 5173 端口，生产与后台同域，用环境变量覆盖
+const SITE_ORIGIN = (import.meta.env.VITE_SITE_ORIGIN as string | undefined) ?? 'http://localhost:5173'
+const detailSegments: Record<string, string> = {
+  PRODUCT: 'products',
+  SOLUTION: 'solutions',
+  CASE: 'cases',
+  NEWS: 'news',
+}
+
+function siteUrl(id: string) {
+  const segment = detailSegments[contentType.value]
+  return segment ? `${SITE_ORIGIN}/${segment}/${id}` : SITE_ORIGIN
+}
+
+/** 预览走后台会话，新窗口打开，标题栏与横幅会标明这是草稿 */
+function openPreview() {
+  if (isNew.value) {
+    ElMessage.info('请先保存草稿，再预览')
+    return
+  }
+  const { href } = router.resolve({ path: `/preview/${slug.value}/${contentId.value}` })
+  window.open(href, '_blank', 'noopener')
+}
 
 type PickerTarget =
   | { kind: 'cover' }
@@ -214,7 +271,8 @@ function reportError(error: unknown) {
 }
 
 function thumb(id: string | number) {
-  return `/api/admin/media/${id}`
+  // 必须走 /file 子路径，否则命中的是 JSON 详情接口，图片会加载失败
+  return `/api/admin/media/${id}/file`
 }
 
 function openPicker(target: PickerTarget) {
@@ -328,6 +386,7 @@ async function load() {
       const data = await getContent(contentId.value)
       detail.value = data
       fill(data)
+      markSaved()
     } else {
       form.value = blankForm()
     }
@@ -368,7 +427,16 @@ async function submit(publish: boolean) {
     }
     detail.value = data
     fill(data)
-    ElMessage.success(publish ? '已保存并发布' : '草稿已保存')
+    markSaved()
+    if (publish) {
+      const version = data.content.publishedVersion ?? data.content.draftVersion
+      ElMessage.success({
+        dangerouslyUseHTMLString: true,
+        message: `已发布 v${version}，<a href="${siteUrl(data.content.id)}" target="_blank" rel="noopener">在官网查看</a>`,
+      })
+    } else {
+      ElMessage.success(`草稿已保存，版本 v${data.content.draftVersion}`)
+    }
     if (isNew.value) await router.replace(`/contents/${slug}/${data.content.id}`)
   } catch (error) {
     reportError(error)
@@ -648,10 +716,14 @@ onMounted(load)
       <p v-else class="muted">保存后显示版本信息</p>
 
       <div class="actions">
+        <el-button v-if="!isNew" @click="openPreview">预览</el-button>
         <el-button :loading="saving" @click="submit(false)">保存草稿</el-button>
-        <el-button type="primary" :loading="publishing" @click="submit(true)">保存并发布</el-button>
-        <el-button v-if="!isNew" type="warning" plain @click="offline">下线</el-button>
+        <el-button v-if="canPublish" type="primary" :loading="publishing" @click="submit(true)">
+          保存并发布
+        </el-button>
+        <el-button v-if="canPublish && !isNew" type="warning" plain @click="offline">下线</el-button>
       </div>
+      <p v-if="!canPublish" class="muted role-hint">编辑角色只能保存草稿，发布与下线由管理员操作。</p>
     </el-card>
 
     <el-card shadow="never" class="side">
@@ -738,6 +810,11 @@ onMounted(load)
 .muted {
   color: var(--a-text-subtle);
   font-size: 13px;
+}
+
+.role-hint {
+  margin-top: 10px;
+  line-height: 1.6;
 }
 
 .actions {

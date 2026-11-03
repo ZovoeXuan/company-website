@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ArticleBody from '@shared/ArticleBody.vue'
 import { getProduct } from '@/api/public'
 import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
@@ -77,32 +78,25 @@ onMounted(load)
 
     <section class="section">
       <div class="container detail">
-        <article class="detail__main">
-          <figure v-if="data.cover" class="detail__cover">
-            <img :src="data.cover.url" :alt="data.cover.alt" :width="data.cover.width" :height="data.cover.height" />
-          </figure>
-
-          <ul v-if="data.features?.length" class="caps" aria-label="核心能力">
-            <li v-for="cap in data.features ?? []" :key="cap.title" class="caps__item">
-              {{ cap.title }}
-            </li>
-          </ul>
-
-          <!-- 正文由后端清洗后下发，前端只负责排版 -->
-          <div class="prose" v-html="data.bodyHtml"></div>
-
-          <section v-if="data.relatedCases?.length" class="related" aria-labelledby="related-cases">
-            <h2 id="related-cases" class="related__title">相关案例</h2>
-            <ul class="related__list">
-              <li v-for="item in data.relatedCases ?? []" :key="item.id">
-                <RouterLink :to="`/cases/${item.id}`" class="related__link">
-                  <span v-if="item.industry" class="tag">{{ item.industry }}</span>
-                  <span class="related__name">{{ item.title }}</span>
-                </RouterLink>
-              </li>
-            </ul>
-          </section>
-        </article>
+        <div class="detail__main">
+          <ArticleBody
+            :cover="data.cover"
+            :capabilities="(data.features ?? []).map((item) => item.title)"
+            :body-html="data.bodyHtml"
+          >
+            <section v-if="data.relatedCases?.length" class="related" aria-labelledby="related-cases">
+              <h2 id="related-cases" class="related__title">相关案例</h2>
+              <ul class="related__list">
+                <li v-for="item in data.relatedCases ?? []" :key="item.id">
+                  <RouterLink :to="`/cases/${item.id}`" class="related__link">
+                    <span v-if="item.industry" class="tag">{{ item.industry }}</span>
+                    <span class="related__name">{{ item.title }}</span>
+                  </RouterLink>
+                </li>
+              </ul>
+            </section>
+          </ArticleBody>
+        </div>
 
         <aside class="detail__aside" aria-label="咨询">
           <div class="aside-card">
@@ -136,50 +130,11 @@ onMounted(load)
   align-items: start;
 }
 
-.detail__cover {
-  margin-bottom: 32px;
-}
 
-.detail__cover img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: var(--radius);
-  border: 1px solid var(--c-border);
-}
 
-/* 能力标签：用竖线分隔的纯文字，不用彩色胶囊 */
-.caps {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0;
-  list-style: none;
-  margin: 0 0 32px;
-  padding: 0;
-  font-size: 14px;
-  color: var(--c-text-muted);
-}
 
-.caps__item {
-  position: relative;
-  padding: 0 16px;
-}
 
-.caps__item:first-child {
-  padding-left: 0;
-}
 
-.caps__item + .caps__item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 1px;
-  height: 12px;
-  margin-top: -6px;
-  background: var(--c-border-strong);
-}
 
 .related {
   margin-top: 48px;

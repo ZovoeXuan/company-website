@@ -44,6 +44,7 @@ public class ContentRepository {
             intOrNull(rs, "published_sort_order"),
             rs.getObject("published_display_time", LocalDateTime.class),
             rs.getObject("published_at", LocalDateTime.class),
+            rs.getObject("updated_at", LocalDateTime.class),
             rs.getInt("deleted") == 1
     );
 

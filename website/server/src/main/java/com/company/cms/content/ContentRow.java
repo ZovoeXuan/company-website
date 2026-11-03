@@ -21,6 +21,7 @@ public record ContentRow(
         Integer publishedSortOrder,
         LocalDateTime publishedDisplayTime,
         LocalDateTime publishedAt,
+        LocalDateTime updatedAt,
         boolean deleted
 ) {
     public boolean hasUnpublishedChanges() {

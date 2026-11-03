@@ -3,6 +3,7 @@ package com.company.cms.site;
 import com.company.cms.auth.CmsPrincipal;
 import com.company.cms.common.ApiException;
 import com.company.cms.common.ErrorCode;
+import com.company.cms.common.FieldErrorItem;
 import com.company.cms.content.JsonRefs;
 import com.company.cms.media.MediaRefRepository;
 import com.company.cms.system.AuditLogService;
@@ -83,6 +84,9 @@ public class SiteConfigService {
         // 发布前再校验一次结构与必填，避免历史草稿绕过新增规则
         JsonNode normalized = validator.validate(key, row.draft());
         validator.validateForPublish(key, normalized);
+        if (key == SiteConfigKey.CONTACT) {
+            checkFormPrerequisites(normalized);
+        }
 
         int updated = repository.publish(key, expectedLockVersion, expectedDraftVersion, actor.id());
         if (updated == 0) {
@@ -90,6 +94,30 @@ public class SiteConfigService {
         }
         mediaRefs.copyStage("CONFIG", row.id(), "DRAFT", "PUBLISHED");
         audit.success(actor.id(), "CONFIG_PUBLISH", "CONFIG", null, "发布配置 " + key.name());
+    }
+
+    /**
+     * 开启咨询表单前必须先有可展示的隐私说明与联系方式（文档 6.8）。
+     * 放在发布阶段拦，避免线上出现「表单能提交但没有隐私依据」的状态。
+     */
+    private void checkFormPrerequisites(JsonNode contact) {
+        JsonNode enabled = contact.get("formEnabled");
+        if (enabled == null || !enabled.asBoolean(false)) {
+            return;
+        }
+        List<FieldErrorItem> errors = new ArrayList<>();
+        SiteConfigRow privacy = repository.find(SiteConfigKey.PRIVACY).orElse(null);
+        if (privacy == null || privacy.publishedVersion() == null || !privacy.status().isPublished()) {
+            errors.add(new FieldErrorItem("formEnabled", "开启表单前，隐私说明必须先发布"));
+        }
+        String phone = text(contact, "phone");
+        String email = text(contact, "email");
+        if (phone.isBlank() && email.isBlank()) {
+            errors.add(new FieldErrorItem("formEnabled", "开启表单前，请至少填写电话或邮箱"));
+        }
+        if (!errors.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "还不能开启咨询表单", errors);
+        }
     }
 
     /** 配置内所有 MediaId 字段登记为草稿引用，发布时整体复制。 */

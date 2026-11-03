@@ -23,6 +23,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -624,6 +625,70 @@ public class ContentService {
         }
     }
 
+    /**
+     * 草稿预览视图：字段结构与公开详情一致，但取当前草稿。
+     * 关联内容一律使用各自最新发布版（文档 5.4），预览页会标注该规则。
+     * 图片走后台鉴权地址，避免预览依赖「已发布引用」而 404。
+     */
+    public Map<String, Object> previewView(long id) {
+        ContentRow row = contents.findById(id)
+                .orElseThrow(() -> ApiException.notFound("内容不存在"));
+        JsonNode draft = row.draft() == null ? objectMapper.createObjectNode() : row.draft();
+
+        Map<String, Object> view = new LinkedHashMap<>();
+        view.put("id", String.valueOf(row.id()));
+        view.put("contentType", row.contentType().name());
+        view.put("status", row.status().name());
+        view.put("title", text(draft, "title"));
+        view.put("summary", text(draft, "summary"));
+        view.put("bodyHtml", text(draft, "bodyHtml"));
+        view.put("cover", previewMedia(draft.get("coverMediaId")));
+        view.put("logo", previewMedia(draft.get("logoMediaId")));
+        view.put("hero", previewMedia(draft.get("heroMediaId")));
+        view.put("categoryName", longOrNull(draft.get("categoryId")) == null ? null
+                : categories.findById(longOrNull(draft.get("categoryId")))
+                .map(CategoryRow::draftName).orElse(null));
+
+        for (String field : List.of("features", "capabilities", "outcomes", "pains", "benefits",
+                "quoteText", "quoteAuthor", "customerName", "industry", "displayTime", "author")) {
+            JsonNode value = draft.get(field);
+            if (value != null && !value.isNull()) {
+                view.put(field, value);
+            }
+        }
+
+        List<Map<String, Object>> related = new ArrayList<>();
+        for (JsonRefs.ContentRef ref : JsonRefs.contentRefs(draft)) {
+            contents.findPublishedById(ref.contentId()).ifPresent(target -> {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("id", String.valueOf(target.id()));
+                item.put("contentType", target.contentType().name());
+                item.put("title", text(target.published(), "title"));
+                related.add(item);
+            });
+        }
+        view.put("related", related);
+        return view;
+    }
+
+    private Map<String, Object> previewMedia(JsonNode node) {
+        Long mediaId = longOrNull(node);
+        if (mediaId == null) {
+            return null;
+        }
+        try {
+            var media = mediaService.require(mediaId);
+            Map<String, Object> view = new LinkedHashMap<>();
+            view.put("url", "/api/admin/media/" + mediaId + "/file");
+            view.put("width", media.width());
+            view.put("height", media.height());
+            view.put("alt", "");
+            return view;
+        } catch (ApiException ex) {
+            return null;
+        }
+    }
+
     private ContentView toView(ContentRow row, Map<Long, String> categoryNames) {
         String categoryName = null;
         if (row.publishedCategoryId() != null) {
@@ -646,8 +711,24 @@ public class ContentService {
                 row.publishedSortOrder() == null ? intOrDefault(row.draft().get("sortOrder"), 9999)
                         : row.publishedSortOrder(),
                 row.publishedDisplayTime() == null ? null : row.publishedDisplayTime().toLocalDate().toString(),
-                row.publishedAt() == null ? null : row.publishedAt().atOffset(ZoneOffset.UTC).toString()
+                row.publishedAt() == null ? null : row.publishedAt().atOffset(ZoneOffset.UTC).toString(),
+                coverMediaId(row),
+                row.updatedAt() == null ? null : row.updatedAt().atOffset(ZoneOffset.UTC).toString()
         );
+    }
+
+    /**
+     * 列表缩略图：客户标识用 logo，其余用封面。优先草稿，回退发布快照，
+     * 这样运营在列表里看到的就是自己正在编辑的那张图。
+     */
+    private String coverMediaId(ContentRow row) {
+        String field = row.contentType() == ContentType.CUSTOMER ? "logoMediaId" : "coverMediaId";
+        JsonNode draftValue = row.draft() == null ? null : row.draft().get(field);
+        if (draftValue != null && !draftValue.isNull()) {
+            return draftValue.asString();
+        }
+        JsonNode publishedValue = row.published() == null ? null : row.published().get(field);
+        return publishedValue == null || publishedValue.isNull() ? null : publishedValue.asString();
     }
 
     private String text(JsonNode node, String field) {
@@ -686,7 +767,9 @@ public class ContentService {
             String categoryName,
             int sortOrder,
             String displayTime,
-            String publishedAt
+            String publishedAt,
+            String coverMediaId,
+            String updatedAt
     ) {
     }
 

@@ -52,6 +52,7 @@ public class CategoryService {
     public String create(String typeRaw, JsonNode draft, CmsPrincipal actor) {
         ContentType type = ContentType.parse(typeRaw);
         JsonNode normalized = validateAndNormalize(draft);
+        checkDuplicateName(type, normalized.get("name").asString(), null);
         long id = repository.insert(type, normalized, actor.id());
         audit.success(actor.id(), "CATEGORY_CREATE", "CATEGORY", id,
                 "新建分类 " + normalized.get("name").asString());
@@ -63,12 +64,27 @@ public class CategoryService {
         CategoryRow row = repository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("分类不存在"));
         JsonNode normalized = validateAndNormalize(draft);
+        checkDuplicateName(row.categoryType(), normalized.get("name").asString(), id);
         int updated = repository.updateDraft(id, normalized, expectedLockVersion, actor.id());
         if (updated == 0) {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "分类已被他人修改，请刷新后重试");
         }
         audit.success(actor.id(), "CATEGORY_UPDATE", "CATEGORY", id,
                 "修改分类 " + row.draftName() + " → " + normalized.get("name").asString());
+    }
+
+    /**
+     * 同名分类在发布时会被唯一键拒绝，但那时运营已经填完整个表单。
+     * 草稿阶段就提示，能直接跳到字段上改，避免发布时才发现。
+     */
+    private void checkDuplicateName(ContentType type, String name, Long selfId) {
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        if (repository.existsDraftName(type, name.trim(), selfId)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "同类型下已存在同名分类",
+                    List.of(new FieldErrorItem("name", "同类型下已存在同名分类")));
+        }
     }
 
     @Transactional
