@@ -26,6 +26,7 @@ public class SiteConfigRepository {
     }
 
     private final RowMapper<SiteConfigRow> mapper = (rs, rowNum) -> new SiteConfigRow(
+            rs.getLong("id"),
             SiteConfigKey.parse(rs.getString("config_key")),
             readJson(rs.getString("draft_json")),
             readJson(rs.getString("published_json")),

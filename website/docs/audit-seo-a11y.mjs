@@ -53,7 +53,10 @@ for (const route of routes) {
     const robots = document.querySelector('meta[name="robots"]')
     const ids = q('[id]').map((el) => el.id).filter(Boolean)
     const dupIds = ids.filter((id, i) => ids.indexOf(id) !== i)
-    const imgsNoAlt = q('img').filter((img) => !img.hasAttribute('alt') || img.getAttribute('alt').trim() === '').length
+    // aria-hidden 容器内的图片是装饰性的，alt="" 属于正确用法，不计入缺失
+    const imgsNoAlt = q('img')
+      .filter((img) => !img.closest('[aria-hidden="true"]'))
+      .filter((img) => !img.hasAttribute('alt') || img.getAttribute('alt').trim() === '').length
     const linksNoName = q('a').filter((a) => (a.textContent || '').trim() === '' && !a.getAttribute('aria-label') && !a.querySelector('img[alt]')).length
     const inputsNoLabel = q('input, textarea, select').filter((el) => {
       if (el.type === 'hidden' || el.type === 'submit') return false

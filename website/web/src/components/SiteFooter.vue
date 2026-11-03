@@ -88,18 +88,19 @@ function telHref(phone: string) {
 </template>
 
 <style scoped>
+/* 页脚：与导航同一深蓝，形成首尾呼应 */
 .footer {
-  border-top: 1px solid var(--c-border);
-  background: var(--c-surface);
-  margin-top: 96px;
+  background: var(--c-navy);
+  color: var(--c-on-dark);
+  margin-top: 0;
 }
 
 .footer__top {
   display: flex;
   flex-wrap: wrap;
-  gap: 40px;
-  padding-top: 56px;
-  padding-bottom: 40px;
+  gap: 48px;
+  padding-top: 72px;
+  padding-bottom: 56px;
 }
 
 .footer__brand {
@@ -119,22 +120,26 @@ function telHref(phone: string) {
 }
 
 .footer__name {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 500;
+  color: var(--c-on-dark);
 }
 
 .footer__slogan {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 14px;
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
   max-width: 320px;
   line-height: 1.8;
 }
 
 .footer__title {
-  font-size: 14px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   font-weight: 500;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .footer__list {
@@ -143,18 +148,17 @@ function telHref(phone: string) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 11px;
   font-size: 14px;
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
 }
 
 .footer__link {
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
 }
 
 .footer__link:hover {
-  color: var(--c-brand);
-  text-decoration: underline;
+  color: #fff;
 }
 
 .footer__link--button {
@@ -171,20 +175,26 @@ function telHref(phone: string) {
   display: flex;
   gap: 24px;
   flex-wrap: wrap;
-  padding-top: 20px;
-  padding-bottom: 28px;
-  border-top: 1px solid var(--c-border);
+  padding-top: 24px;
+  padding-bottom: 32px;
+  border-top: 1px solid var(--c-on-dark-line);
   font-size: 13px;
-  color: var(--c-text-subtle);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.footer__bottom .footer__link {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.footer__bottom .footer__link:hover {
+  color: #fff;
 }
 
 @media (max-width: 860px) {
   .footer__top {
-    gap: 32px;
-    padding-top: 40px;
-  }
-  .footer {
-    margin-top: 64px;
+    gap: 36px;
+    padding-top: 48px;
+    padding-bottom: 36px;
   }
 }
 </style>

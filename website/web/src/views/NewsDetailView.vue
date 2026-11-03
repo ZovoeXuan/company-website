@@ -5,11 +5,13 @@ import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getNewsDetail } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { ApiError } from '@/api/http'
 import type { NewsDetail } from '@/data/types'
 
 const route = useRoute()
 const data = ref<NewsDetail | null>(null)
 const loading = ref(true)
+const failed = ref(false)
 
 usePageMeta(() => ({
   title: data.value ? `${data.value.title}｜新闻` : '新闻详情',
@@ -19,8 +21,16 @@ usePageMeta(() => ({
 
 async function load() {
   loading.value = true
-  data.value = await getNewsDetail(String(route.params.id))
-  loading.value = false
+  failed.value = false
+  try {
+    data.value = await getNewsDetail(String(route.params.id))
+  } catch (error) {
+    data.value = null
+    // 404 视为「内容不存在」，其他错误保留重试入口，不能当成空内容
+    failed.value = !(error instanceof ApiError && (error.status === 404 || error.status === 400))
+  } finally {
+    loading.value = false
+  }
 }
 
 watch(() => route.params.id, load)
@@ -29,6 +39,20 @@ onMounted(load)
 
 <template>
   <div v-if="loading" class="container state" aria-busy="true"><div class="skeleton"></div></div>
+
+  <div v-else-if="failed">
+    <PageHeader
+      title="文章加载失败"
+      :crumbs="[{ label: '首页', path: '/' }, { label: '新闻', path: '/news' }, { label: '加载失败' }]"
+    />
+    <section class="section">
+      <div class="container">
+        <EmptyState title="内容加载失败" description="可能是网络或服务异常，请稍后重试。">
+          <button type="button" class="btn btn--ghost" @click="load">重新加载</button>
+        </EmptyState>
+      </div>
+    </section>
+  </div>
 
   <div v-else-if="!data">
     <PageHeader title="文章不存在" :crumbs="[{ label: '首页', path: '/' }, { label: '新闻', path: '/news' }]" />

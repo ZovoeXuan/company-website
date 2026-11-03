@@ -6,11 +6,13 @@ import EmptyState from '@/components/EmptyState.vue'
 import { getProduct } from '@/api/public'
 import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { ApiError } from '@/api/http'
 import type { ProductDetail } from '@/data/types'
 
 const route = useRoute()
 const data = ref<ProductDetail | null>(null)
 const loading = ref(true)
+const failed = ref(false)
 
 usePageMeta(() => ({
   title: data.value ? `${data.value.title}｜产品中心` : '产品详情',
@@ -20,8 +22,16 @@ usePageMeta(() => ({
 
 async function load() {
   loading.value = true
-  data.value = await getProduct(String(route.params.id))
-  loading.value = false
+  failed.value = false
+  try {
+    data.value = await getProduct(String(route.params.id))
+  } catch (error) {
+    data.value = null
+    // 404 视为「内容不存在」，其他错误保留重试入口，不能当成空内容
+    failed.value = !(error instanceof ApiError && (error.status === 404 || error.status === 400))
+  } finally {
+    loading.value = false
+  }
 }
 
 watch(() => route.params.id, load)
@@ -31,6 +41,20 @@ onMounted(load)
 <template>
   <div v-if="loading" class="container state" aria-busy="true">
     <div class="skeleton"></div>
+  </div>
+
+  <div v-else-if="failed">
+    <PageHeader
+      title="产品加载失败"
+      :crumbs="[{ label: '首页', path: '/' }, { label: '产品中心', path: '/products' }, { label: '加载失败' }]"
+    />
+    <section class="section">
+      <div class="container">
+        <EmptyState title="内容加载失败" description="可能是网络或服务异常，请稍后重试。">
+          <button type="button" class="btn btn--ghost" @click="load">重新加载</button>
+        </EmptyState>
+      </div>
+    </section>
   </div>
 
   <div v-else-if="!data">
@@ -124,21 +148,37 @@ onMounted(load)
   border: 1px solid var(--c-border);
 }
 
+/* 能力标签：用竖线分隔的纯文字，不用彩色胶囊 */
 .caps {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 0;
   list-style: none;
-  margin: 0 0 28px;
+  margin: 0 0 32px;
   padding: 0;
+  font-size: 14px;
+  color: var(--c-text-muted);
 }
 
 .caps__item {
-  font-size: 13px;
-  color: var(--c-brand);
-  background: var(--c-brand-soft);
-  border-radius: 999px;
-  padding: 5px 14px;
+  position: relative;
+  padding: 0 16px;
+}
+
+.caps__item:first-child {
+  padding-left: 0;
+}
+
+.caps__item + .caps__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 12px;
+  margin-top: -6px;
+  background: var(--c-border-strong);
 }
 
 .related {

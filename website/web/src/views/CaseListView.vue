@@ -82,7 +82,7 @@ onMounted(async () => {
           </button>
         </div>
 
-        <div v-if="loading" class="grid grid--2 list" aria-busy="true">
+        <div v-if="loading" class="grid grid--3 list" aria-busy="true">
           <div v-for="n in 2" :key="n" class="skeleton"></div>
         </div>
 
@@ -94,7 +94,7 @@ onMounted(async () => {
           description="可以切换其他行业，或联系我们了解相近场景的做法。"
         />
 
-        <div v-else class="grid grid--2 list">
+        <div v-else class="grid grid--3 list">
           <RouterLink v-for="item in result.items" :key="item.id" :to="`/cases/${item.id}`" class="card case">
             <img
               v-if="item.cover"
@@ -135,30 +135,40 @@ onMounted(async () => {
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 28px;
+  gap: 28px;
+  border-bottom: 1px solid var(--c-border);
 }
 
+/* 筛选器做成下划线标签，避免一排彩色胶囊按钮抢走视线 */
 .filters__btn {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--c-border);
-  background: #fff;
-  border-radius: 999px;
-  font-size: 14px;
+  position: relative;
+  min-height: 46px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
   color: var(--c-text-muted);
   cursor: pointer;
+  transition: color 0.16s ease;
 }
 
 .filters__btn:hover {
-  border-color: var(--c-brand);
-  color: var(--c-brand);
+  color: var(--c-text);
 }
 
 .filters__btn.is-active {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.filters__btn.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
   background: var(--c-brand);
-  border-color: var(--c-brand);
-  color: #fff;
 }
 
 .case {

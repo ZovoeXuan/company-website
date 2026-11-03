@@ -29,3 +29,7 @@ docs/*.png
 *.iml
 
 # Maven wrapper 下载的发行包不需要忽略，wrapper 配置需要提交
+
+# Python 缓存与一次性脚本产物
+__pycache__/
+*.pyc

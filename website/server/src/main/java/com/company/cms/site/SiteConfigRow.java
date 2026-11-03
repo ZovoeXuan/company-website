@@ -6,6 +6,7 @@ import tools.jackson.databind.JsonNode;
 import java.time.LocalDateTime;
 
 public record SiteConfigRow(
+        long id,
         SiteConfigKey key,
         JsonNode draft,
         JsonNode published,

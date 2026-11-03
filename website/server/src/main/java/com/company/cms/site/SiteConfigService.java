@@ -3,6 +3,8 @@ package com.company.cms.site;
 import com.company.cms.auth.CmsPrincipal;
 import com.company.cms.common.ApiException;
 import com.company.cms.common.ErrorCode;
+import com.company.cms.content.JsonRefs;
+import com.company.cms.media.MediaRefRepository;
 import com.company.cms.system.AuditLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +27,17 @@ public class SiteConfigService {
     private final SiteConfigValidator validator;
     private final LinkResolver links;
     private final AuditLogService audit;
+    /** 配置里的图片也要登记引用，否则公开图片接口无法判断它是否可见 */
+    private final MediaRefRepository mediaRefs;
 
     public SiteConfigService(SiteConfigRepository repository, SiteConfigValidator validator,
-                             LinkResolver links, AuditLogService audit) {
+                             LinkResolver links, AuditLogService audit,
+                             MediaRefRepository mediaRefs) {
         this.repository = repository;
         this.validator = validator;
         this.links = links;
         this.audit = audit;
+        this.mediaRefs = mediaRefs;
     }
 
     public Map<String, Object> adminView(SiteConfigKey key) {
@@ -60,6 +66,9 @@ public class SiteConfigService {
         if (updated == 0) {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "配置已被他人修改，请刷新后重试");
         }
+        SiteConfigRow saved = repository.find(key)
+                .orElseThrow(() -> ApiException.notFound("配置不存在"));
+        replaceDraftRefs(saved.id(), normalized);
         return adminView(key);
     }
 
@@ -79,7 +88,16 @@ public class SiteConfigService {
         if (updated == 0) {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "配置已被他人修改，请刷新后重试");
         }
+        mediaRefs.copyStage("CONFIG", row.id(), "DRAFT", "PUBLISHED");
         audit.success(actor.id(), "CONFIG_PUBLISH", "CONFIG", null, "发布配置 " + key.name());
+    }
+
+    /** 配置内所有 MediaId 字段登记为草稿引用，发布时整体复制。 */
+    private void replaceDraftRefs(long configId, JsonNode draft) {
+        List<MediaRefRepository.MediaRefRow> rows = JsonRefs.mediaRefs(draft).stream()
+                .map(ref -> new MediaRefRepository.MediaRefRow(ref.mediaId(), ref.path()))
+                .toList();
+        mediaRefs.replaceStage("CONFIG", configId, "DRAFT", rows);
     }
 
     /**

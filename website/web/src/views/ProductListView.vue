@@ -135,29 +135,40 @@ onMounted(async () => {
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 28px;
+  border-bottom: 1px solid var(--c-border);
 }
 
+/* 筛选器做成下划线标签，避免一排彩色胶囊按钮抢走视线 */
 .filters__btn {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--c-border);
-  background: #fff;
-  border-radius: 999px;
-  font-size: 14px;
+  position: relative;
+  min-height: 46px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 15px;
   color: var(--c-text-muted);
   cursor: pointer;
+  transition: color 0.16s ease;
 }
 
 .filters__btn:hover {
-  border-color: var(--c-brand);
-  color: var(--c-brand);
+  color: var(--c-text);
 }
 
 .filters__btn.is-active {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+.filters__btn.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
   background: var(--c-brand);
-  border-color: var(--c-brand);
-  color: #fff;
 }
 
 .count {

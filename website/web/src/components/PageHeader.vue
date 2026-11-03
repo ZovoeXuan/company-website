@@ -12,7 +12,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="page-head">
+  <div class="page-head on-dark">
     <div class="container">
       <nav v-if="crumbs?.length" class="crumbs" aria-label="面包屑">
         <ol class="crumbs__list">
@@ -31,57 +31,71 @@ defineProps<{
 </template>
 
 <style scoped>
+/* 内页页头：深蓝带 + 极淡的径向光，与首屏形成同一套暗色体系 */
 .page-head {
-  background: linear-gradient(180deg, #f4f8fc 0%, #ffffff 100%);
-  border-bottom: 1px solid var(--c-border);
-  padding: 32px 0 48px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1100px 380px at 12% -10%, rgba(47, 107, 240, 0.28), transparent 70%),
+    var(--c-navy);
+  color: var(--c-on-dark);
+  padding: 56px 0 64px;
+}
+
+.page-head::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: var(--c-on-dark-line);
 }
 
 .crumbs {
-  margin-bottom: 20px;
+  margin-bottom: 26px;
 }
 
 .crumbs__list {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
   font-size: 13px;
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
 }
 
 .crumbs__link:hover {
-  color: var(--c-brand);
+  color: #fff;
 }
 
 .crumbs__sep {
-  color: var(--c-text-subtle);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .page-head__title {
-  font-size: 36px;
-  line-height: 1.3;
+  font-size: 48px;
+  line-height: 1.2;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  color: var(--c-on-dark);
 }
 
 .page-head__desc {
-  margin-top: 12px;
-  font-size: 16px;
-  color: var(--c-text-muted);
-  max-width: 720px;
+  margin-top: 18px;
+  font-size: 17px;
+  color: var(--c-on-dark-muted);
+  max-width: 760px;
   line-height: 1.8;
 }
 
 @media (max-width: 700px) {
   .page-head {
-    padding: 24px 0 36px;
+    padding: 36px 0 44px;
   }
   .page-head__title {
-    font-size: 26px;
+    font-size: 30px;
   }
   .page-head__desc {
     font-size: 15px;

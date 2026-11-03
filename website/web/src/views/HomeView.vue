@@ -39,8 +39,19 @@ onMounted(async () => {
 
 <template>
   <div v-if="data" class="home">
-    <!-- 首屏：只渲染当前一条，避免多个 h1 -->
-    <section v-if="current" class="hero">
+    <!-- 首屏：整幅大图作背景，文案压在左侧；只渲染当前一条，避免多个 h1 -->
+    <section v-if="current" class="hero on-dark">
+      <div class="hero__bg" aria-hidden="true">
+        <picture v-if="current.desktopImage">
+          <source
+            v-if="current.mobileImage"
+            media="(max-width: 860px)"
+            :srcset="current.mobileImage.url"
+          />
+          <img :src="current.desktopImage.url" alt="" fetchpriority="high" />
+        </picture>
+      </div>
+
       <div class="container hero__inner">
         <div class="hero__copy">
           <h1 class="hero__title">{{ current.title }}</h1>
@@ -49,7 +60,7 @@ onMounted(async () => {
             <button
               v-if="current.link.type === 'CONSULT'"
               type="button"
-              class="btn btn--primary"
+              class="btn btn--outline-light"
               @click="openConsult({ sourcePosition: 'HOME_HERO', contentType: current.link.contentType, contentId: current.link.contentId })"
             >
               {{ current.buttonText }}
@@ -57,13 +68,13 @@ onMounted(async () => {
             <a
               v-else-if="isExternal(current.link)"
               :href="hrefOf(current.link) ?? '#'"
-              class="btn btn--primary"
+              class="btn btn--outline-light"
               :target="current.link?.newWindow ? '_blank' : undefined"
               :rel="current.link?.newWindow ? 'noopener noreferrer' : undefined"
             >
               {{ current.buttonText }}
             </a>
-            <RouterLink v-else :to="hrefOf(current.link) ?? '/'" class="btn btn--primary">
+            <RouterLink v-else :to="hrefOf(current.link) ?? '/'" class="btn btn--outline-light">
               {{ current.buttonText }}
             </RouterLink>
           </div>
@@ -81,23 +92,6 @@ onMounted(async () => {
             ></button>
           </div>
         </div>
-
-        <figure v-if="current.desktopImage" class="hero__media">
-          <picture>
-            <source
-              v-if="current.mobileImage"
-              media="(max-width: 700px)"
-              :srcset="current.mobileImage.url"
-            />
-            <img
-              :src="current.desktopImage.url"
-              :alt="current.desktopImage.alt || current.title"
-              :width="current.desktopImage.width"
-              :height="current.desktopImage.height"
-              fetchpriority="high"
-            />
-          </picture>
-        </figure>
       </div>
     </section>
 
@@ -178,7 +172,7 @@ onMounted(async () => {
           <RouterLink :to="data.cases.moreUrl" class="link-more">全部案例 →</RouterLink>
         </div>
 
-        <div class="grid grid--2">
+        <div class="grid grid--3">
           <RouterLink v-for="item in data.cases.items" :key="item.id" :to="item.url" class="case card">
             <img
               v-if="item.cover"
@@ -294,100 +288,138 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 首屏：整幅背景图 + 左侧文案，最小高度保证大图有足够气势 */
 .hero {
-  background: linear-gradient(180deg, #f2f7fd 0%, #ffffff 100%);
-  border-bottom: 1px solid var(--c-border);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 620px;
+  overflow: hidden;
+  background: var(--c-navy);
+  color: var(--c-on-dark);
+}
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+}
+
+.hero__bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 左深右浅的双层遮罩：保证白色标题在任何图片上都有对比度 */
+.hero__bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(6, 15, 34, 0.94) 0%, rgba(6, 15, 34, 0.72) 42%, rgba(6, 15, 34, 0.32) 100%),
+    linear-gradient(180deg, rgba(6, 15, 34, 0.45) 0%, rgba(6, 15, 34, 0) 35%);
 }
 
 .hero__inner {
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  gap: 56px;
-  align-items: center;
-  padding-top: 72px;
-  padding-bottom: 72px;
+  position: relative;
+  z-index: 1;
+  padding-top: 140px;
+  padding-bottom: 88px;
+}
+
+.hero__copy {
+  max-width: 760px;
 }
 
 .hero__title {
-  font-size: 42px;
-  line-height: 1.32;
+  font-size: clamp(34px, 4.2vw, 58px);
+  line-height: 1.16;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
+  color: var(--c-on-dark);
   white-space: pre-line;
 }
 
 .hero__sub {
-  margin-top: 18px;
-  font-size: 16px;
-  color: var(--c-text-muted);
-  max-width: 520px;
+  margin-top: 24px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  max-width: 600px;
   line-height: 1.85;
 }
 
 .hero__actions {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-top: 30px;
+  margin-top: 40px;
 }
 
 .hero__switch {
   display: flex;
-  gap: 8px;
-  margin-top: 28px;
+  gap: 10px;
+  margin-top: 48px;
 }
 
 .hero__dot {
-  width: 28px;
-  height: 4px;
+  width: 40px;
+  height: 3px;
   padding: 0;
   border: none;
-  border-radius: 999px;
-  background: var(--c-border-strong);
+  background: rgba(255, 255, 255, 0.3);
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .hero__dot.is-active {
-  background: var(--c-brand);
-}
-
-.hero__media img {
-  width: 100%;
-  border-radius: var(--radius);
-  border: 1px solid var(--c-border);
+  background: #fff;
 }
 
 .metrics {
+  background: #fff;
   border-bottom: 1px solid var(--c-border);
 }
 
 .metrics__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  padding-top: 32px;
-  padding-bottom: 32px;
+  gap: 0;
+  padding-top: 56px;
+  padding-bottom: 56px;
+}
+
+/* 指标之间用细线分隔，比卡片更接近参考站的排布 */
+.metrics__item {
+  padding: 0 32px;
+  border-left: 1px solid var(--c-border);
+}
+
+.metrics__item:first-child {
+  padding-left: 0;
+  border-left: none;
 }
 
 .metrics__value {
-  font-size: 30px;
+  font-size: 44px;
+  line-height: 1.1;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .metrics__unit {
-  margin-left: 2px;
-  font-size: 20px;
+  margin-left: 4px;
+  font-size: 24px;
 }
 
 .metrics__label {
-  margin-top: 4px;
+  margin-top: 10px;
   font-size: 14px;
   color: var(--c-text-muted);
 }
 
 .metrics__desc {
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 12px;
   color: var(--c-text-subtle);
 }
@@ -443,12 +475,12 @@ onMounted(async () => {
 }
 
 .case__body {
-  padding: 24px;
+  padding: 22px 0 0;
 }
 
 .case__title {
-  margin: 12px 0 8px;
-  font-size: 18px;
+  margin: 10px 0 8px;
+  font-size: 20px;
   font-weight: 500;
   line-height: 1.5;
 }
@@ -471,40 +503,45 @@ onMounted(async () => {
   color: var(--c-brand);
 }
 
+/* 客户标识：去掉描边盒子，按网格铺开，接近参考站的 logo 墙 */
 .customers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
   list-style: none;
-  margin: 28px 0 0;
+  margin: 40px 0 0;
   padding: 0;
+  background: var(--c-border);
 }
 
 .customers__item {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 132px;
-  height: 64px;
-  padding: 10px 18px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
+  height: 96px;
+  padding: 16px 20px;
   background: #fff;
 }
 
 .customers__item img {
-  max-width: 120px;
+  max-width: 130px;
   max-height: 44px;
   object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.75;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.customers__item:hover img {
+  filter: grayscale(0);
+  opacity: 1;
 }
 
 .news-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: #fff;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
+  border-top: 1px solid var(--c-border);
 }
 
 .news-item + .news-item {
@@ -513,8 +550,12 @@ onMounted(async () => {
 
 .news-item__link {
   display: flex;
-  gap: 28px;
-  padding: 20px 24px;
+  gap: 40px;
+  padding: 28px 0;
+}
+
+.news-item__link:hover .news-item__date {
+  color: var(--c-brand);
 }
 
 .news-item__link:hover .news-item__title {
@@ -542,10 +583,11 @@ onMounted(async () => {
 }
 
 .cta {
-  margin-top: 8px;
-  background: #0e1c2b;
+  background:
+    radial-gradient(900px 320px at 15% 0%, rgba(47, 107, 240, 0.3), transparent 65%),
+    var(--c-navy);
   color: #fff;
-  padding: 56px 0;
+  padding: 88px 0;
 }
 
 .cta__inner {
@@ -557,9 +599,10 @@ onMounted(async () => {
 }
 
 .cta__title {
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.35;
+  color: #fff;
 }
 
 .cta__desc {
@@ -569,7 +612,7 @@ onMounted(async () => {
 }
 
 .state {
-  padding: 72px 24px;
+  padding: 96px 24px;
 }
 
 .skeleton {
@@ -584,25 +627,65 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
+  /* 首屏不再左右分栏，改为整幅背景 + 文案，故这里只需压缩高度 */
+  .hero {
+    min-height: 520px;
+  }
   .hero__inner {
-    grid-template-columns: 1fr;
-    gap: 32px;
-    padding-top: 48px;
-    padding-bottom: 48px;
+    padding-top: 96px;
+    padding-bottom: 56px;
   }
   .hero__title {
-    font-size: 32px;
+    font-size: 34px;
+  }
+  .hero__sub {
+    font-size: 16px;
   }
   .metrics__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding-top: 40px;
+    padding-bottom: 40px;
+  }
+  /* 指标改成两列后，第二行起需要一条横线区分 */
+  .metrics__item {
+    padding: 24px 20px;
+  }
+  .metrics__item:nth-child(odd) {
+    padding-left: 0;
+    border-left: none;
+  }
+  .metrics__item:nth-child(n + 3) {
+    border-top: 1px solid var(--c-border);
+  }
+  .metrics__value {
+    font-size: 34px;
+  }
+  .customers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 700px) {
+  .hero {
+    min-height: 460px;
+  }
+  .hero__title {
+    font-size: 28px;
+  }
+  .hero__actions {
+    margin-top: 28px;
+  }
+  .hero__switch {
+    margin-top: 32px;
+  }
+  .customers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .news-item__link {
     flex-direction: column;
     gap: 6px;
-    padding: 18px;
+    padding: 18px 0;
   }
   .news-item__date {
     width: auto;

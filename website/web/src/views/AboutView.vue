@@ -81,23 +81,26 @@ onMounted(async () => {
   max-width: 860px;
 }
 
+/* 使命段落：用左侧竖线强调，不用灰底卡片 */
 .mission {
-  margin-top: 48px;
-  padding: 32px;
-  background: var(--c-surface);
-  border-radius: var(--radius);
+  margin-top: 56px;
+  padding: 4px 0 4px 28px;
+  border-left: 2px solid var(--c-brand);
 }
 
 .mission__title {
-  font-size: 18px;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   font-weight: 500;
-  margin-bottom: 12px;
+  color: var(--c-text-subtle);
+  margin-bottom: 14px;
 }
 
 .mission__text {
-  font-size: 15px;
-  line-height: 1.95;
-  color: #2b3138;
+  font-size: 20px;
+  line-height: 1.8;
+  color: var(--c-text);
   max-width: 860px;
 }
 

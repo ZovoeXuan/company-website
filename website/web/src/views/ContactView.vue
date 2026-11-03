@@ -109,16 +109,16 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
+/* 表单不做成描边卡片，改为浅底块，与深色页头形成层次 */
 .form-wrap {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  padding: 32px;
+  background: var(--c-surface);
+  padding: 40px;
 }
 
 .form__title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 500;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 @media (max-width: 980px) {

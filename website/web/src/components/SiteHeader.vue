@@ -216,19 +216,19 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
+/* 深蓝导航：与首屏大图衔接，滚动时保持不透明，避免文字压到浅色内容上看不清 */
 .header {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: saturate(180%) blur(8px);
-  border-bottom: 1px solid var(--c-border);
+  background: var(--c-navy);
+  color: var(--c-on-dark);
 }
 
 .header__inner {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 40px;
   height: var(--header-height);
 }
 
@@ -248,7 +248,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .brand__mark {
   width: 30px;
   height: 30px;
-  border-radius: 7px;
+  border-radius: 2px;
   background: var(--c-brand);
   color: #fff;
   display: inline-flex;
@@ -258,9 +258,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 }
 
 .brand__name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  color: var(--c-on-dark);
 }
 
 .nav {
@@ -270,7 +271,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
 .nav__list {
   display: flex;
-  gap: 26px;
+  gap: 34px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -283,10 +284,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .nav__link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 6px;
+  height: var(--header-height);
+  padding: 0;
   font-size: 15px;
-  color: var(--c-text-muted);
+  color: var(--c-on-dark-muted);
   border-bottom: 2px solid transparent;
   background: none;
   border-top: none;
@@ -294,49 +296,50 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   border-right: none;
   cursor: pointer;
   font-family: inherit;
+  transition: color 0.16s ease;
 }
 
 .nav__link:hover {
-  color: var(--c-text);
+  color: var(--c-on-dark);
 }
 
 .nav__link.router-link-active,
 .nav__button.router-link-active {
-  color: var(--c-text);
+  color: var(--c-on-dark);
   border-bottom-color: var(--c-brand);
 }
 
 .caret {
   font-size: 10px;
   line-height: 1;
+  opacity: 0.7;
 }
 
+/* 下拉面板：白底，与深色导航形成强对比，便于快速定位子项 */
 .sub {
   position: absolute;
-  top: 100%;
-  left: -12px;
-  min-width: 160px;
+  top: calc(var(--header-height) - 8px);
+  left: -20px;
+  min-width: 200px;
   list-style: none;
-  margin: 4px 0 0;
-  padding: 6px;
+  margin: 0;
+  padding: 10px;
   background: #fff;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 12px 28px rgba(16, 30, 48, 0.08);
+  box-shadow: 0 18px 40px rgba(8, 20, 44, 0.16);
   z-index: 20;
 }
 
 .sub__link {
   display: block;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 14px;
   color: var(--c-text-muted);
-  border-radius: 4px;
 }
 
 .sub__link:hover {
   background: var(--c-surface);
-  color: var(--c-text);
+  color: var(--c-brand);
 }
 
 .sub__button {
@@ -356,8 +359,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 }
 
 .actions__cta {
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: 40px;
+  padding: 0 20px;
   font-size: 14px;
 }
 
@@ -367,22 +370,21 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   height: 40px;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  border: 1px solid var(--c-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--c-text);
+  background: transparent;
+  border: 1px solid var(--c-on-dark-line);
+  color: var(--c-on-dark);
   cursor: pointer;
 }
 
 .mobile {
-  border-top: 1px solid var(--c-border);
-  background: #fff;
+  border-top: 1px solid var(--c-on-dark-line);
+  background: var(--c-navy);
 }
 
 .mobile__list {
   list-style: none;
   margin: 0;
-  padding: 8px 16px 16px;
+  padding: 8px 20px 20px;
 }
 
 .mobile__link {
@@ -390,10 +392,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 12px 4px;
-  font-size: 15px;
-  color: var(--c-text);
-  border-bottom: 1px solid var(--c-border);
+  padding: 14px 4px;
+  font-size: 16px;
+  color: var(--c-on-dark);
+  border-bottom: 1px solid var(--c-on-dark-line);
   background: none;
   border-top: none;
   border-left: none;
@@ -404,28 +406,28 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 }
 
 .mobile__link.is-active {
-  color: var(--c-brand);
+  color: #fff;
   font-weight: 500;
 }
 
 .mobile__sub {
   list-style: none;
   margin: 0;
-  padding: 4px 0 8px 12px;
+  padding: 4px 0 10px 14px;
 }
 
 .mobile__sublink {
   display: block;
-  padding: 10px 4px;
+  padding: 11px 4px;
   font-size: 14px;
-  color: var(--c-text-muted);
-  border-bottom: 1px dashed var(--c-border);
+  color: var(--c-on-dark-muted);
+  border-bottom: 1px solid var(--c-on-dark-line);
 }
 
 .mobile__sublink--button {
   width: 100%;
   border: none;
-  border-bottom: 1px dashed var(--c-border);
+  border-bottom: 1px solid var(--c-on-dark-line);
   background: none;
   text-align: left;
   font-family: inherit;

@@ -1,18 +1,32 @@
+/*
+ * 全站样式基线。
+ * 视觉参考工业科技类企业站：深蓝导航与页脚、整幅大图首屏、
+ * 去边框的大卡片、克制的蓝色强调色。信息层级靠字号与留白，而非描边与阴影。
+ */
 :root {
-  --c-text: #1b1f24;
-  --c-text-muted: #5a6472;
-  --c-text-subtle: #77808c;
-  --c-border: #e4e7ec;
-  --c-border-strong: #cfd5dd;
+  /* 文字 */
+  --c-text: #0e1726;
+  --c-text-muted: #55607a;
+  --c-text-subtle: #8b95a8;
+  /* 线条与底色 */
+  --c-border: #e6e9f0;
+  --c-border-strong: #c9d1e0;
   --c-bg: #ffffff;
-  --c-surface: #f6f8fa;
-  --c-brand: #0f5fa6;
-  --c-brand-dark: #0b4a82;
-  --c-brand-soft: #eaf3fb;
-  --radius-sm: 8px;
-  --radius: 12px;
-  --max-width: 1180px;
-  --header-height: 64px;
+  --c-surface: #f4f6fa;
+  /* 品牌与深色 */
+  --c-brand: #2f6bf0;
+  --c-brand-dark: #1e4fd1;
+  --c-brand-soft: #eaf0ff;
+  --c-navy: #0a1730;
+  --c-navy-2: #122344;
+  --c-on-dark: #ffffff;
+  --c-on-dark-muted: rgba(255, 255, 255, 0.72);
+  --c-on-dark-line: rgba(255, 255, 255, 0.16);
+  /* 形状与尺度 */
+  --radius-sm: 2px;
+  --radius: 2px;
+  --max-width: 1280px;
+  --header-height: 72px;
   font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: var(--c-text);
   -webkit-font-smoothing: antialiased;
@@ -42,7 +56,7 @@ body {
   margin: 0;
   background: var(--c-bg);
   font-size: 15px;
-  line-height: 1.7;
+  line-height: 1.75;
 }
 
 a {
@@ -59,6 +73,15 @@ figure {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--c-text);
+}
+
 img {
   max-width: 100%;
   height: auto;
@@ -71,18 +94,22 @@ ol {
   padding-left: 1.25em;
 }
 
-/* 键盘焦点必须可见：统一使用 2px 描边 + 偏移，不用 outline: none */
+/* 键盘焦点必须可见：统一 2px 描边 + 偏移 */
 :focus-visible {
   outline: 2px solid var(--c-brand);
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline-offset: 3px;
+}
+
+/* 深色区块内的焦点环要换成白色，否则看不见 */
+.on-dark :focus-visible {
+  outline-color: #fff;
 }
 
 .container {
   width: 100%;
   max-width: var(--max-width);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 40px;
 }
 
 .skip-link {
@@ -92,8 +119,7 @@ ol {
   z-index: 100;
   background: var(--c-brand);
   color: #fff;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  padding: 10px 18px;
   transition: top 0.15s ease;
 }
 
@@ -101,44 +127,67 @@ ol {
   top: 12px;
 }
 
+/* 区块小标签：全站统一为无底色的细字，靠字距区分层级 */
 .eyebrow {
   display: inline-block;
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: var(--c-brand);
-  background: var(--c-brand-soft);
-  border-radius: 999px;
-  padding: 4px 12px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
+}
+
+.on-dark .eyebrow {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .section {
-  padding: 72px 0;
+  padding: 96px 0;
 }
 
 .section--surface {
   background: var(--c-surface);
 }
 
+.section--dark {
+  background: var(--c-navy);
+  color: var(--c-on-dark);
+}
+
+.section--dark h2,
+.section--dark h3 {
+  color: var(--c-on-dark);
+}
+
 .section-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: 32px;
+  margin-bottom: 44px;
 }
 
 .section-title {
-  font-size: 28px;
-  line-height: 1.35;
+  font-size: 40px;
+  line-height: 1.25;
   font-weight: 500;
-  letter-spacing: -0.01em;
 }
 
 .section-sub {
-  margin-top: 8px;
-  font-size: 15px;
+  margin-top: 14px;
+  font-size: 16px;
   color: var(--c-text-muted);
-  max-width: 640px;
+  max-width: 680px;
+  line-height: 1.8;
+}
+
+.section--dark .section-sub {
+  color: var(--c-on-dark-muted);
+}
+
+.section-head__link {
+  flex: none;
+  padding-bottom: 6px;
 }
 
 .link-more {
@@ -149,20 +198,27 @@ ol {
 
 .link-more:hover {
   text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
+.section--dark .link-more {
+  color: var(--c-on-dark);
+}
+
+/* 按钮：直角、克制，不使用阴影 */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 22px;
+  min-height: 48px;
+  padding: 0 26px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 15px;
+  font-family: inherit;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
 .btn--primary {
@@ -175,56 +231,66 @@ ol {
 }
 
 .btn--ghost {
-  background: #fff;
+  background: transparent;
   border-color: var(--c-border-strong);
   color: var(--c-text);
 }
 
 .btn--ghost:hover {
-  border-color: var(--c-brand);
-  color: var(--c-brand);
+  border-color: var(--c-text);
 }
 
-.card {
+/* 深色背景上的描边按钮，参考站首屏用的就是这种 */
+.btn--outline-light {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+
+.btn--outline-light:hover {
   background: #fff;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: border-color 0.15s ease;
+  border-color: #fff;
+  color: var(--c-navy);
 }
 
-.card:hover {
-  border-color: var(--c-brand);
+/* 卡片：去边框，靠图片与留白建立结构 */
+.card {
+  position: relative;
+  display: block;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 .card__body {
-  padding: 20px;
+  padding: 22px 0 0;
 }
 
 .card__title {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 500;
   line-height: 1.5;
 }
 
 .card__desc {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 14px;
   color: var(--c-text-muted);
+  line-height: 1.8;
 }
 
 .tag {
   display: inline-block;
   font-size: 12px;
-  color: var(--c-brand);
-  background: var(--c-brand-soft);
-  border-radius: 4px;
-  padding: 2px 8px;
+  letter-spacing: 0.04em;
+  color: var(--c-text-muted);
+  padding: 0;
 }
 
 .grid {
   display: grid;
-  gap: 20px;
+  gap: 32px;
 }
 
 .grid--3 {
@@ -235,28 +301,41 @@ ol {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* 图片悬停：轻微放大，仅在允许动效时启用 */
+.media-zoom {
+  overflow: hidden;
+}
+
+.media-zoom img {
+  transition: transform 0.5s ease;
+}
+
+.media-zoom:hover img {
+  transform: scale(1.03);
+}
+
 /* 富文本正文：后端下发前已清洗，前端只负责排版 */
 .prose {
-  font-size: 15px;
-  line-height: 1.9;
-  color: #2b3138;
+  font-size: 16px;
+  line-height: 1.95;
+  color: #2b3140;
 }
 
 .prose > * + * {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .prose h2 {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 500;
-  line-height: 1.5;
-  margin-top: 36px;
+  line-height: 1.45;
+  margin-top: 44px;
 }
 
 .prose h3 {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 500;
-  margin-top: 28px;
+  margin-top: 32px;
 }
 
 .prose ul,
@@ -265,12 +344,13 @@ ol {
 }
 
 .prose li + li {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .prose a {
   color: var(--c-brand);
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .visually-hidden {
@@ -285,29 +365,50 @@ ol {
   border: 0;
 }
 
-@media (max-width: 980px) {
-  .grid--3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1080px) {
+  .section {
+    padding: 72px 0;
+  }
+  .section-title {
+    font-size: 32px;
+  }
+  .grid {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 860px) {
+  .container {
+    padding: 0 20px;
+  }
+  .grid--3,
+  .grid--2 {
+    grid-template-columns: 1fr;
   }
   .section {
     padding: 56px 0;
   }
   .section-title {
-    font-size: 24px;
-  }
-}
-
-@media (max-width: 700px) {
-  .grid--3,
-  .grid--2 {
-    grid-template-columns: 1fr;
-  }
-  .container {
-    padding: 0 16px;
+    font-size: 27px;
   }
   .section-head {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .card__title {
+    font-size: 18px;
+  }
+}
+
+/* 深色页头之后的第一个区块收紧上间距，避免标题与内容之间出现大片空白 */
+.page-head + .section {
+  padding-top: 64px;
+}
+
+@media (max-width: 860px) {
+  .page-head + .section {
+    padding-top: 40px;
   }
 }

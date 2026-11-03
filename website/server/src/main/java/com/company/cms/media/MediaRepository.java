@@ -141,6 +141,9 @@ public class MediaRepository {
                          OR (r.source_kind = 'CATEGORY' AND EXISTS(
                              SELECT 1 FROM cms_category g
                               WHERE g.id = r.source_id AND g.publication_status = 'PUBLISHED' AND g.deleted = 0))
+                         OR (r.source_kind = 'CONFIG' AND EXISTS(
+                             SELECT 1 FROM cms_config cf
+                              WHERE cf.id = r.source_id AND cf.publication_status = 'PUBLISHED' AND cf.deleted = 0))
                        )
                 )
                 """, Boolean.class, id);
