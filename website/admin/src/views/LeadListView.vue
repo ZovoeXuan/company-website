@@ -132,6 +132,56 @@ async function submitStatus() {
   }
 }
 
+function resetQuery() {
+  query.status = ''
+  query.keyword = ''
+  query.range = []
+  query.page = 1
+  load()
+}
+
+function exportCsv() {
+  if (rows.value.length === 0) {
+    ElMessage.info('当前列表暂无数据可导出')
+    return
+  }
+  const headers = ['回执号', '姓名', '公司', '手机号', '来源位置', '关联内容', '状态', '处理人', '提交时间']
+  const csvRows = [headers.join(',')]
+
+  for (const row of rows.value) {
+    const line = [
+      `"${row.receiptNo ?? ''}"`,
+      `"${(row.name ?? '').replace(/"/g, '""')}"`,
+      `"${(row.companyName ?? '').replace(/"/g, '""')}"`,
+      `"${row.phoneMasked ?? ''}"`,
+      `"${sourceLabel(row.sourcePosition)}"`,
+      `"${(row.contentTitle ?? '').replace(/"/g, '""')}"`,
+      `"${statusLabel(row.status)}"`,
+      `"${row.handledByName ?? ''}"`,
+      `"${formatTime(row.createdAt)}"`,
+    ]
+    csvRows.push(line.join(','))
+  }
+
+  const blob = new Blob(['\uFEFF' + csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `咨询线索_${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出当前咨询线索数据')
+}
+
+async function copyPhone(phone: string) {
+  try {
+    await navigator.clipboard.writeText(phone)
+    ElMessage.success('手机号已复制')
+  } catch {
+    ElMessage.warning(`复制失败：${phone}`)
+  }
+}
+
 function statusLabel(status: string) {
   return statusOptions.find((item) => item.value === status)?.label ?? status
 }
@@ -180,6 +230,8 @@ onMounted(load)
             style="width: 250px"
           />
           <el-button type="primary" @click="query.page = 1; load()">查询</el-button>
+          <el-button @click="resetQuery">重置</el-button>
+          <el-button type="success" plain @click="exportCsv">导出 CSV</el-button>
         </div>
       </div>
     </template>
@@ -214,11 +266,13 @@ onMounted(load)
 
     <el-pagination
       class="pager"
-      layout="total, prev, pager, next"
       :total="total"
-      :page-size="query.pageSize"
-      :current-page="query.page"
-      @current-change="(p: number) => { query.page = p; load() }"
+      v-model:page-size="query.pageSize"
+      v-model:current-page="query.page"
+      :page-sizes="[10, 20, 50, 100]"
+      layout="total, sizes, prev, pager, next, jumper"
+      @current-change="load"
+      @size-change="query.page = 1; load()"
     />
   </el-card>
 
@@ -232,7 +286,12 @@ onMounted(load)
           </el-descriptions-item>
           <el-descriptions-item label="姓名">{{ detail.name }}</el-descriptions-item>
           <el-descriptions-item label="公司">{{ detail.companyName }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">{{ detail.phone }}</el-descriptions-item>
+          <el-descriptions-item label="手机号">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>{{ detail.phone }}</span>
+              <el-button size="small" link type="primary" @click="copyPhone(detail.phone)">复制</el-button>
+            </div>
+          </el-descriptions-item>
           <el-descriptions-item label="提交时间">{{ formatTime(detail.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="来源位置">{{ sourceLabel(detail.sourcePosition) }}</el-descriptions-item>
           <el-descriptions-item label="来源路径">{{ detail.sourcePath }}</el-descriptions-item>

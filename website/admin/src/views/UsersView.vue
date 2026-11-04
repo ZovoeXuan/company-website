@@ -41,6 +41,14 @@ const rules: FormRules = {
   displayName: [{ required: true, message: '请输入显示名称', trigger: 'blur' }],
 }
 
+function formatTime(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 async function load() {
   loading.value = true
   try {
@@ -208,7 +216,7 @@ onMounted(load)
           </template>
         </el-table-column>
         <el-table-column label="最后登录" width="190">
-          <template #default="{ row }">{{ row.lastLoginAt || '—' }}</template>
+          <template #default="{ row }">{{ formatTime(row.lastLoginAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">

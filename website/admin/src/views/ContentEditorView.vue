@@ -742,48 +742,55 @@ onMounted(load)
       </el-form>
     </el-card>
 
-    <el-card shadow="never" class="side">
-      <template #header>状态</template>
-      <div v-if="detail" class="status">
-        <p>
-          <span class="status__label">当前状态</span>
-          <span class="status__value">{{ statusText(detail.content.status) }}</span>
-        </p>
-        <p>
-          <span class="status__label">草稿版本</span>
-          <span class="status__value">v{{ detail.content.draftVersion }}</span>
-        </p>
-        <p>
-          <span class="status__label">线上版本</span>
-          <span class="status__value">
-            {{ detail.content.publishedVersion ? 'v' + detail.content.publishedVersion : '未发布' }}
-          </span>
-        </p>
-        <p v-if="detail.content.hasUnpublishedChanges" class="warn">有未发布的修改</p>
-      </div>
-      <p v-else class="muted">保存后显示版本信息</p>
+    <div class="editor-sidebar">
+      <el-card shadow="never" class="side">
+        <template #header>
+          <div class="side-head">
+            <span>状态与操作</span>
+            <el-tag v-if="detail" size="small" :type="detail.content.status === 'PUBLISHED' ? 'success' : 'info'">
+              {{ statusText(detail.content.status) }}
+            </el-tag>
+          </div>
+        </template>
+        <div v-if="detail" class="status">
+          <p>
+            <span class="status__label">草稿版本</span>
+            <span class="status__value">v{{ detail.content.draftVersion }}</span>
+          </p>
+          <p>
+            <span class="status__label">线上版本</span>
+            <span class="status__value">
+              {{ detail.content.publishedVersion ? 'v' + detail.content.publishedVersion : '未发布' }}
+            </span>
+          </p>
+          <p v-if="detail.content.hasUnpublishedChanges" class="warn">
+            ⚠ 有未发布的草稿修改
+          </p>
+        </div>
+        <p v-else class="muted">保存草稿后生成版本记录</p>
 
-      <div class="actions">
-        <el-button v-if="!isNew" @click="openPreview">预览</el-button>
-        <el-button :loading="saving" @click="submit(false)">保存草稿</el-button>
-        <el-button v-if="canPublish" type="primary" :loading="publishing" @click="submit(true)">
-          保存并发布
-        </el-button>
-        <el-button v-if="canPublish && !isNew" type="warning" plain @click="offline">下线</el-button>
-      </div>
-      <p v-if="!canPublish" class="muted role-hint">编辑角色只能保存草稿，发布与下线由管理员操作。</p>
-    </el-card>
+        <div class="actions">
+          <el-button v-if="!isNew" @click="openPreview">草稿预览</el-button>
+          <el-button :loading="saving" @click="submit(false)">保存草稿</el-button>
+          <el-button v-if="canPublish" type="primary" :loading="publishing" @click="submit(true)">
+            保存并发布
+          </el-button>
+          <el-button v-if="canPublish && !isNew" type="warning" plain @click="offline">下线</el-button>
+        </div>
+        <p v-if="!canPublish" class="muted role-hint">编辑角色只能保存草稿，发布与下线由管理员操作。</p>
+      </el-card>
 
-    <el-card shadow="never" class="side">
-      <template #header>发布规则</template>
-      <ul class="rules">
-        <li>保存草稿只写草稿，官网不受影响。</li>
-        <li>发布会把当前草稿整体变成线上版本。</li>
-        <li>发布要求：标题、摘要、正文、封面齐全；所选分类必须已发布。</li>
-        <li>新闻必须填写不晚于今天的展示日期。</li>
-        <li>已发布的内容不能直接删除，请先下线。</li>
-      </ul>
-    </el-card>
+      <el-card shadow="never" class="side">
+        <template #header>发布规范</template>
+        <ul class="rules">
+          <li><strong>草稿独立</strong>：保存草稿不影响官网在线展示。</li>
+          <li><strong>发布上线</strong>：会将当前草稿快照整体作为线上最新版。</li>
+          <li><strong>发布校验</strong>：标题、封面、分类、正文（如适用）必填。</li>
+          <li><strong>新闻日期</strong>：展示日期不能晚于今天。</li>
+          <li><strong>下线保护</strong>：已发布内容需先下线方可删除。</li>
+        </ul>
+      </el-card>
+    </div>
 
     <MediaPicker v-model="pickerOpen" :selected-id="null" :kind="pickerKind" @select="onPick" />
   </div>
@@ -808,6 +815,20 @@ onMounted(load)
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
   align-items: start;
+}
+
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .head {

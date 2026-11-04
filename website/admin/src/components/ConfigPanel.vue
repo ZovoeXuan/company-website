@@ -69,6 +69,14 @@ const emit = defineEmits<{ save: []; publish: [] }>()
   gap: 12px;
 }
 
+.side {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .status .row {
   display: flex;
   justify-content: space-between;
@@ -91,7 +99,6 @@ const emit = defineEmits<{ save: []; publish: [] }>()
 }
 
 .tips {
-  margin-top: 16px;
   font-size: 12px;
   color: var(--a-text-muted);
   line-height: 1.8;

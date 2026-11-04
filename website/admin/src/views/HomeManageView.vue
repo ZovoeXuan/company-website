@@ -326,6 +326,10 @@ function move<T extends { sortOrder: number }>(list: T[], index: number, delta: 
   list.splice(target, 0, item)
 }
 
+function scrollToBlock(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 onMounted(async () => {
   await load()
   fill()
@@ -366,8 +370,22 @@ onMounted(async () => {
       show-icon
     />
 
+    <!-- 区块快速跳转导航 -->
+    <div class="nav-shortcuts">
+      <span class="shortcuts-label">快速导航：</span>
+      <el-button-group size="small">
+        <el-button @click="scrollToBlock('block-hero')">首屏 ({{ form.hero.items.length }})</el-button>
+        <el-button @click="scrollToBlock('block-metrics')">指标 ({{ form.metrics.items.length }})</el-button>
+        <el-button @click="scrollToBlock('block-services')">产品与服务 ({{ form.services.groups.length }})</el-button>
+        <el-button @click="scrollToBlock('block-cases')">案例 ({{ form.cases.contentIds.length }})</el-button>
+        <el-button @click="scrollToBlock('block-customers')">客户 ({{ form.customers.contentIds.length }})</el-button>
+        <el-button @click="scrollToBlock('block-news')">新闻动态</el-button>
+        <el-button @click="scrollToBlock('block-consultation')">咨询区</el-button>
+      </el-button-group>
+    </div>
+
     <!-- 首屏 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-hero" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>首屏（必显，不可整块关闭）</span>
@@ -452,7 +470,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 企业指标 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-metrics" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>
@@ -480,7 +498,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 产品服务 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-services" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>
@@ -539,7 +557,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 客户案例 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-cases" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>
@@ -559,7 +577,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 客户标识 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-customers" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>
@@ -579,7 +597,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 新闻 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-news" shadow="never" class="block">
       <template #header>
         <div class="block__head">
           <span>
@@ -610,7 +628,7 @@ onMounted(async () => {
     </el-card>
 
     <!-- 咨询区 -->
-    <el-card shadow="never" class="block">
+    <el-card id="block-consultation" shadow="never" class="block">
       <template #header>咨询区</template>
       <el-form label-width="96px" size="small">
         <el-form-item label="标题" required><el-input v-model="form.consultation.title" maxlength="40" /></el-form-item>
@@ -635,6 +653,23 @@ onMounted(async () => {
 <style scoped>
 .err {
   margin-bottom: 12px;
+}
+
+.nav-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.shortcuts-label {
+  font-size: 13px;
+  color: var(--a-text-muted);
 }
 
 .block {

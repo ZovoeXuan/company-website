@@ -24,6 +24,21 @@ const query = reactive({
   pageSize: 20,
 })
 
+function formatTime(value: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+function resetQuery() {
+  query.action = ''
+  query.range = []
+  query.page = 1
+  load()
+}
+
 async function load() {
   loading.value = true
   try {
@@ -55,50 +70,65 @@ onMounted(load)
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>操作日志</span>
+        <span>操作审计日志</span>
         <div class="head-actions">
-          <el-input v-model="query.action" placeholder="动作，如 LOGIN_SUCCESS" clearable style="width: 220px" />
+          <el-input
+            v-model="query.action"
+            placeholder="动作关键字，如 LOGIN"
+            clearable
+            style="width: 200px"
+            @keyup.enter="query.page = 1; load()"
+          />
           <el-date-picker
             v-model="query.range"
             type="daterange"
             value-format="YYYY-MM-DD"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
-            style="width: 260px"
+            style="width: 250px"
           />
-          <el-button @click="query.page = 1; load()">查询</el-button>
+          <el-button type="primary" @click="query.page = 1; load()">查询</el-button>
+          <el-button @click="resetQuery">重置</el-button>
         </div>
       </div>
     </template>
 
-    <el-table v-loading="loading" :data="rows" border>
-      <el-table-column prop="createdAt" label="时间(UTC)" width="210" />
-      <el-table-column label="操作人" width="140">
-        <template #default="{ row }">{{ row.actorName || '—' }}</template>
+    <el-table v-loading="loading" :data="rows" border stripe style="width: 100%">
+      <el-table-column label="操作时间" width="180">
+        <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column prop="action" label="动作" width="180" />
-      <el-table-column label="对象" width="130">
+      <el-table-column label="操作账号" width="140">
+        <template #default="{ row }">{{ row.actorName || '系统' }}</template>
+      </el-table-column>
+      <el-table-column prop="action" label="操作动作" width="180">
         <template #default="{ row }">
-          {{ row.targetType ? `${row.targetType}#${row.targetId ?? ''}` : '—' }}
+          <el-tag size="small" type="info" effect="plain">{{ row.action }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="结果" width="100">
+      <el-table-column label="目标对象" width="140">
+        <template #default="{ row }">
+          {{ row.targetType ? `${row.targetType} #${row.targetId ?? ''}` : '—' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="执行结果" width="90">
         <template #default="{ row }">
           <el-tag size="small" :type="row.result === 'SUCCESS' ? 'success' : 'danger'">
-            {{ row.result }}
+            {{ row.result === 'SUCCESS' ? '成功' : '失败' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="summary" label="摘要" />
+      <el-table-column prop="summary" label="日志详情" min-width="260" show-overflow-tooltip />
     </el-table>
 
     <el-pagination
-      class="pager"
-      layout="total, prev, pager, next"
+      v-model:current-page="query.page"
+      v-model:page-size="query.pageSize"
+      :page-sizes="[20, 50, 100]"
+      layout="total, sizes, prev, pager, next, jumper"
       :total="total"
-      :page-size="query.pageSize"
-      :current-page="query.page"
-      @current-change="(p: number) => { query.page = p; load() }"
+      class="pager"
+      @current-change="load"
+      @size-change="query.page = 1; load()"
     />
   </el-card>
 </template>
