@@ -1,14 +1,38 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getHome } from '@/api/public'
 import { openConsult } from '@/composables/consult'
+import { openVideo } from '@/composables/videoModal'
 import { usePageMeta } from '@/composables/usePageMeta'
 import type { HomeCard, HomeHeroItem, HomeLink, HomeView, MediaRef } from '@/data/types'
 
 const data = ref<HomeView | null>(null)
 const failed = ref(false)
 const heroIndex = ref(0)
+const activeGroup = ref(0)
+
+let autoSlideTimer: number | null = null
+
+function startAutoSlide() {
+  stopAutoSlide()
+  if (heroes.value.length <= 1) return
+  autoSlideTimer = window.setInterval(() => {
+    heroIndex.value = (heroIndex.value + 1) % heroes.value.length
+  }, 6000)
+}
+
+function stopAutoSlide() {
+  if (autoSlideTimer) {
+    clearInterval(autoSlideTimer)
+    autoSlideTimer = null
+  }
+}
+
+function selectHero(index: number) {
+  heroIndex.value = index
+  startAutoSlide()
+}
 
 const heroes = computed<HomeHeroItem[]>(() => data.value?.hero.items ?? [])
 const current = computed<HomeHeroItem | null>(() => heroes.value[heroIndex.value] ?? null)
@@ -41,6 +65,13 @@ function openHeroConsult() {
   })
 }
 
+function playSpotlightVideo() {
+  openVideo({
+    title: '唐山双赢物流 | G7易流数字化运营实践专访',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  })
+}
+
 function openBottomConsult() {
   openConsult({
     sourcePosition: 'HOME_BOTTOM',
@@ -60,9 +91,14 @@ function pad(index: number): string {
 onMounted(async () => {
   try {
     data.value = await getHome()
+    startAutoSlide()
   } catch {
     failed.value = true
   }
+})
+
+onBeforeUnmount(() => {
+  stopAutoSlide()
 })
 </script>
 
@@ -127,7 +163,7 @@ onMounted(async () => {
       </div>
 
       <div class="container container--wide hero__foot">
-        <div v-if="heroes.length > 1" class="hero__switch" role="tablist" aria-label="首屏内容">
+        <div v-if="heroes.length > 1" class="hero__switch" role="tablist" aria-label="首屏轮播">
           <button
             v-for="(item, index) in heroes"
             :key="item.key"
@@ -137,9 +173,11 @@ onMounted(async () => {
             :aria-label="`切换到第 ${index + 1} 屏：${item.title}`"
             :aria-selected="index === heroIndex"
             role="tab"
-            @click="heroIndex = index"
+            @click="selectHero(index)"
           >
-            <span class="hero__dot-bar"></span>
+            <span class="hero__dot-bar">
+              <span v-if="index === heroIndex" :key="`fill-${heroIndex}`" class="hero__dot-fill"></span>
+            </span>
             <span class="hero__dot-label">{{ pad(index) }}</span>
           </button>
         </div>
@@ -151,8 +189,11 @@ onMounted(async () => {
     <section v-if="data.metrics" class="metrics" aria-labelledby="metrics-title">
       <div class="container">
         <div class="metrics__head">
-          <p class="kicker">BY THE NUMBERS</p>
-          <h2 id="metrics-title" class="metrics__title">{{ data.metrics.title || '服务规模' }}</h2>
+          <div class="metrics__brand-title">
+            <span class="metrics__brand-g" aria-hidden="true">G</span>
+            <h2 id="metrics-title" class="metrics__title">{{ data.metrics.title || '大数据' }}</h2>
+          </div>
+          <p class="metrics__sub">全场景物联网设备连接与全国干线货运网络实时数据沉淀</p>
         </div>
         <div class="metrics__grid">
           <div
@@ -171,20 +212,38 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- 产品与能力：左右交错的编辑式区块 -->
+    <!-- 产品与能力：对齐视频标签切换与左右交错结构 -->
     <section v-if="data.services" id="services" class="section services" aria-labelledby="services-title">
       <div class="container">
-        <div class="section-head">
+        <div class="section-head section-head--services">
           <div>
             <p class="kicker">PRODUCTS & CAPABILITIES</p>
             <h2 id="services-title" class="section-title">{{ data.services.title }}</h2>
             <p v-if="data.services.subtitle" class="section-sub">{{ data.services.subtitle }}</p>
+          </div>
+
+          <!-- 分组切换标签 (对齐视频左侧切换效果) -->
+          <div v-if="data.services.groups.length > 1" class="service-tabs" role="tablist" aria-label="服务分类">
+            <button
+              v-for="(group, gIdx) in data.services.groups"
+              :key="group.key"
+              type="button"
+              class="service-tab"
+              :class="{ 'is-active': activeGroup === gIdx }"
+              :aria-selected="activeGroup === gIdx"
+              role="tab"
+              @click="activeGroup = gIdx"
+            >
+              <span class="service-tab__dot" aria-hidden="true"></span>
+              <span>{{ group.title }}</span>
+            </button>
           </div>
         </div>
 
         <div class="features">
           <article
             v-for="(group, index) in data.services.groups"
+            v-show="data.services.groups.length <= 1 || activeGroup === index"
             :key="group.key"
             class="feature"
             :class="{ 'feature--reverse': index % 2 === 1 }"
@@ -266,22 +325,43 @@ onMounted(async () => {
           </RouterLink>
         </div>
 
-        <!-- 客户引言聚焦 (对齐参考视频) -->
+        <!-- 客户引言聚焦与专访视频 (对齐参考视频 frame 120s) -->
         <div class="case-spotlight" v-reveal="120">
-          <div class="case-spotlight__quote">
-            <span class="case-spotlight__mark" aria-hidden="true">“</span>
-            <blockquote class="case-spotlight__text">
-              借助数字化手段，我们实现了一个平台管车、管货、管账，无论是业务还是财务，都带来了极大的便利，同时也提升了企业内部的精细化运营。
-            </blockquote>
-            <div class="case-spotlight__author">
-              <p class="case-spotlight__name">数字化运营标杆企业</p>
-              <p class="case-spotlight__role">某大型现代物流集团 · 数字化负责人</p>
+          <div class="case-spotlight__inner">
+            <div class="case-spotlight__content">
+              <span class="case-spotlight__mark" aria-hidden="true">“</span>
+              <blockquote class="case-spotlight__text">
+                管车、管货、管账，无论是业务还是财务，都带来了极大的便利，同时也提升了企业内部的精细化运营。
+              </blockquote>
+              <div class="case-spotlight__author">
+                <p class="case-spotlight__name">唐山双赢物流</p>
+                <p class="case-spotlight__role">数字化运营项目负责人</p>
+              </div>
+              <div class="case-spotlight__action">
+                <button type="button" class="btn btn--outline-dark case-spotlight__btn" @click="openHeroConsult">
+                  了解更多 <span aria-hidden="true">→</span>
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="case-spotlight__action">
-            <button type="button" class="btn btn--pill case-spotlight__btn" @click="openHeroConsult">
-              了解客户实践 <span aria-hidden="true">→</span>
-            </button>
+
+            <!-- 右侧：车队现场缩略图与居中播放按钮 -->
+            <div class="case-spotlight__media">
+              <img
+                src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=700&q=80"
+                alt="唐山双赢物流车队运营现场"
+                class="case-spotlight__img"
+              />
+              <button
+                type="button"
+                class="case-spotlight__play"
+                aria-label="播放唐山双赢物流案例视频"
+                @click="playSpotlightVideo"
+              >
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -552,13 +632,88 @@ onMounted(async () => {
 
 .hero__dot-bar {
   display: block;
-  height: 2px;
+  width: 76px;
+  height: 3px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.24);
+  position: relative;
+  overflow: hidden;
   transition: background-color 0.3s ease;
 }
 
 .hero__dot.is-active .hero__dot-bar {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.hero__dot-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #ffffff;
+  width: 100%;
+  animation: heroBarFill 6s linear forwards;
+}
+
+@keyframes heroBarFill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.section-head--services {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.service-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.service-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--c-border);
+  background: #ffffff;
+  color: var(--c-text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-out);
+}
+
+.service-tab:hover {
+  color: var(--c-text);
+  border-color: var(--c-border-strong);
+}
+
+.service-tab.is-active {
+  background: var(--c-brand);
+  border-color: var(--c-brand);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(91, 75, 232, 0.3);
+}
+
+.service-tab__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.service-tab.is-active .service-tab__dot {
+  opacity: 1;
+  background: #ffffff;
 }
 
 .hero__dot-label {
@@ -837,18 +992,91 @@ onMounted(async () => {
   object-fit: contain;
 }
 
+.metrics__brand-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metrics__brand-g {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--c-text);
+  font-family: inherit;
+  line-height: 1;
+}
+
+.metrics__sub {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--c-text-muted);
+}
+
 /* ---------------- case-spotlight ---------------- */
 .case-spotlight {
   margin-top: 64px;
-  padding: 44px 48px;
   background: #ffffff;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 16px 40px rgba(10, 12, 20, 0.04);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 16px 44px rgba(10, 12, 20, 0.06);
+}
+
+.case-spotlight__inner {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 40px;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: stretch;
+}
+
+@media (max-width: 860px) {
+  .case-spotlight__inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.case-spotlight__content {
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+
+.case-spotlight__media {
+  position: relative;
+  background: #111;
+  min-height: 300px;
+  display: flex;
   align-items: center;
+  justify-content: center;
+}
+
+.case-spotlight__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.case-spotlight__play {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111111;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.case-spotlight__play:hover {
+  background: var(--c-brand, #5b4be8);
+  color: #ffffff;
+  transform: scale(1.1);
 }
 
 .case-spotlight__quote {

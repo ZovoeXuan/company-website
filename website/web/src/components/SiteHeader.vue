@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { openConsult } from '@/composables/consult'
+import { openVideo } from '@/composables/videoModal'
 import type { NavItem } from '@/data/types'
 
 const props = defineProps<{
@@ -61,6 +62,67 @@ function toggleMenu(item: NavItem) {
   openMenu.value = openMenu.value === item.label ? null : item.label
 }
 
+interface MegaSubItem {
+  label: string
+  path?: string
+  tag?: string
+  isVideo?: boolean
+}
+
+interface MegaColumn {
+  title: string
+  items: MegaSubItem[]
+}
+
+const defaultMegaColumns: MegaColumn[] = [
+  {
+    title: 'AI产品',
+    items: [
+      { label: '紫宝盒', path: '/products/1', tag: '首款', isVideo: false }
+    ]
+  },
+  {
+    title: 'IoT服务',
+    items: [
+      { label: '安全管家', path: '/products?category=安全', isVideo: false },
+      { label: '冷链管家', path: '/products?category=冷链', isVideo: false },
+      { label: '流向管家', path: '/products?category=流向', isVideo: false },
+      { label: '追货管家', path: '/products?category=追货', isVideo: false }
+    ]
+  },
+  {
+    title: '交易服务',
+    items: [
+      { label: '财运通', path: '/solutions?category=交易', isVideo: false },
+      { label: '数字能源', path: '/solutions?category=能源', isVideo: false }
+    ]
+  },
+  {
+    title: '解决方案',
+    items: [
+      { label: '大宗物流数字化', path: '/solutions/1', isVideo: false },
+      { label: '连锁零售数字化', path: '/solutions/2', isVideo: false },
+      { label: '饲料防偷盗 AI 治理', path: '/solutions/3', isVideo: false }
+    ]
+  },
+  {
+    title: '产品演示',
+    items: [
+      { label: '产品操作视频', path: '', isVideo: true }
+    ]
+  }
+]
+
+function handleMegaAction(subItem: MegaSubItem) {
+  openMenu.value = null
+  if (subItem.isVideo) {
+    openVideo({
+      title: '紫宝盒 | 物流行业首款全场景AI工具产品演示',
+      url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+    })
+  }
+}
+
 function consult(position = 'NAVIGATION') {
   openMenu.value = null
   openMobile.value = null
@@ -118,42 +180,84 @@ onBeforeUnmount(() => {
                 <span class="caret" aria-hidden="true"></span>
               </button>
               <Transition name="menu">
-                <div v-if="openMenu === item.label" class="mega">
-                  <div class="mega__head">
-                    <span class="mega__kicker">{{ item.label }} · 业务全景</span>
-                    <span class="mega__note">选择方向，查看对应内容</span>
-                  </div>
-                  <ul class="mega__list">
-                    <li v-for="child in item.children" :key="child.label">
-                      <button
-                        v-if="child.linkType === 'CONSULT'"
-                        type="button"
-                        class="mega__link"
-                        @click="consult()"
-                      >
-                        <span class="mega__bullet" aria-hidden="true"></span>
-                        <span class="mega__text">{{ child.label }}</span>
-                        <span class="mega__arrow" aria-hidden="true">→</span>
-                      </button>
-                      <a
-                        v-else-if="child.url"
-                        :href="child.url"
-                        class="mega__link"
-                        :target="child.newWindow ? '_blank' : undefined"
-                        :rel="child.newWindow ? 'noopener noreferrer' : undefined"
-                        @click="openMenu = null"
-                      >
-                        <span class="mega__bullet" aria-hidden="true"></span>
-                        <span class="mega__text">{{ child.label }}</span>
-                        <span class="mega__arrow" aria-hidden="true">→</span>
-                      </a>
-                      <RouterLink v-else :to="child.path" class="mega__link" @click="openMenu = null">
-                        <span class="mega__bullet" aria-hidden="true"></span>
-                        <span class="mega__text">{{ child.label }}</span>
-                        <span class="mega__arrow" aria-hidden="true">→</span>
-                      </RouterLink>
-                    </li>
-                  </ul>
+                <div
+                  v-if="openMenu === item.label"
+                  class="mega"
+                  :class="{ 'mega--columns': item.label.includes('产品') || item.label.includes('方案') }"
+                >
+                  <!-- 对齐视频 5 列业务全景下拉菜单 -->
+                  <template v-if="item.label.includes('产品') || item.label.includes('方案')">
+                    <div class="mega-cols">
+                      <div v-for="col in defaultMegaColumns" :key="col.title" class="mega-col">
+                        <div class="mega-col__title">{{ col.title }}</div>
+                        <ul class="mega-col__list">
+                          <li v-for="sub in col.items" :key="sub.label">
+                            <button
+                              v-if="sub.isVideo"
+                              type="button"
+                              class="mega__link mega__link--video"
+                              @click="handleMegaAction(sub)"
+                            >
+                              <span class="mega__bullet" aria-hidden="true"></span>
+                              <span class="mega__text">{{ sub.label }}</span>
+                              <span class="mega__video-badge">▶ 演示</span>
+                            </button>
+                            <RouterLink
+                              v-else-if="sub.path"
+                              :to="sub.path"
+                              class="mega__link"
+                              @click="openMenu = null"
+                            >
+                              <span class="mega__bullet" aria-hidden="true"></span>
+                              <span class="mega__text">{{ sub.label }}</span>
+                              <span v-if="sub.tag" class="mega__item-tag">{{ sub.tag }}</span>
+                              <span class="mega__arrow" aria-hidden="true">→</span>
+                            </RouterLink>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- 常规多子级下拉菜单 -->
+                  <template v-else>
+                    <div class="mega__head">
+                      <span class="mega__kicker">{{ item.label }} · 业务全景</span>
+                      <span class="mega__note">选择方向，查看对应内容</span>
+                    </div>
+                    <ul class="mega__list">
+                      <li v-for="child in item.children" :key="child.label">
+                        <button
+                          v-if="child.linkType === 'CONSULT'"
+                          type="button"
+                          class="mega__link"
+                          @click="consult()"
+                        >
+                          <span class="mega__bullet" aria-hidden="true"></span>
+                          <span class="mega__text">{{ child.label }}</span>
+                          <span class="mega__arrow" aria-hidden="true">→</span>
+                        </button>
+                        <a
+                          v-else-if="child.url"
+                          :href="child.url"
+                          class="mega__link"
+                          :target="child.newWindow ? '_blank' : undefined"
+                          :rel="child.newWindow ? 'noopener noreferrer' : undefined"
+                          @click="openMenu = null"
+                        >
+                          <span class="mega__bullet" aria-hidden="true"></span>
+                          <span class="mega__text">{{ child.label }}</span>
+                          <span class="mega__arrow" aria-hidden="true">→</span>
+                        </a>
+                        <RouterLink v-else :to="child.path" class="mega__link" @click="openMenu = null">
+                          <span class="mega__bullet" aria-hidden="true"></span>
+                          <span class="mega__text">{{ child.label }}</span>
+                          <span class="mega__arrow" aria-hidden="true">→</span>
+                        </RouterLink>
+                      </li>
+                    </ul>
+                  </template>
+
                   <div class="mega__foot">
                     <span>需要专业场景建议？</span>
                     <button type="button" class="mega__foot-cta" @click="consult('NAVIGATION')">
@@ -193,8 +297,28 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="actions">
-        <span class="lang" aria-hidden="true">中文</span>
-        <button type="button" class="actions__cta" @click="consult('OTHER_CTA')">预约演示</button>
+        <span class="lang" aria-hidden="true">English</span>
+        <button
+          type="button"
+          class="actions__assistant"
+          title="点击与数字物流专家在线交流"
+          @click="consult('NAVIGATION')"
+        >
+          <span class="assistant__avatar">
+            <svg class="assistant__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+              <circle cx="12" cy="5" r="2"></circle>
+              <path d="M12 7v4"></path>
+              <line x1="8" y1="16" x2="8.01" y2="16"></line>
+              <line x1="16" y1="16" x2="16.01" y2="16"></line>
+            </svg>
+          </span>
+          <span class="assistant__meta">
+            <span class="assistant__sub">您好，我是您的</span>
+            <span class="assistant__name">数字物流专家 小七</span>
+          </span>
+        </button>
+        <button type="button" class="actions__cta" @click="consult('OTHER_CTA')">产品试用</button>
         <button
           type="button"
           class="toggle"
@@ -485,6 +609,63 @@ onBeforeUnmount(() => {
   width: 520px;
 }
 
+.mega--columns {
+  width: min(980px, 92vw);
+  left: 50%;
+  transform: translateX(-40%);
+}
+
+.mega-cols {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 20px;
+  padding: 10px 0 16px;
+}
+
+.mega-col__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-text-muted);
+  letter-spacing: 0.04em;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.mega-col__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mega-col__list .mega__link {
+  padding: 8px 6px;
+  font-size: 13.5px;
+}
+
+.mega__video-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(91, 75, 232, 0.1);
+  color: var(--c-brand);
+  font-weight: 500;
+}
+
+.mega__item-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--c-accent, #ff4d4f);
+  color: #fff;
+  font-weight: 600;
+  margin-right: auto;
+  margin-left: 6px;
+}
+
 .mega__bullet {
   width: 6px;
   height: 6px;
@@ -565,6 +746,67 @@ onBeforeUnmount(() => {
 .lang {
   font-size: 13px;
   color: var(--c-text-muted);
+}
+
+.actions__assistant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s ease;
+}
+
+.actions__assistant:hover {
+  background: var(--c-surface);
+}
+
+.assistant__avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+  flex: none;
+}
+
+.assistant__icon {
+  width: 17px;
+  height: 17px;
+}
+
+.assistant__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.assistant__sub {
+  font-size: 11px;
+  color: var(--c-text-subtle);
+}
+
+.assistant__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-brand);
+}
+
+@media (max-width: 992px) {
+  .actions__assistant {
+    display: none;
+  }
 }
 
 .actions__cta {

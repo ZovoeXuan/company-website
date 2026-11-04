@@ -5,6 +5,7 @@ import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import ConsultDialog from '@/components/ConsultDialog.vue'
 import FloatingActions from '@/components/FloatingActions.vue'
+import VideoModal from '@/components/VideoModal.vue'
 import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
 import type { SiteConfig } from '@/data/types'
@@ -50,6 +51,7 @@ onMounted(async () => {
     <FloatingActions :site="config" />
 
     <ConsultDialog />
+    <VideoModal />
   </div>
 </template>
 

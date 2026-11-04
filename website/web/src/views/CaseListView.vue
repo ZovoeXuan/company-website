@@ -5,6 +5,7 @@ import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getCases, getCaseCategories } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { openVideo } from '@/composables/videoModal'
 import type { CaseSummary, Category, PageResult } from '@/data/types'
 
 /** 行业筛选项来自已发布的案例分类，不写死在前端。 */
@@ -36,6 +37,15 @@ function selectIndustry(value: string | null) {
   if (industry.value === value) return
   industry.value = value
   page.value = 1
+}
+
+function playCaseVideo(item: CaseSummary, event: Event) {
+  event.preventDefault()
+  event.stopPropagation()
+  openVideo({
+    title: `${item.customerName || '客户案例'} | ${item.title}`,
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  })
 }
 
 watch([industry, page], load)
@@ -97,40 +107,62 @@ onMounted(async () => {
           description="可以切换其他行业，或联系我们了解相近场景的做法。"
         />
 
-        <div v-else class="grid grid--3 list">
-          <RouterLink
+        <!-- 对齐视频：双列视频案例卡片 + 播放器按钮 + 客户原声引言 -->
+        <div v-else class="case-grid">
+          <div
             v-for="(item, index) in result.items"
             :key="item.id"
-            :to="`/cases/${item.id}`"
             v-reveal="index * 70"
-            class="card case"
+            class="case-story-card"
           >
-            <div class="case__media media-frame">
+            <!-- 左侧：封面与悬浮播放按钮 -->
+            <div class="case-story-card__media">
               <img
                 v-if="item.cover"
                 :src="item.cover.url"
-                :alt="item.cover.alt"
-                :width="item.cover.width"
-                :height="item.cover.height"
+                :alt="item.cover.alt || item.title"
                 loading="lazy"
               />
-              <div v-else class="case__placeholder"></div>
+              <div v-else class="case-story-card__placeholder"></div>
+              <button
+                type="button"
+                class="case-story-card__play"
+                aria-label="播放客户专访视频"
+                @click="playCaseVideo(item, $event)"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
             </div>
-            <div class="case__body">
-              <div class="case__meta">
-                <span v-if="item.industry" class="tag">{{ item.industry }}</span>
-                <span v-if="item.customerName" class="case__customer">{{ item.customerName }}</span>
+
+            <!-- 右侧：客户证言与成果 -->
+            <div class="case-story-card__content">
+              <blockquote class="case-story-card__quote">
+                “{{ item.summary }}”
+              </blockquote>
+
+              <div class="case-story-card__author">
+                <p class="case-story-card__customer">{{ item.customerName || item.title }}</p>
+                <div class="case-story-card__tags">
+                  <span v-if="item.industry || item.categoryName" class="case-story-card__industry">
+                    {{ item.industry || item.categoryName }}
+                  </span>
+                </div>
               </div>
-              <h2 class="case__title">{{ item.title }}</h2>
-              <p class="card__desc">{{ item.summary }}</p>
-              <dl v-if="item.outcomes?.length" class="case__results">
-                <div v-for="o in item.outcomes ?? []" :key="o.label" class="case__result">
+
+              <dl v-if="item.outcomes?.length" class="case-story-card__outcomes">
+                <div v-for="o in item.outcomes" :key="o.label" class="case-story-card__outcome">
                   <dt>{{ o.label }}</dt>
                   <dd>{{ o.displayValue }}</dd>
                 </div>
               </dl>
+
+              <RouterLink :to="`/cases/${item.id}`" class="case-story-card__link">
+                查看实践详情 <span aria-hidden="true">→</span>
+              </RouterLink>
             </div>
-          </RouterLink>
+          </div>
         </div>
 
         <PaginationBar
@@ -176,75 +208,164 @@ onMounted(async () => {
   color: #fff;
 }
 
-.list {
-  align-items: start;
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  align-items: stretch;
 }
 
-.case {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: transform 0.4s var(--ease-out);
+@media (max-width: 900px) {
+  .case-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.case:hover {
-  transform: translateY(-6px);
+.case-story-card {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: #ffffff;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(10, 12, 20, 0.04);
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
 }
 
-.case__media {
+.case-story-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(10, 12, 20, 0.08);
+  border-color: rgba(91, 75, 232, 0.3);
+}
+
+@media (max-width: 600px) {
+  .case-story-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+.case-story-card__media {
+  position: relative;
   aspect-ratio: 4 / 3;
-  border-radius: var(--radius);
+  width: 100%;
+  height: 100%;
+  background: #111;
+  overflow: hidden;
 }
 
-.case__media img {
+.case-story-card__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.case__placeholder {
+.case-story-card__placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #17171f, #0a0a10);
+  background: linear-gradient(135deg, #1c1e28, #111319);
 }
 
-.case__meta {
+.case-story-card__play {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: none;
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: center;
+  color: #111;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
-.case__customer {
-  font-size: 12px;
+.case-story-card__play:hover {
+  background: var(--c-brand, #5b4be8);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.case-story-card__content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.case-story-card__quote {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--c-text);
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.case-story-card__author {
+  margin-bottom: 16px;
+}
+
+.case-story-card__customer {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--c-text-muted);
 }
 
-.case__title {
-  margin: 12px 0 8px;
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.45;
-  letter-spacing: -0.02em;
+.case-story-card__tags {
+  margin-top: 6px;
 }
 
-.case__results {
+.case-story-card__industry {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--c-surface);
+  color: var(--c-text-subtle);
+  border: 1px solid var(--c-border);
+}
+
+.case-story-card__outcomes {
   display: flex;
-  gap: 26px;
-  margin: 18px 0 0;
+  gap: 18px;
+  margin: 0 0 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
 }
 
-.case__result dt {
+.case-story-card__outcome dt {
   font-size: 11px;
   color: var(--c-text-subtle);
 }
 
-.case__result dd {
+.case-story-card__outcome dd {
   margin: 2px 0 0;
-  font-size: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--c-brand, #5b4be8);
+}
+
+.case-story-card__link {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--c-brand);
-  letter-spacing: -0.02em;
+  color: var(--c-brand, #5b4be8);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.2s ease;
+}
+
+.case-story-card__link:hover {
+  transform: translateX(4px);
 }
 
 .skeleton {
