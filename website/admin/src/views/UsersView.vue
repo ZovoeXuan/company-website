@@ -158,12 +158,12 @@ async function submit() {
 async function resetPassword(row: UserRow) {
   try {
     const { value } = await ElMessageBox.prompt(
-      `为 ${row.displayName}（${row.username}）设置新密码，长度至少 12 位。保存后该账号所有会话将被撤销。`,
+      `为 ${row.displayName}（${row.username}）设置新密码，长度至少 6 位。保存后该账号所有会话将被撤销。`,
       '重置密码',
       { inputType: 'password', inputPlaceholder: '请输入新密码', confirmButtonText: '确认重置', cancelButtonText: '取消' },
     )
-    if (!value || value.length < 12) {
-      ElMessage.warning('密码长度至少 12 位')
+    if (!value || value.length < 6) {
+      ElMessage.warning('密码长度至少 6 位')
       return
     }
     await request(`/api/admin/users/${row.id}/reset-password`, {
@@ -251,7 +251,7 @@ onMounted(load)
           </el-select>
         </el-form-item>
         <el-form-item v-if="formMode === 'create'" label="初始密码">
-          <el-input v-model="editing.initialPassword" type="password" placeholder="至少 12 位" />
+          <el-input v-model="editing.initialPassword" type="password" placeholder="至少 6 位" />
         </el-form-item>
         <el-form-item v-else label="状态">
           <el-switch v-model="editing.enabled" active-text="启用" inactive-text="禁用" />

@@ -12,8 +12,8 @@ const form = reactive({ oldPassword: '', newPassword: '', confirm: '' })
 const submitting = ref(false)
 
 async function submit() {
-  if (form.newPassword.length < 12) {
-    ElMessage.warning('新密码长度至少 12 位')
+  if (form.newPassword.length < 6) {
+    ElMessage.warning('新密码长度至少 6 位')
     return
   }
   if (form.newPassword !== form.confirm) {
@@ -50,7 +50,7 @@ async function submit() {
         <el-input v-model="form.oldPassword" type="password" autocomplete="current-password" />
       </el-form-item>
       <el-form-item label="新密码">
-        <el-input v-model="form.newPassword" type="password" autocomplete="new-password" placeholder="至少 12 位" />
+        <el-input v-model="form.newPassword" type="password" autocomplete="new-password" placeholder="至少 6 位" />
       </el-form-item>
       <el-form-item label="确认新密码">
         <el-input v-model="form.confirm" type="password" autocomplete="new-password" />
