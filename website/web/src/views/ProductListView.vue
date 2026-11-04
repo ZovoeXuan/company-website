@@ -50,7 +50,10 @@ onMounted(async () => {
     <PageHeader
       title="产品中心"
       description="从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。"
-      :crumbs="[{ label: '首页', path: '/' }, { label: '产品' }]"
+      eyebrow="PRODUCTS"
+      tone="light"
+      centered
+      :crumbs="[{ label: '首页', path: '/' }, { label: '产品中心' }]"
     />
 
     <section class="section">
@@ -175,8 +178,8 @@ onMounted(async () => {
 }
 
 .filters__btn.is-active {
-  background: var(--c-text);
-  border-color: var(--c-text);
+  background: var(--c-brand, #5b4be8);
+  border-color: var(--c-brand, #5b4be8);
   color: #fff;
 }
 

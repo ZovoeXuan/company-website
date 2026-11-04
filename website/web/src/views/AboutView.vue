@@ -29,6 +29,7 @@ onMounted(async () => {
       title="以数据，重新理解工业现场"
       description="一家把设备数据变成可解释、可行动结论的公司。"
       eyebrow="ABOUT US"
+      tone="light"
       centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '关于我们' }]"
     />

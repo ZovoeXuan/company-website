@@ -265,6 +265,25 @@ onMounted(async () => {
             </div>
           </RouterLink>
         </div>
+
+        <!-- 客户引言聚焦 (对齐参考视频) -->
+        <div class="case-spotlight" v-reveal="120">
+          <div class="case-spotlight__quote">
+            <span class="case-spotlight__mark" aria-hidden="true">“</span>
+            <blockquote class="case-spotlight__text">
+              借助数字化手段，我们实现了一个平台管车、管货、管账，无论是业务还是财务，都带来了极大的便利，同时也提升了企业内部的精细化运营。
+            </blockquote>
+            <div class="case-spotlight__author">
+              <p class="case-spotlight__name">数字化运营标杆企业</p>
+              <p class="case-spotlight__role">某大型现代物流集团 · 数字化负责人</p>
+            </div>
+          </div>
+          <div class="case-spotlight__action">
+            <button type="button" class="btn btn--pill case-spotlight__btn" @click="openHeroConsult">
+              了解客户实践 <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -299,18 +318,41 @@ onMounted(async () => {
           <RouterLink :to="data.news.moreUrl" class="link-more">全部动态</RouterLink>
         </div>
 
-        <ul class="news-list">
-          <li v-for="(item, index) in data.news.items" :key="item.id" v-reveal="index * 70" class="news-item">
-            <RouterLink :to="item.url" class="news-item__link">
-              <time class="news-item__date" :datetime="item.displayTime">{{ item.displayTime }}</time>
-              <div class="news-item__body">
-                <h3 class="news-item__title">{{ item.title }}</h3>
-                <p class="news-item__desc">{{ item.summary }}</p>
+        <div class="news-grid">
+          <RouterLink
+            v-for="(item, index) in data.news.items"
+            :key="item.id"
+            :to="item.url"
+            v-reveal="index * 70"
+            class="news-card"
+          >
+            <div class="news-card__media media-frame">
+              <img
+                v-if="item.cover"
+                :src="item.cover.url"
+                :alt="item.cover.alt || item.title"
+                loading="lazy"
+              />
+              <div v-else class="news-card__placeholder">
+                <span class="news-card__icon" aria-hidden="true">NEWS</span>
               </div>
-              <span class="news-item__arrow" aria-hidden="true">→</span>
-            </RouterLink>
-          </li>
-        </ul>
+            </div>
+            <div class="news-card__body">
+              <time class="news-card__date" :datetime="item.displayTime">
+                <svg class="news-card__clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                {{ item.displayTime }}
+              </time>
+              <h3 class="news-card__title">{{ item.title }}</h3>
+              <p class="news-card__desc">{{ item.summary }}</p>
+              <span class="news-card__more">
+                阅读更多 <span aria-hidden="true">→</span>
+              </span>
+            </div>
+          </RouterLink>
+        </div>
       </div>
     </section>
 
@@ -795,60 +837,185 @@ onMounted(async () => {
   object-fit: contain;
 }
 
-/* ---------------- news ---------------- */
-.news-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--c-border);
-}
-
-.news-item {
-  border-bottom: 1px solid var(--c-border);
-}
-
-.news-item__link {
+/* ---------------- case-spotlight ---------------- */
+.case-spotlight {
+  margin-top: 64px;
+  padding: 44px 48px;
+  background: #ffffff;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(10, 12, 20, 0.04);
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) 40px;
-  gap: 32px;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
   align-items: center;
-  padding: 28px 8px;
-  transition: background-color 0.3s ease, padding 0.3s var(--ease-out);
 }
 
-.news-item__link:hover {
-  background: #fff;
-  padding-left: 20px;
-  padding-right: 20px;
+.case-spotlight__quote {
+  position: relative;
+  padding-left: 36px;
 }
 
-.news-item__date {
-  font-size: 13px;
-  color: var(--c-text-subtle);
-  font-variant-numeric: tabular-nums;
+.case-spotlight__mark {
+  position: absolute;
+  left: 0;
+  top: -14px;
+  font-size: 54px;
+  font-family: Georgia, serif;
+  color: var(--c-brand);
+  line-height: 1;
+  opacity: 0.6;
 }
 
-.news-item__title {
-  font-size: 20px;
-  line-height: 1.45;
-  letter-spacing: -0.02em;
+.case-spotlight__text {
+  font-size: 18px;
+  line-height: 1.7;
+  font-weight: 500;
+  color: var(--c-text);
+  margin: 0;
 }
 
-.news-item__desc {
-  margin-top: 6px;
+.case-spotlight__author {
+  margin-top: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.case-spotlight__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.case-spotlight__role {
   font-size: 13px;
   color: var(--c-text-muted);
-  line-height: 1.75;
 }
 
-.news-item__arrow {
-  font-size: 20px;
+.case-spotlight__btn {
+  white-space: nowrap;
+}
+
+/* ---------------- news ---------------- */
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.news-card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.news-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(91, 75, 232, 0.28);
+  box-shadow: 0 16px 36px rgba(10, 12, 20, 0.08);
+}
+
+.news-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.news-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s var(--ease-out);
+}
+
+.news-card:hover .news-card__media img {
+  transform: scale(1.06);
+}
+
+.news-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #181924, #0d0e14);
+}
+
+.news-card__icon {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.news-card__body {
+  padding: 22px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.news-card__date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--c-text-subtle);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+
+.news-card__clock {
+  width: 13px;
+  height: 13px;
+  opacity: 0.7;
+}
+
+.news-card__title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  color: var(--c-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.9em;
+}
+
+.news-card__desc {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--c-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.news-card__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--c-brand);
-  transition: transform 0.3s var(--ease-out);
+  transition: transform 0.25s var(--ease-out);
 }
 
-.news-item__link:hover .news-item__arrow {
-  transform: translateX(6px);
+.news-card:hover .news-card__more {
+  transform: translateX(4px);
 }
 
 /* ---------------- CTA ---------------- */

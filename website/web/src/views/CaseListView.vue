@@ -52,8 +52,11 @@ onMounted(async () => {
 <template>
   <div>
     <PageHeader
-      title="客户案例"
+      title="客户成功故事"
       description="每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。"
+      eyebrow="CUSTOMER STORIES"
+      tone="light"
+      centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '客户案例' }]"
     />
 
@@ -168,8 +171,8 @@ onMounted(async () => {
 }
 
 .filters__btn.is-active {
-  background: var(--c-text);
-  border-color: var(--c-text);
+  background: var(--c-brand, #5b4be8);
+  border-color: var(--c-brand, #5b4be8);
   color: #fff;
 }
 

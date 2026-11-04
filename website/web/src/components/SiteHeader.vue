@@ -36,6 +36,27 @@ function onKeydown(event: KeyboardEvent) {
   if (open.value) close()
 }
 
+let leaveTimer: number | null = null
+
+function handleMouseEnter(item: NavItem) {
+  if (!item.children?.length) {
+    openMenu.value = null
+    return
+  }
+  if (leaveTimer) {
+    clearTimeout(leaveTimer)
+    leaveTimer = null
+  }
+  openMenu.value = item.label
+}
+
+function handleMouseLeave() {
+  if (leaveTimer) clearTimeout(leaveTimer)
+  leaveTimer = window.setTimeout(() => {
+    openMenu.value = null
+  }, 180)
+}
+
 function toggleMenu(item: NavItem) {
   openMenu.value = openMenu.value === item.label ? null : item.label
 }
@@ -78,7 +99,13 @@ onBeforeUnmount(() => {
 
       <nav class="nav" aria-label="主导航">
         <ul class="nav__list">
-          <li v-for="item in nav" :key="item.label" class="nav__item">
+          <li
+            v-for="item in nav"
+            :key="item.label"
+            class="nav__item"
+            @mouseenter="handleMouseEnter(item)"
+            @mouseleave="handleMouseLeave"
+          >
             <template v-if="item.children?.length">
               <button
                 type="button"
@@ -93,7 +120,7 @@ onBeforeUnmount(() => {
               <Transition name="menu">
                 <div v-if="openMenu === item.label" class="mega">
                   <div class="mega__head">
-                    <span class="mega__kicker">产品与能力</span>
+                    <span class="mega__kicker">{{ item.label }} · 业务全景</span>
                     <span class="mega__note">选择方向，查看对应内容</span>
                   </div>
                   <ul class="mega__list">
@@ -104,7 +131,8 @@ onBeforeUnmount(() => {
                         class="mega__link"
                         @click="consult()"
                       >
-                        <span>{{ child.label }}</span>
+                        <span class="mega__bullet" aria-hidden="true"></span>
+                        <span class="mega__text">{{ child.label }}</span>
                         <span class="mega__arrow" aria-hidden="true">→</span>
                       </button>
                       <a
@@ -115,15 +143,23 @@ onBeforeUnmount(() => {
                         :rel="child.newWindow ? 'noopener noreferrer' : undefined"
                         @click="openMenu = null"
                       >
-                        <span>{{ child.label }}</span>
+                        <span class="mega__bullet" aria-hidden="true"></span>
+                        <span class="mega__text">{{ child.label }}</span>
                         <span class="mega__arrow" aria-hidden="true">→</span>
                       </a>
                       <RouterLink v-else :to="child.path" class="mega__link" @click="openMenu = null">
-                        <span>{{ child.label }}</span>
+                        <span class="mega__bullet" aria-hidden="true"></span>
+                        <span class="mega__text">{{ child.label }}</span>
                         <span class="mega__arrow" aria-hidden="true">→</span>
                       </RouterLink>
                     </li>
                   </ul>
+                  <div class="mega__foot">
+                    <span>需要专业场景建议？</span>
+                    <button type="button" class="mega__foot-cta" @click="consult('NAVIGATION')">
+                      联系技术专家 <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
                 </div>
               </Transition>
             </template>
@@ -443,6 +479,58 @@ onBeforeUnmount(() => {
 .mega__link:hover {
   background: var(--c-brand-soft);
   color: var(--c-brand);
+}
+
+.mega {
+  width: 520px;
+}
+
+.mega__bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-brand, #5b4be8);
+  opacity: 0.4;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mega__link:hover .mega__bullet {
+  opacity: 1;
+  transform: scale(1.3);
+}
+
+.mega__text {
+  flex: 1;
+}
+
+.mega__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+
+.mega__foot-cta {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-brand);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.2s ease;
+}
+
+.mega__foot-cta:hover {
+  transform: translateX(3px);
 }
 
 .mega__arrow {

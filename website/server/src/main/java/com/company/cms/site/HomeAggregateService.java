@@ -75,8 +75,15 @@ public class HomeAggregateService {
         collectIds(cfg.get("cases"), null, contentIds);
         collectIds(cfg.get("customers"), null, contentIds);
         collectIds(cfg.get("news"), null, contentIds);
-        Map<Long, ContentRow> contentMap = contents.findPublishedByIds(contentIds).stream()
-                .collect(Collectors.toMap(ContentRow::id, Function.identity()));
+        Map<Long, ContentRow> contentMap = new HashMap<>(contents.findPublishedByIds(contentIds).stream()
+                .collect(Collectors.toMap(ContentRow::id, Function.identity())));
+        JsonNode newsBlock = cfg.get("news");
+        if (newsBlock != null && enabled(newsBlock) && "LATEST".equals(text(newsBlock, "mode"))) {
+            int limit = newsBlock.get("limit") != null ? Math.max(1, Math.min(6, newsBlock.get("limit").asInt())) : 3;
+            for (ContentRow r : contents.findLatestPublishedNews(limit)) {
+                contentMap.put(r.id(), r);
+            }
+        }
 
         // ---- 第二批：媒体（首屏、分组配图、卡片封面）
         Set<Long> mediaIds = new LinkedHashSet<>();
@@ -114,7 +121,7 @@ public class HomeAggregateService {
         Map<String, Object> services = services(cfg.get("services"), contentMap, mediaMap, formEnabled);
         Map<String, Object> cases = cases(cfg.get("cases"), contentMap, mediaMap);
         Map<String, Object> customers = customers(cfg.get("customers"), contentMap, mediaMap);
-        Map<String, Object> news = news(cfg.get("news"), contentMap);
+        Map<String, Object> news = news(cfg.get("news"), contentMap, mediaMap);
 
         Set<String> anchors = new HashSet<>();
         if (metrics != null) {
@@ -422,7 +429,7 @@ public class HomeAggregateService {
 
     // ---------------------------------------------------------------- news
 
-    private Map<String, Object> news(JsonNode block, Map<Long, ContentRow> contentMap) {
+    private Map<String, Object> news(JsonNode block, Map<Long, ContentRow> contentMap, Map<Long, MediaRow> mediaMap) {
         if (!enabled(block)) {
             return null;
         }
@@ -431,7 +438,7 @@ public class HomeAggregateService {
         List<Map<String, Object>> items = new ArrayList<>();
         if ("LATEST".equals(mode)) {
             for (ContentRow content : contents.findLatestPublishedNews(limit)) {
-                items.add(newsItem(content));
+                items.add(newsItem(content, mediaMap));
             }
         } else {
             JsonNode ids = block == null ? null : block.get("contentIds");
@@ -444,7 +451,7 @@ public class HomeAggregateService {
                     if (content == null || content.contentType() != com.company.cms.content.ContentType.NEWS) {
                         continue;
                     }
-                    items.add(newsItem(content));
+                    items.add(newsItem(content, mediaMap));
                 }
             }
         }
@@ -458,7 +465,7 @@ public class HomeAggregateService {
         return result;
     }
 
-    private Map<String, Object> newsItem(ContentRow content) {
+    private Map<String, Object> newsItem(ContentRow content, Map<Long, MediaRow> mediaMap) {
         JsonNode json = content.published();
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("id", String.valueOf(content.id()));
@@ -466,6 +473,7 @@ public class HomeAggregateService {
         item.put("summary", text(json, "summary"));
         item.put("displayTime", text(json, "displayTime"));
         item.put("url", "/news/" + content.id());
+        item.put("cover", cover(json, mediaMap));
         return item;
     }
 

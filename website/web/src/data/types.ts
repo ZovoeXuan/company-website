@@ -123,6 +123,7 @@ export interface HomeNewsItem {
   summary: string
   displayTime: string
   url: string
+  cover?: MediaRef | null
 }
 
 export interface HomeView {

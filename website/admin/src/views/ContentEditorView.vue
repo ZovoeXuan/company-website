@@ -145,6 +145,7 @@ type PickerTarget =
   | { kind: 'hero' }
   | { kind: 'logo' }
   | { kind: 'featureIcon'; index: number }
+  | { kind: 'bodyImage' }
 
 const pickerTarget = ref<PickerTarget>({ kind: 'cover' })
 const pickerKind = computed<'IMAGE' | 'ALL'>(() => (pickerTarget.value.kind === 'hero' ? 'ALL' : 'IMAGE'))
@@ -297,12 +298,19 @@ function openPicker(target: PickerTarget) {
   pickerOpen.value = true
 }
 
+function insertBodyHtml(snippet: string) {
+  form.value.bodyHtml = (form.value.bodyHtml ? form.value.bodyHtml.trimEnd() + '\n\n' : '') + snippet
+}
+
 function onPick(media: { id: string | number }) {
   const target = pickerTarget.value
   const values = form.value
   if (target.kind === 'cover') values.coverId = String(media.id)
   if (target.kind === 'hero') values.heroId = String(media.id)
   if (target.kind === 'logo') values.logoId = String(media.id)
+  if (target.kind === 'bodyImage') {
+    insertBodyHtml(`<p><img data-media-id="${media.id}" alt="插图" /></p>\n`)
+  }
   if (target.kind === 'featureIcon') {
     const item = values.features[target.index]
     if (item) item.iconMediaId = Number(media.id)
@@ -690,13 +698,27 @@ onMounted(load)
 
         <!-- 正文 -->
         <el-form-item v-if="hasBody" label="正文" required>
+          <div class="body-toolbar">
+            <span class="body-toolbar__label">快捷插入：</span>
+            <el-button-group size="small">
+              <el-button @click="insertBodyHtml('<h2>章节标题</h2>\n')">H2 标题</el-button>
+              <el-button @click="insertBodyHtml('<h3>小节标题</h3>\n')">H3 标题</el-button>
+              <el-button @click="insertBodyHtml('<p>在这里填写段落说明文字…</p>\n')">段落</el-button>
+              <el-button @click="insertBodyHtml('<ul>\n  <li>核心要点一</li>\n  <li>核心要点二</li>\n</ul>\n')">列表</el-button>
+              <el-button @click="insertBodyHtml('<blockquote>重点引用说明或业务成果总结</blockquote>\n')">引用</el-button>
+              <el-button @click="insertBodyHtml('<table>\n  <thead>\n    <tr><th>指标</th><th>升级前</th><th>数字化后</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>巡检耗时</td><td>4 小时</td><td><strong>15 分钟</strong></td></tr>\n  </tbody>\n</table>\n')">表格</el-button>
+            </el-button-group>
+            <el-button size="small" type="primary" plain @click="openPicker({ kind: 'bodyImage' })">
+              插入素材图片
+            </el-button>
+          </div>
           <el-input
             v-model="form.bodyHtml"
             type="textarea"
             :rows="12"
-            placeholder="支持基础 HTML，例如 <h2>解决什么问题</h2><p>…</p>"
+            placeholder="支持基础 HTML，可点击上方按钮快速插入标准排版标签…"
           />
-          <p class="field-hint">当前为 HTML 源码输入，保存时服务端会做白名单清洗。</p>
+          <p class="field-hint">当前为 HTML 源码输入，保存时服务端会做白名单清洗；可使用上方工具快捷排版或从素材库选图。</p>
         </el-form-item>
 
         <el-divider content-position="left">SEO（可选）</el-divider>
@@ -768,6 +790,19 @@ onMounted(load)
 </template>
 
 <style scoped>
+.body-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.body-toolbar__label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
 .editor {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
