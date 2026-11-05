@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApiError } from '@/api/http'
 import {
@@ -8,15 +8,19 @@ import {
   listCategories,
   offlineCategory,
   publishCategory,
-  updateCategory,
+  saveCategory,
   type CategoryView,
 } from '@/api/content'
+import { useAuth } from '@/stores/auth'
+
+const { current } = useAuth()
+const isAdmin = computed(() => current.value?.role === 'ADMIN')
 
 const types = [
-  { value: 'PRODUCT', label: '产品' },
-  { value: 'SOLUTION', label: '解决方案' },
-  { value: 'CASE', label: '客户案例' },
-  { value: 'NEWS', label: '新闻' },
+  { value: 'PRODUCT', label: '产品分类' },
+  { value: 'SOLUTION', label: '解决方案分类' },
+  { value: 'CASE', label: '客户案例分类' },
+  { value: 'NEWS', label: '新闻分类' },
 ]
 
 const loading = ref(false)
@@ -27,12 +31,16 @@ const query = reactive({ type: 'PRODUCT', page: 1, pageSize: 20 })
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
 const saving = ref(false)
-const form = reactive({ id: '', name: '', sortOrder: 9999, lockVersion: 0 })
+const form = reactive({ id: '', lockVersion: 0, name: '', sortOrder: 100 })
 
 async function load() {
   loading.value = true
   try {
-    const data = await listCategories({ categoryType: query.type, page: query.page, pageSize: query.pageSize })
+    const data = await listCategories({
+      categoryType: query.type,
+      page: query.page,
+      pageSize: query.pageSize,
+    })
     rows.value = data.items
     total.value = data.total
   } catch (error) {
@@ -44,32 +52,28 @@ async function load() {
 
 function openCreate() {
   dialogMode.value = 'create'
-  Object.assign(form, { id: '', name: '', sortOrder: 9999, lockVersion: 0 })
+  Object.assign(form, { id: '', lockVersion: 0, name: '', sortOrder: 100 })
   dialogVisible.value = true
 }
 
 function openEdit(row: CategoryView) {
   dialogMode.value = 'edit'
-  Object.assign(form, { id: row.id, name: row.name, sortOrder: row.sortOrder, lockVersion: row.lockVersion })
+  Object.assign(form, { id: row.id, lockVersion: row.lockVersion, name: row.name, sortOrder: row.sortOrder })
   dialogVisible.value = true
 }
 
 async function submit() {
   if (!form.name.trim()) {
-    ElMessage.warning('请填写分类名称')
+    ElMessage.warning('请输入分类名称')
     return
   }
   saving.value = true
   try {
     if (dialogMode.value === 'create') {
-      await createCategory({ categoryType: query.type, name: form.name.trim(), sortOrder: form.sortOrder })
-      ElMessage.success('分类已创建，发布后前台可见')
+      await createCategory(query.type, form.name.trim(), form.sortOrder)
+      ElMessage.success('已创建分类草稿')
     } else {
-      await updateCategory(form.id, {
-        expectedLockVersion: form.lockVersion,
-        name: form.name.trim(),
-        sortOrder: form.sortOrder,
-      })
+      await saveCategory(form.id, form.name.trim(), form.sortOrder, form.lockVersion)
       ElMessage.success('分类草稿已保存')
     }
     dialogVisible.value = false
@@ -97,7 +101,7 @@ async function publish(row: CategoryView) {
 
 async function offline(row: CategoryView) {
   try {
-    await ElMessageBox.confirm('该分类下仍有已发布内容时无法下线。', '确认下线', {
+    await ElMessageBox.confirm('该分类下仍有已发布内容时无法下线。确认下线？', '确认下线', {
       confirmButtonText: '下线',
       cancelButtonText: '取消',
       type: 'warning',
@@ -112,7 +116,7 @@ async function offline(row: CategoryView) {
 
 async function remove(row: CategoryView) {
   try {
-    await ElMessageBox.confirm('删除后不可恢复；仍被内容引用时会被拒绝。', '确认删除', {
+    await ElMessageBox.confirm('删除后不可恢复；仍被内容引用时会被拒绝。确认删除？', '确认删除', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning',
@@ -135,7 +139,7 @@ onMounted(load)
         <div class="head">
           <span>内容分类</span>
           <div class="actions">
-            <el-select v-model="query.type" style="width: 140px" @change="query.page = 1; load()">
+            <el-select v-model="query.type" style="width: 150px" @change="query.page = 1; load()">
               <el-option v-for="item in types" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
             <el-button @click="load">刷新</el-button>
@@ -148,12 +152,12 @@ onMounted(load)
         type="info"
         :closable="false"
         show-icon
-        title="分类是单层的，发布后才会出现在前台筛选里。"
+        title="分类是单层的，管理员发布后才会出现在前台筛选里。"
         class="tip"
       />
 
       <el-table v-loading="loading" :data="rows" border>
-        <el-table-column prop="name" label="名称" min-width="180">
+        <el-table-column prop="name" label="草稿名称" min-width="180">
           <template #default="{ row }">
             <div class="name-cell">
               <span>{{ row.name }}</span>
@@ -161,15 +165,15 @@ onMounted(load)
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="110">
           <template #default="{ row }">
             <el-tag size="small" :type="row.status === 'PUBLISHED' ? 'success' : row.status === 'OFFLINE' ? 'warning' : 'info'">
               {{ row.status === 'PUBLISHED' ? '已发布' : row.status === 'OFFLINE' ? '已下线' : '草稿' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="线上名称" width="150">
-          <template #default="{ row }">{{ row.publishedName || '—' }}</template>
+        <el-table-column label="线上名称" width="160">
+          <template #default="{ row }">{{ row.publishedName || '-' }}</template>
         </el-table-column>
         <el-table-column label="排序" width="90">
           <template #default="{ row }">{{ row.publishedSortOrder ?? row.sortOrder }}</template>
@@ -177,9 +181,18 @@ onMounted(load)
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button v-if="row.hasUnpublishedChanges" link type="success" @click="publish(row)">发布</el-button>
-            <el-button v-if="row.status === 'PUBLISHED'" link type="warning" @click="offline(row)">下线</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <template v-if="isAdmin">
+              <el-button
+                v-if="row.hasUnpublishedChanges || row.status === 'OFFLINE'"
+                link
+                type="success"
+                @click="publish(row)"
+              >
+                {{ row.status === 'OFFLINE' ? '重新发布' : '发布' }}
+              </el-button>
+              <el-button v-if="row.status === 'PUBLISHED'" link type="warning" @click="offline(row)">下线</el-button>
+              <el-button link type="danger" @click="remove(row)">删除</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -205,7 +218,7 @@ onMounted(load)
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="submit">保存草稿</el-button>
       </template>
     </el-dialog>
   </div>

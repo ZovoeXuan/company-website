@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { getContactPage, getSite } from '@/api/public'
 import type { ContactPage, SiteConfig } from '@/data/types'
 
@@ -14,37 +14,45 @@ export interface ConsultTarget {
   sourcePosition: string
   contentType?: string
   contentId?: string
+  presetQuestion?: string
 }
 
+const siteCache = ref<SiteConfig | null>(null)
 let pending: Promise<ConsultContext> | null = null
 
-/** 站点配置与联系页只取一次，避免每个详情页重复请求。 */
-export function loadConsultContext(): Promise<ConsultContext> {
-  if (!pending) {
+export function loadConsultContext(forceRefresh = false): Promise<ConsultContext> {
+  if (!pending || forceRefresh) {
     pending = Promise.all([
       getSite().catch(() => null),
       getContactPage().catch(() => null),
     ]).then(([site, page]) => {
-      const formEnabled = Boolean(site?.formEnabled ?? page?.formEnabled)
+      if (site) siteCache.value = site
       return {
         site,
         page,
-        formEnabled,
+        formEnabled: Boolean(site?.formEnabled ?? page?.formEnabled),
         privacyVersion: site?.privacyVersion ?? null,
-        successText: page?.successText || '已收到你的咨询，我们会尽快联系你。',
+        successText: page?.successText || '已收到您的咨询，我们的专家顾问将在 1 个工作日内与您联系。',
       }
     })
   }
   return pending
 }
 
-const dialog = reactive<{ open: boolean; target: ConsultTarget }>({
+export function useSiteConfigCache() {
+  return { siteCache, loadConsultContext }
+}
+
+const dialog = reactive<{
+  open: boolean
+  target: ConsultTarget
+}>({
   open: false,
   target: { sourcePosition: 'OTHER_CTA' },
 })
 
 export function openConsult(target: ConsultTarget) {
-  dialog.target = target
+  dialog.target = { ...target }
   dialog.open = true
 }
 

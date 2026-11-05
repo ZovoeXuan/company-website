@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { submitLead } from '@/api/public'
 import { loadConsultContext } from '@/composables/consult'
@@ -8,32 +9,41 @@ const props = defineProps<{
   sourcePosition: string
   contentType?: string
   contentId?: string
-  successText?: string
+  initialDemand?: string
 }>()
 
+const route = useRoute()
 const uid = 'consult-' + Math.random().toString(36).slice(2, 8)
+
 const context = reactive({
   loaded: false,
-  formEnabled: false,
-  privacyVersion: null as number | null,
+  formEnabled: true,
+  privacyVersion: 1 as number | null,
   successText: '',
-  phone: '',
-  email: '',
 })
 
 const form = reactive({
   name: '',
   companyName: '',
   phone: '',
-  demand: '',
+  demand: props.initialDemand || '',
   consent: false,
 })
+
+watch(
+  () => props.initialDemand,
+  (val) => {
+    if (val) {
+      form.demand = val
+    }
+  },
+)
 
 const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 const attempted = ref(false)
 const succeeded = ref(false)
-const receipt = ref('')
+const receiptNo = ref('')
 const submitError = ref('')
 const idempotencyKey = ref(newKey())
 
@@ -49,98 +59,89 @@ function newKey(): string {
 
 onMounted(async () => {
   try {
-    const loaded = await loadConsultContext()
-    context.formEnabled = loaded.formEnabled
-    context.privacyVersion = loaded.privacyVersion
-    context.successText = props.successText || loaded.successText
-    context.phone = loaded.site?.contact.phone ?? ''
-    context.email = loaded.site?.contact.email ?? ''
-  } finally {
+    const data = await loadConsultContext()
     context.loaded = true
+    context.formEnabled = data.formEnabled
+    context.privacyVersion = data.privacyVersion ?? 1
+    context.successText = data.successText
+  } catch {
+    context.loaded = true
+    context.formEnabled = true
   }
 })
 
-// 上次提交失败后用户改了内容：这是新的咨询，换一个幂等键，避免与首次载荷冲突
-watch(
-  () => [form.name, form.companyName, form.phone, form.demand, form.consent],
-  () => {
-    if (attempted.value && !submitting.value && !succeeded.value) {
-      idempotencyKey.value = newKey()
-      attempted.value = false
-      submitError.value = ''
-    }
-  },
-)
-
 function validate(): boolean {
-  Object.keys(errors).forEach((key) => delete errors[key])
-  if (!form.name.trim()) errors.name = '请填写您的称呼'
-  else if (form.name.trim().length > 50) errors.name = '称呼不能超过 50 字'
-  if (!form.companyName.trim()) errors.companyName = '请填写公司名称'
-  else if (form.companyName.trim().length > 100) errors.companyName = '公司名称不能超过 100 字'
-  if (!/^1[3-9]\d{9}$/.test(form.phone.trim())) errors.phone = '请填写 11 位中国大陆手机号'
-  if (!form.demand.trim()) errors.demand = '请简单描述需求'
-  else if (form.demand.trim().length > 2000) errors.demand = '需求描述不能超过 2000 字'
-  if (!form.consent) errors.consent = '请先阅读并同意隐私说明'
+  Object.keys(errors).forEach((k) => delete errors[k])
+
+  if (!form.name.trim()) {
+    errors.name = '请填写您的姓名'
+  }
+  if (!form.companyName.trim()) {
+    errors.companyName = '请填写公司名称'
+  }
+  if (!form.phone.trim()) {
+    errors.phone = '请填写联系电话'
+  } else if (!/^1[3-9]\d{9}$/.test(form.phone.trim())) {
+    errors.phone = '请输入有效的 11 位中国大陆手机号'
+  }
+  if (!form.demand.trim()) {
+    errors.demand = '请简要描述您的咨询需求'
+  }
+  if (!form.consent) {
+    errors.consent = '请阅读并勾选同意《隐私说明》'
+  }
+
   return Object.keys(errors).length === 0
 }
 
-function applyFieldErrors(error: ApiError) {
-  for (const item of error.fieldErrors ?? []) {
-    if (item.field === 'Idempotency-Key') {
-      submitError.value = item.message
-    } else {
-      errors[item.field] = item.message
-    }
-  }
+watch(
+  () => [form.name, form.companyName, form.phone, form.demand, form.consent],
+  () => {
+    if (attempted.value) validate()
+  },
+)
+
+function resetForNext() {
+  form.name = ''
+  form.companyName = ''
+  form.phone = ''
+  form.demand = ''
+  form.consent = false
+  attempted.value = false
+  succeeded.value = false
+  receiptNo.value = ''
+  idempotencyKey.value = newKey()
 }
 
-async function submit() {
+async function handleSubmit() {
+  attempted.value = true
   submitError.value = ''
-  succeeded.value = false
   if (!validate()) return
-  if (!context.privacyVersion) {
-    submitError.value = '隐私说明尚未发布，暂时无法提交，请通过电话或邮箱联系我们。'
-    return
-  }
 
   submitting.value = true
-  attempted.value = true
   try {
-    const payload = {
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      companyName: form.companyName.trim(),
-      demand: form.demand.trim(),
-      sourcePath: window.location.pathname,
-      sourcePosition: props.sourcePosition,
-      consent: form.consent,
-      consentVersion: context.privacyVersion,
-      ...(props.contentType && props.contentId
-        ? { contentType: props.contentType, contentId: Number(props.contentId) }
-        : {}),
-    }
-    const result = await submitLead(payload, idempotencyKey.value)
+    const res = await submitLead(
+      {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        companyName: form.companyName.trim(),
+        demand: form.demand.trim(),
+        sourcePath: route.path || '/',
+        sourcePosition: props.sourcePosition || 'OTHER_CTA',
+        contentType: props.contentType,
+        contentId: props.contentId ? Number(props.contentId) : undefined,
+        consent: true,
+        consentVersion: context.privacyVersion ?? 1,
+      },
+      idempotencyKey.value,
+    )
     succeeded.value = true
-    receipt.value = result.receiptNo
-    form.name = ''
-    form.companyName = ''
-    form.phone = ''
-    form.demand = ''
-    form.consent = false
-    attempted.value = false
-    idempotencyKey.value = newKey()
-  } catch (error) {
-    if (error instanceof ApiError) {
-      applyFieldErrors(error)
-      if (error.code === 'IDEMPOTENCY_CONFLICT') {
-        idempotencyKey.value = newKey()
-        submitError.value = '提交内容与上次不一致，已重置本次提交，请重新点击提交。'
-      } else if (!error.fieldErrors?.length) {
-        submitError.value = error.message
-      }
+    receiptNo.value = res.receiptNo
+  } catch (e) {
+    if (e instanceof ApiError) {
+      submitError.value = e.message
     } else {
-      submitError.value = '网络异常，请保留当前内容并重试。'
+      submitError.value = '网络异常，提交未成功（您的输入已保留，可直接重试）'
     }
   } finally {
     submitting.value = false
@@ -149,256 +150,271 @@ async function submit() {
 </script>
 
 <template>
-  <div class="consult">
-    <p v-if="!context.loaded" class="state-line" aria-busy="true">正在加载咨询方式…</p>
-
-    <div v-else-if="!context.formEnabled || !context.privacyVersion" class="disabled">
-      <p>在线表单暂未启用，请通过电话或邮箱联系我们。</p>
-      <p v-if="context.phone || context.email" class="disabled__contact">
-        <a v-if="context.phone" :href="`tel:${context.phone.replace(/[\s-]/g, '')}`">{{ context.phone }}</a>
-        <a v-if="context.email" :href="`mailto:${context.email}`">{{ context.email }}</a>
-      </p>
+  <div class="consult-form-wrap">
+    <div v-if="succeeded" class="success-state" role="status">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h3 class="success-title">咨询提交成功</h3>
+      <p class="success-desc">{{ context.successText || '已收到您的咨询，我们的专家顾问将尽快与您联系。' }}</p>
+      <p v-if="receiptNo" class="receipt-tag">受理回执单号：<strong>{{ receiptNo }}</strong></p>
+      <button type="button" class="reset-btn" @click="resetForNext">继续提交新咨询</button>
     </div>
 
-    <form v-else class="form" novalidate @submit.prevent="submit">
-      <div class="field">
-        <label class="field__label" :for="`${uid}-name`">称呼<span class="req" aria-hidden="true">*</span></label>
-        <input
-          :id="`${uid}-name`"
-          v-model="form.name"
-          type="text"
-          autocomplete="name"
-          maxlength="50"
-          :aria-invalid="Boolean(errors.name)"
-          :aria-describedby="errors.name ? `${uid}-name-error` : undefined"
-        />
-        <p v-if="errors.name" :id="`${uid}-name-error`" class="field__error" role="alert">{{ errors.name }}</p>
+    <div v-else-if="context.loaded && !context.formEnabled" class="closed-state">
+      <p>在线咨询通道暂未开启，请直接通过联系我们页面的电话或邮箱与我们联系。</p>
+      <RouterLink to="/contact" class="reset-btn">前往联系我们 →</RouterLink>
+    </div>
+
+    <form v-else class="consult-form" novalidate @submit.prevent="handleSubmit">
+      <div class="form-row">
+        <div class="form-item" :class="{ 'has-error': errors.name }">
+          <label :for="`${uid}-name`" class="form-label">姓名 <span>*</span></label>
+          <input
+            :id="`${uid}-name`"
+            v-model="form.name"
+            type="text"
+            maxlength="50"
+            class="form-input"
+            placeholder="您的称呼"
+            :aria-invalid="Boolean(errors.name)"
+          />
+          <span v-if="errors.name" class="error-msg" role="alert">{{ errors.name }}</span>
+        </div>
+
+        <div class="form-item" :class="{ 'has-error': errors.phone }">
+          <label :for="`${uid}-phone`" class="form-label">手机号码 <span>*</span></label>
+          <input
+            :id="`${uid}-phone`"
+            v-model="form.phone"
+            type="tel"
+            maxlength="11"
+            class="form-input"
+            placeholder="11 位手机号"
+            :aria-invalid="Boolean(errors.phone)"
+          />
+          <span v-if="errors.phone" class="error-msg" role="alert">{{ errors.phone }}</span>
+        </div>
       </div>
 
-      <div class="field">
-        <label class="field__label" :for="`${uid}-company`">公司名称<span class="req" aria-hidden="true">*</span></label>
+      <div class="form-item" :class="{ 'has-error': errors.companyName }">
+        <label :for="`${uid}-company`" class="form-label">公司名称 <span>*</span></label>
         <input
           :id="`${uid}-company`"
           v-model="form.companyName"
           type="text"
-          autocomplete="organization"
           maxlength="100"
+          class="form-input"
+          placeholder="请输入贵公司全称或简称"
           :aria-invalid="Boolean(errors.companyName)"
-          :aria-describedby="errors.companyName ? `${uid}-company-error` : undefined"
         />
-        <p v-if="errors.companyName" :id="`${uid}-company-error`" class="field__error" role="alert">
-          {{ errors.companyName }}
-        </p>
+        <span v-if="errors.companyName" class="error-msg" role="alert">{{ errors.companyName }}</span>
       </div>
 
-      <div class="field">
-        <label class="field__label" :for="`${uid}-phone`">手机号<span class="req" aria-hidden="true">*</span></label>
-        <input
-          :id="`${uid}-phone`"
-          v-model="form.phone"
-          type="tel"
-          inputmode="numeric"
-          autocomplete="tel"
-          maxlength="11"
-          :aria-invalid="Boolean(errors.phone)"
-          :aria-describedby="errors.phone ? `${uid}-phone-error` : `${uid}-phone-hint`"
-        />
-        <p :id="`${uid}-phone-hint`" class="field__hint">仅用于回复本次咨询，不用于营销。</p>
-        <p v-if="errors.phone" :id="`${uid}-phone-error`" class="field__error" role="alert">{{ errors.phone }}</p>
-      </div>
-
-      <div class="field">
-        <label class="field__label" :for="`${uid}-demand`">需求描述<span class="req" aria-hidden="true">*</span></label>
+      <div class="form-item" :class="{ 'has-error': errors.demand }">
+        <label :for="`${uid}-demand`" class="form-label">咨询需求 <span>*</span></label>
         <textarea
           :id="`${uid}-demand`"
           v-model="form.demand"
-          rows="4"
+          rows="3"
           maxlength="2000"
-          placeholder="例如：三条冲压线，设备来自不同厂商，想解决停机原因说不清的问题"
+          class="form-textarea"
+          placeholder="请描述您的车队规模、业务场景或希望了解的产品方案..."
           :aria-invalid="Boolean(errors.demand)"
-          :aria-describedby="errors.demand ? `${uid}-demand-error` : undefined"
         ></textarea>
-        <p v-if="errors.demand" :id="`${uid}-demand-error`" class="field__error" role="alert">{{ errors.demand }}</p>
+        <span v-if="errors.demand" class="error-msg" role="alert">{{ errors.demand }}</span>
       </div>
 
-      <div class="field field--check">
-        <input
-          :id="`${uid}-consent`"
-          v-model="form.consent"
-          type="checkbox"
-          :aria-invalid="Boolean(errors.consent)"
-          :aria-describedby="errors.consent ? `${uid}-consent-error` : undefined"
-        />
-        <label :for="`${uid}-consent`" class="field__label field__label--inline">
-          我已阅读并同意<RouterLink to="/privacy" class="field__link">隐私说明</RouterLink>
+      <div class="form-item" :class="{ 'has-error': errors.consent }">
+        <label class="checkbox-label">
+          <input v-model="form.consent" type="checkbox" class="form-checkbox" />
+          <span>
+            我已阅读并同意
+            <RouterLink to="/privacy" target="_blank">《隐私说明》</RouterLink>
+          </span>
         </label>
-        <p v-if="errors.consent" :id="`${uid}-consent-error`" class="field__error" role="alert">
-          {{ errors.consent }}
-        </p>
+        <span v-if="errors.consent" class="error-msg" role="alert">{{ errors.consent }}</span>
       </div>
 
-      <button type="submit" class="btn btn--primary form__submit" :disabled="submitting">
-        {{ submitting ? '提交中…' : '提交咨询' }}
+      <div v-if="submitError" class="submit-error" role="alert">{{ submitError }}</div>
+
+      <button type="submit" class="submit-btn" :disabled="submitting">
+        {{ submitting ? '正在加密提交...' : '立即预约专家演示' }}
       </button>
-
-      <p v-if="submitError" class="error-notice" role="alert">{{ submitError }}</p>
-
-      <div v-if="succeeded" class="success" role="status">
-        <p class="success__text">{{ context.successText }}</p>
-        <p class="success__receipt">回执号：{{ receipt }}（请留存，便于核对本次咨询）</p>
-      </div>
     </form>
   </div>
 </template>
 
 <style scoped>
-.form {
+.consult-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
-.field {
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
-.field__label {
-  font-size: 14px;
-  color: var(--c-text);
-}
-
-.field__label--inline {
-  display: inline;
-  font-size: 14px;
-  color: var(--c-text-muted);
-}
-
-.req {
-  color: #c0392b;
-  margin-left: 2px;
-}
-
-.field input[type='text'],
-.field input[type='tel'],
-.field textarea {
-  width: 100%;
-  border: 1px solid var(--c-border-strong);
-  border-radius: var(--radius-sm);
-  padding: 11px 14px;
-  font-size: 15px;
-  font-family: inherit;
-  color: var(--c-text);
-  background: #fff;
-}
-
-.field textarea {
-  resize: vertical;
-}
-
-.field input:focus,
-.field textarea:focus {
-  border-color: var(--c-brand);
-}
-
-.field input[aria-invalid='true'],
-.field textarea[aria-invalid='true'] {
-  border-color: #c0392b;
-}
-
-.field__hint {
-  font-size: 12px;
-  color: var(--c-text-subtle);
-}
-
-.field__error {
+.form-label {
   font-size: 13px;
-  color: #c0392b;
+  font-weight: 600;
+  color: #101014;
 }
 
-.field--check {
-  flex-direction: row;
-  flex-wrap: wrap;
+.form-label span {
+  color: #ef4444;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 16, 20, 0.16);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #101014;
+  background: #ffffff;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #5b4be8;
+  box-shadow: 0 0 0 3px #eeebff;
+}
+
+.has-error .form-input,
+.has-error .form-textarea {
+  border-color: #ef4444;
+}
+
+.error-msg {
+  font-size: 12px;
+  color: #ef4444;
+}
+
+.checkbox-label {
+  display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 12.5px;
+  color: #5f6470;
+  cursor: pointer;
 }
 
-.field--check input {
-  width: 16px;
-  height: 16px;
-}
-
-.field--check .field__error {
-  flex-basis: 100%;
-}
-
-.field__link {
-  color: var(--c-brand);
+.checkbox-label a {
+  color: #5b4be8;
   text-decoration: underline;
 }
 
-.form__submit {
-  align-self: flex-start;
-  min-width: 160px;
+.form-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: #5b4be8;
 }
 
-.form__submit:disabled {
-  opacity: 0.7;
+.submit-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 12.5px;
+}
+
+.submit-btn {
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6d5ce8 0%, #5b4be8 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(91, 75, 232, 0.3);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
-.error-notice {
+.success-state,
+.closed-state {
+  text-align: center;
+  padding: 28px 16px;
+  background: #f8f9fc;
+  border-radius: 14px;
+}
+
+.success-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #10b981;
+  font-size: 24px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.success-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: #101014;
+}
+
+.success-desc {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: #5f6470;
+}
+
+.receipt-tag {
+  font-size: 12.5px;
+  color: #5f6470;
+  background: #ffffff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-bottom: 16px;
+  border: 1px solid rgba(16, 16, 20, 0.08);
+}
+
+.reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid #5b4be8;
+  color: #5b4be8;
+  background: #ffffff;
   font-size: 13px;
-  line-height: 1.7;
-  color: #a33124;
-  background: #fdf0ee;
-  border: 1px solid #f0c8c1;
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-}
-
-.success {
-  border: 1px solid #cfe6d5;
-  background: #f2faf4;
-  border-radius: var(--radius-sm);
-  padding: 16px;
-}
-
-.success__text {
-  font-size: 14px;
-  line-height: 1.8;
-  color: #23633a;
-}
-
-.success__receipt {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--c-text-muted);
-}
-
-.disabled {
-  border: 1px dashed var(--c-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  padding: 20px;
-  font-size: 14px;
-  color: var(--c-text-muted);
-  line-height: 1.8;
-}
-
-.disabled__contact {
-  margin-top: 8px;
-  display: flex;
-  gap: 16px;
-}
-
-.disabled__contact a {
-  color: var(--c-brand);
-}
-
-.state-line {
-  font-size: 14px;
-  color: var(--c-text-muted);
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>

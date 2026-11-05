@@ -68,6 +68,7 @@ onMounted(load)
       </div>
       <div class="welcome-actions">
         <el-button type="primary" @click="router.push('/home')">编排首页</el-button>
+        <el-button @click="router.push('/preview/home')">首页草稿预览</el-button>
         <el-button v-if="isAdmin" type="warning" @click="router.push('/leads')">查看咨询线索</el-button>
       </div>
     </div>
@@ -85,11 +86,11 @@ onMounted(load)
 
       <div class="metric-card metric-card--draft" @click="router.push('/contents/products')">
         <div class="metric-card__header">
-          <span class="metric-card__label">未发布/草稿内容</span>
+          <span class="metric-card__label">待发布/草稿变更</span>
           <span class="metric-card__badge metric-card__badge--draft">待发布</span>
         </div>
         <p class="metric-card__value">{{ data?.draftContents ?? 0 }}</p>
-        <p class="metric-card__tip">可登录预览，尚未对公众展示</p>
+        <p class="metric-card__tip">包含未发布草稿及有未发布修改的内容</p>
       </div>
 
       <div
@@ -116,7 +117,7 @@ onMounted(load)
       </div>
     </div>
 
-    <!-- 常用快捷入口 -->
+    <!-- 常用快捷入口（已修复 /create 路由匹配） -->
     <el-card shadow="never" class="section-card">
       <template #header>
         <div class="card-head">
@@ -125,22 +126,22 @@ onMounted(load)
         </div>
       </template>
       <div class="quick-grid">
-        <button type="button" class="quick-btn" @click="router.push('/contents/products/new')">
+        <button type="button" class="quick-btn" @click="router.push('/contents/products/create')">
           <span class="quick-btn__icon">📦</span>
           <span class="quick-btn__title">录入产品</span>
           <span class="quick-btn__sub">新建工业硬件/软件能力</span>
         </button>
-        <button type="button" class="quick-btn" @click="router.push('/contents/solutions/new')">
+        <button type="button" class="quick-btn" @click="router.push('/contents/solutions/create')">
           <span class="quick-btn__icon">💡</span>
           <span class="quick-btn__title">新增解决方案</span>
           <span class="quick-btn__sub">发布垂直行业实施路径</span>
         </button>
-        <button type="button" class="quick-btn" @click="router.push('/contents/cases/new')">
+        <button type="button" class="quick-btn" @click="router.push('/contents/cases/create')">
           <span class="quick-btn__icon">🏆</span>
           <span class="quick-btn__title">添加客户案例</span>
           <span class="quick-btn__sub">沉淀降本增效成果标杆</span>
         </button>
-        <button type="button" class="quick-btn" @click="router.push('/contents/news/new')">
+        <button type="button" class="quick-btn" @click="router.push('/contents/news/create')">
           <span class="quick-btn__icon">📰</span>
           <span class="quick-btn__title">发布新闻</span>
           <span class="quick-btn__sub">企业合并/签约/展会动态</span>
@@ -153,73 +154,35 @@ onMounted(load)
         <button type="button" class="quick-btn" @click="router.push('/settings/site')">
           <span class="quick-btn__icon">⚙️</span>
           <span class="quick-btn__title">全站设置</span>
-          <span class="quick-btn__sub">维护 SEO、备案号与 Logo</span>
+          <span class="quick-btn__sub">品牌 Logo、SEO 与备案信息</span>
         </button>
       </div>
     </el-card>
 
-    <!-- 内容分布与状态 -->
-    <div class="content-row">
-      <el-card shadow="never" class="section-card content-card">
-        <template #header>
-          <div class="card-head">
-            <span>内容分布统计</span>
-            <el-button link type="primary" @click="load">刷新</el-button>
-          </div>
-        </template>
-        <el-table :data="contentList" border stripe>
-          <el-table-column label="内容类型" min-width="160">
-            <template #default="{ row }">
-              <span style="margin-right: 8px;">{{ row.icon }}</span>
-              <strong>{{ row.label }}</strong>
-              <span class="type-code">({{ row.type }})</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="count" label="条目数量" width="120" align="center">
-            <template #default="{ row }">
-              <el-tag size="small" type="info">{{ row.count }} 篇</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="120" align="center">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="router.push(row.path)">管理列表</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-
-      <!-- 双快照发布规范提示 -->
-      <el-card shadow="never" class="section-card guide-card">
-        <template #header>
-          <div class="card-head">
-            <span>CMS 双快照规范说明</span>
-          </div>
-        </template>
-        <div class="guide-steps">
-          <div class="guide-step">
-            <div class="guide-step__num">1</div>
-            <div class="guide-step__body">
-              <strong>草稿隔离保护</strong>
-              <p>录入与修改先落入 draft_json，草稿版本自增，不影响前台正在访问的已发布版本。</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="guide-step__num">2</div>
-            <div class="guide-step__body">
-              <strong>登录态真实预览</strong>
-              <p>在后台点击“预览”可查看草稿完整排版效果，免去盲目发布风险。</p>
-            </div>
-          </div>
-          <div class="guide-step">
-            <div class="guide-step__num">3</div>
-            <div class="guide-step__body">
-              <strong>原子发布上线</strong>
-              <p>管理员执行发布，快照原子同步至 published_json，前台官网 5 秒内实时回显。</p>
-            </div>
-          </div>
+    <!-- 内容模块分布 -->
+    <el-card shadow="never" class="section-card">
+      <template #header>
+        <div class="card-head">
+          <span>内容模块概览</span>
+          <span class="card-head__desc">点击对应模块进入列表维护</span>
         </div>
-      </el-card>
-    </div>
+      </template>
+      <div class="type-grid">
+        <div
+          v-for="item in contentList"
+          :key="item.type"
+          class="type-item"
+          @click="router.push(item.path)"
+        >
+          <span class="type-item__icon">{{ item.icon }}</span>
+          <div class="type-item__info">
+            <span class="type-item__label">{{ item.label }}</span>
+            <span class="type-item__count">共 {{ item.count }} 条记录</span>
+          </div>
+          <span class="type-item__arrow">→</span>
+        </div>
+      </div>
+    </el-card>
   </div>
 </template>
 
@@ -227,7 +190,7 @@ onMounted(load)
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .welcome-bar {
@@ -235,29 +198,30 @@ onMounted(load)
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: #ffffff;
-  padding: 24px 28px;
+  padding: 22px 26px;
   border-radius: 12px;
-  border: 1px solid var(--a-border);
-  box-shadow: 0 2px 8px rgba(16, 16, 20, 0.02);
+  background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+  border: 1px solid rgba(91, 75, 232, 0.14);
+  flex-wrap: wrap;
 }
 
 .welcome-title {
   font-size: 20px;
   font-weight: 700;
   color: var(--a-text);
-  margin: 0;
+  margin: 0 0 6px;
 }
 
 .welcome-sub {
-  margin: 6px 0 0;
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--a-text-muted);
+  margin: 0;
 }
 
 .welcome-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .metrics-grid {
@@ -270,16 +234,15 @@ onMounted(load)
   background: #ffffff;
   border: 1px solid var(--a-border);
   border-radius: 12px;
-  padding: 22px 24px;
+  padding: 20px;
   cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 8px rgba(16, 16, 20, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .metric-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(16, 16, 20, 0.06);
-  border-color: rgba(91, 75, 232, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(16, 16, 20, 0.06);
+  border-color: rgba(91, 75, 232, 0.35);
 }
 
 .metric-card__header {
@@ -291,22 +254,22 @@ onMounted(load)
 
 .metric-card__label {
   font-size: 13px;
+  font-weight: 600;
   color: var(--a-text-muted);
-  font-weight: 500;
 }
 
 .metric-card__badge {
   font-size: 11px;
   padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(16, 16, 20, 0.06);
-  color: var(--a-text-muted);
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
   font-weight: 600;
 }
 
 .metric-card__badge--draft {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #fffbeb;
+  color: #d97706;
 }
 
 .metric-card__badge--leads {
@@ -315,72 +278,63 @@ onMounted(load)
 }
 
 .metric-card__value {
-  margin: 0;
-  font-size: 34px;
-  font-weight: 800;
+  font-size: 32px;
+  font-weight: 700;
   color: var(--a-text);
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  margin: 0 0 6px;
 }
 
 .metric-card__tip {
-  margin: 8px 0 0;
   font-size: 12px;
   color: var(--a-text-muted);
-}
-
-.metric-card--alert .metric-card__value {
-  color: #dc2626;
+  margin: 0;
 }
 
 .section-card {
   border-radius: 12px;
-  border: 1px solid var(--a-border);
 }
 
 .card-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
   font-weight: 600;
-  font-size: 15px;
 }
 
 .card-head__desc {
   font-size: 12px;
+  font-weight: 400;
   color: var(--a-text-muted);
-  font-weight: normal;
 }
 
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .quick-btn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16px 18px;
-  background: #fafafc;
-  border: 1px solid var(--a-border);
+  gap: 6px;
+  padding: 16px;
   border-radius: 10px;
+  border: 1px solid var(--a-border);
+  background: #fafbfc;
   cursor: pointer;
-  transition: all 0.2s ease;
   text-align: left;
+  font-family: inherit;
+  transition: all 0.2s ease;
 }
 
 .quick-btn:hover {
-  background: #ffffff;
-  border-color: var(--a-brand, #5b4be8);
-  box-shadow: 0 4px 16px rgba(91, 75, 232, 0.1);
-  transform: translateY(-2px);
+  background: #f5f3ff;
+  border-color: var(--a-brand);
 }
 
 .quick-btn__icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 22px;
 }
 
 .quick-btn__title {
@@ -390,65 +344,54 @@ onMounted(load)
 }
 
 .quick-btn__sub {
-  margin-top: 4px;
   font-size: 12px;
   color: var(--a-text-muted);
 }
 
-.content-row {
+.type-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 
-@media (max-width: 1024px) {
-  .content-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.type-code {
-  font-size: 12px;
-  color: var(--a-text-muted);
-  margin-left: 4px;
-}
-
-.guide-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.guide-step {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.guide-step__num {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--a-brand, #5b4be8);
-  color: #fff;
+.type-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 13px;
-  flex: none;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.guide-step__body strong {
-  display: block;
+.type-item:hover {
+  border-color: var(--a-brand);
+  background: #faf9ff;
+}
+
+.type-item__icon {
+  font-size: 22px;
+}
+
+.type-item__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.type-item__label {
   font-size: 14px;
-  margin-bottom: 4px;
+  font-weight: 600;
 }
 
-.guide-step__body p {
-  margin: 0;
-  font-size: 12.5px;
+.type-item__count {
+  font-size: 12px;
   color: var(--a-text-muted);
-  line-height: 1.6;
+}
+
+.type-item__arrow {
+  color: var(--a-brand);
+  font-weight: 600;
 }
 </style>

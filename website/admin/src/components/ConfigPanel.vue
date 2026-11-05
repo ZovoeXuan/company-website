@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useAuth } from '@/stores/auth'
+
 defineProps<{
   title: string
   status?: string
@@ -11,6 +14,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ save: []; publish: [] }>()
+const { current } = useAuth()
+const isAdmin = computed(() => current.value?.role === 'ADMIN')
 </script>
 
 <template>
@@ -27,7 +32,7 @@ const emit = defineEmits<{ save: []; publish: [] }>()
 
     <aside class="side">
       <el-card shadow="never">
-        <template #header>状态</template>
+        <template #header>状态与版本</template>
         <div class="status">
           <p class="row">
             <span>发布状态</span>
@@ -35,19 +40,27 @@ const emit = defineEmits<{ save: []; publish: [] }>()
               {{ status === 'PUBLISHED' ? '已发布' : '未发布' }}
             </el-tag>
           </p>
-          <p class="row"><span>草稿版本</span><span>v{{ draftVersion ?? '—' }}</span></p>
-          <p class="row"><span>线上版本</span><span>v{{ publishedVersion ?? '—' }}</span></p>
-          <p v-if="hasUnpublishedChanges" class="warn">有未发布的修改</p>
+          <p class="row"><span>草稿版本</span><span>v{{ draftVersion ?? '-' }}</span></p>
+          <p class="row"><span>线上版本</span><span>v{{ publishedVersion ?? '-' }}</span></p>
+          <p v-if="hasUnpublishedChanges" class="warn">● 有未发布的草稿修改</p>
         </div>
 
         <div class="actions">
           <el-button type="primary" :loading="saving" @click="emit('save')">保存草稿</el-button>
-          <el-button type="success" :loading="publishing" @click="emit('publish')">发布</el-button>
+          <el-button
+            v-if="isAdmin"
+            type="success"
+            :loading="publishing"
+            @click="emit('publish')"
+          >
+            发布上线
+          </el-button>
+          <p v-else class="role-hint">当前为编辑角色，保存草稿后请由管理员审核发布</p>
         </div>
       </el-card>
 
       <el-card v-if="$slots.tips" shadow="never" class="tips">
-        <template #header>说明</template>
+        <template #header>操作说明</template>
         <slot name="tips" />
       </el-card>
     </aside>
@@ -67,6 +80,7 @@ const emit = defineEmits<{ save: []; publish: [] }>()
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  font-weight: 600;
 }
 
 .side {
@@ -88,6 +102,7 @@ const emit = defineEmits<{ save: []; publish: [] }>()
 .warn {
   margin-top: 8px;
   font-size: 12px;
+  font-weight: 500;
   color: #b26a00;
 }
 
@@ -96,6 +111,17 @@ const emit = defineEmits<{ save: []; publish: [] }>()
   flex-direction: column;
   gap: 8px;
   margin-top: 16px;
+}
+
+.actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.role-hint {
+  font-size: 12px;
+  color: var(--a-text-muted);
+  line-height: 1.5;
+  margin-top: 4px;
 }
 
 .tips {

@@ -24,10 +24,10 @@ public class DashboardService {
         Map<String, Long> byType = new LinkedHashMap<>();
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT content_type, COUNT(*) AS total
-                  FROM cms_content
-                 WHERE deleted = 0
-                 GROUP BY content_type
-                 ORDER BY content_type
+                FROM cms_content
+                WHERE deleted = 0
+                GROUP BY content_type
+                ORDER BY content_type
                 """);
         for (Map<String, Object> row : rows) {
             byType.put(String.valueOf(row.get("content_type")),
@@ -36,11 +36,13 @@ public class DashboardService {
 
         long published = count("""
                 SELECT COUNT(*) FROM cms_content
-                 WHERE deleted = 0 AND publication_status = 'PUBLISHED'
+                WHERE deleted = 0 AND publication_status = 'PUBLISHED'
                 """);
+        // 包含未发布草稿及已发布但存在未发布修改的内容（对齐文档 5.1 hasUnpublishedChanges 口径）
         long drafts = count("""
                 SELECT COUNT(*) FROM cms_content
-                 WHERE deleted = 0 AND publication_status = 'UNPUBLISHED'
+                WHERE deleted = 0
+                  AND (published_version IS NULL OR draft_version <> published_version)
                 """);
 
         if (role != RoleCode.ADMIN) {
@@ -48,7 +50,7 @@ public class DashboardService {
         }
 
         long pendingLeads = count("SELECT COUNT(*) FROM cms_lead WHERE status = 'NEW'");
-        long userCount = count("SELECT COUNT(*) FROM sys_user");
+        long userCount = count("SELECT COUNT(*) FROM sys_user WHERE enabled = 1");
         return new DashboardResponse(published, drafts, byType, pendingLeads, userCount);
     }
 

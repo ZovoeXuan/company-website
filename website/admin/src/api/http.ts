@@ -58,7 +58,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     payload = new URLSearchParams(options.form).toString()
   } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'
-    payload = JSON.stringify(options.body)
+    payload = typeof options.body === 'string' ? options.body : JSON.stringify(options.body)
   }
 
   if (method !== 'GET') {
@@ -73,7 +73,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     cache: 'no-store',
   })
 
-  return handle<T>(response)
+  if (response.status === 401 || response.status === 403) {
+    clearCsrf()
+  }
+
+  return handle<T>(response, path)
 }
 
 /** multipart 上传：浏览器自动设置 boundary，不能手动指定 Content-Type。 */
@@ -85,10 +89,13 @@ export async function upload<T>(path: string, formData: FormData): Promise<T> {
     credentials: 'include',
     cache: 'no-store',
   })
-  return handle<T>(response)
+  if (response.status === 401 || response.status === 403) {
+    clearCsrf()
+  }
+  return handle<T>(response, path)
 }
 
-async function handle<T>(response: Response): Promise<T> {
+async function handle<T>(response: Response, path = ''): Promise<T> {
   const text = await response.text()
   let body: any = null
   try {
@@ -98,10 +105,20 @@ async function handle<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok || body?.code !== 'OK') {
+    if (
+      response.status === 401 &&
+      typeof window !== 'undefined' &&
+      !path.includes('/api/admin/auth/me') &&
+      !path.includes('/api/admin/auth/login') &&
+      !window.location.pathname.endsWith('/login')
+    ) {
+      const currentPath = window.location.pathname.replace(/^\/admin/, '') + window.location.search
+      window.location.href = `/admin/login?redirect=${encodeURIComponent(currentPath)}`
+    }
     throw new ApiError(
       response.status,
       body?.code ?? 'UNKNOWN',
-      body?.message ?? `请求失败（${response.status}）`,
+      body?.message ?? `请求失败 (${response.status})`,
       body?.requestId,
       body?.fieldErrors,
     )
@@ -110,6 +127,18 @@ async function handle<T>(response: Response): Promise<T> {
   return body.data as T
 }
 
-export function get<T>(path: string) {
-  return request<T>(path)
+export function get<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'GET' })
+}
+
+export function post<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, { method: 'POST', body })
+}
+
+export function put<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, { method: 'PUT', body })
+}
+
+export function del<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' })
 }

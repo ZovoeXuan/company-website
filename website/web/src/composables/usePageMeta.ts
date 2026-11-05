@@ -1,12 +1,8 @@
 import { watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
+import { useSiteConfigCache } from './consult'
 
-/**
- * 每页的 SEO 元信息。正文页需要标题与描述唯一，避免全站同一描述。
- * ORIGIN 上线前替换为真实域名，canonical 与 OG 依赖它。
- */
-const SITE_NAME = '示例科技'
-const ORIGIN = 'https://www.example.com'
+const DEFAULT_SITE_NAME = 'G7易流 · 数字物流与工业物联网平台'
 
 export interface PageMeta {
   title: string
@@ -34,23 +30,40 @@ function upsertLink(rel: string, href: string) {
   el.setAttribute('href', href)
 }
 
-export function usePageMeta(getter: () => PageMeta) {
+export function usePageMeta(source: PageMeta | (() => PageMeta)) {
   const route = useRoute()
+  const { siteCache } = useSiteConfigCache()
 
   watchEffect(() => {
-    const meta = getter()
-    const fullTitle = meta.title ? `${meta.title}｜${SITE_NAME}` : SITE_NAME
-    const url = `${ORIGIN}${route.path}`
+    const meta = typeof source === 'function' ? source() : source
+    const siteName = siteCache.value?.siteName || DEFAULT_SITE_NAME
+    const fallbackTitle = siteCache.value?.defaultSeo?.title || meta.title || siteName
+    const fallbackDesc =
+      meta.description ||
+      siteCache.value?.defaultSeo?.description ||
+      '面向物流与制造企业的 IoT 物联网与 SaaS 数字化平台'
+
+    const fullTitle = meta.title
+      ? `${meta.title} | ${siteName}`
+      : `${fallbackTitle} | ${siteName}`
+
+    const origin =
+      import.meta.env.VITE_SITE_ORIGIN ||
+      (typeof window !== 'undefined' ? window.location.origin : 'https://www.example.com')
+    const canonical = `${origin}${route.path}`
 
     document.title = fullTitle
-    upsertMeta('name', 'description', meta.description)
+    upsertMeta('name', 'description', fallbackDesc)
     upsertMeta('name', 'robots', meta.noindex ? 'noindex, nofollow' : 'index, follow')
-    upsertLink('canonical', url)
-
-    upsertMeta('property', 'og:type', 'website')
-    upsertMeta('property', 'og:site_name', SITE_NAME)
     upsertMeta('property', 'og:title', fullTitle)
-    upsertMeta('property', 'og:description', meta.description)
-    upsertMeta('property', 'og:url', url)
+    upsertMeta('property', 'og:description', fallbackDesc)
+    upsertMeta('property', 'og:url', canonical)
+    upsertMeta('property', 'og:site_name', siteName)
+    upsertMeta('property', 'og:type', 'website')
+    upsertLink('canonical', canonical)
+
+    if (siteCache.value?.faviconUrl) {
+      upsertLink('icon', siteCache.value.faviconUrl)
+    }
   })
 }

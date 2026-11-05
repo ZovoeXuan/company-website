@@ -32,6 +32,11 @@ const contentRoutes = (slug: string, contentType: string, title: string) => [
     meta: { title, contentType, slug },
   },
   {
+    path: `contents/${slug}/create`,
+    component: ContentEditorView,
+    meta: { title, contentType, slug },
+  },
+  {
     path: `contents/${slug}/:id/edit`,
     component: ContentEditorView,
     meta: { title, contentType, slug },
