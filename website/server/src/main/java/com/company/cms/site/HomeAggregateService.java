@@ -53,7 +53,7 @@ public class HomeAggregateService {
     }
 
     /**
-     * 草稿预览：首屏与各区块取当前草稿，关联内容仍只取各自已发布版本（文档 5.4）。
+     * 草稿预览：首屏与各区块获取当前草稿，关联内容仍只取各自已发布版本（文档 5.4）。
      * 与公开接口共用同一段聚合逻辑，避免预览和线上出现两套结构。
      */
     public Map<String, Object> previewHome() {
@@ -143,6 +143,21 @@ public class HomeAggregateService {
 
         // 首屏与咨询动作依赖锚点集合，放在最后解析
         enrichHeroLinks(hero, formEnabled, anchors);
+        List<String> order = new ArrayList<>();
+        JsonNode orderNode = cfg.get("sectionOrder");
+        if (orderNode != null && orderNode.isArray()) {
+            for (JsonNode n : orderNode) {
+                if (n != null && n.isString() && !order.contains(n.asString())) {
+                    order.add(n.asString());
+                }
+            }
+        }
+        for (String defKey : List.of("metrics", "services", "cases", "customers", "news", "consultation")) {
+            if (!order.contains(defKey)) {
+                order.add(defKey);
+            }
+        }
+        data.put("sectionOrder", order);
         data.put("hero", hero);
         data.put("metrics", metrics);
         data.put("services", services);
@@ -186,7 +201,7 @@ public class HomeAggregateService {
         }
     }
 
-    // ---------------------------------------------------------------- hero
+    // -------------------------------------------------- hero
 
     private Map<String, Object> hero(JsonNode block, Map<Long, MediaRow> mediaMap) {
         List<Map<String, Object>> items = new ArrayList<>();
@@ -254,7 +269,7 @@ public class HomeAggregateService {
         }
     }
 
-    // ------------------------------------------------------------- metrics
+    // -------------------------------------------------- metrics
 
     private Map<String, Object> metrics(JsonNode block) {
         if (!enabled(block)) {
@@ -287,10 +302,10 @@ public class HomeAggregateService {
         return result;
     }
 
-    // ------------------------------------------------------------ services
+    // -------------------------------------------------- services
 
     private Map<String, Object> services(JsonNode block, Map<Long, ContentRow> contentMap,
-                                         Map<Long, MediaRow> mediaMap, boolean formEnabled) {
+                                          Map<Long, MediaRow> mediaMap, boolean formEnabled) {
         if (!enabled(block)) {
             return null;
         }
@@ -356,7 +371,7 @@ public class HomeAggregateService {
         return base == null ? null : base + content.id();
     }
 
-    // --------------------------------------------------------------- cases
+    // -------------------------------------------------- cases
 
     private Map<String, Object> cases(JsonNode block, Map<Long, ContentRow> contentMap,
                                       Map<Long, MediaRow> mediaMap) {
@@ -389,7 +404,7 @@ public class HomeAggregateService {
         return result;
     }
 
-    // ----------------------------------------------------------- customers
+    // -------------------------------------------------- customers
 
     private Map<String, Object> customers(JsonNode block, Map<Long, ContentRow> contentMap,
                                           Map<Long, MediaRow> mediaMap) {
@@ -427,7 +442,7 @@ public class HomeAggregateService {
         return result;
     }
 
-    // ---------------------------------------------------------------- news
+    // -------------------------------------------------- news
 
     private Map<String, Object> news(JsonNode block, Map<Long, ContentRow> contentMap, Map<Long, MediaRow> mediaMap) {
         if (!enabled(block)) {
@@ -477,7 +492,7 @@ public class HomeAggregateService {
         return item;
     }
 
-    // -------------------------------------------------------- consultation
+    // -------------------------------------------------- consultation
 
     private Map<String, Object> consultation(JsonNode block, boolean formEnabled, Set<String> anchors) {
         Map<String, Object> view = new LinkedHashMap<>();
@@ -501,7 +516,7 @@ public class HomeAggregateService {
         return view;
     }
 
-    // ---------------------------------------------------------------- 工具
+    // -------------------------------------------------- 工具
 
     private Map<String, Object> blockView(JsonNode block) {
         Map<String, Object> view = new LinkedHashMap<>();
@@ -556,4 +571,5 @@ public class HomeAggregateService {
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? "" : value.asString().trim();
     }
+
 }

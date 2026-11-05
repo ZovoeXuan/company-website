@@ -40,8 +40,8 @@ public class SiteConfigValidator {
     private final ContentRepository contents;
 
     public SiteConfigValidator(ObjectMapper objectMapper, HtmlSanitizer htmlSanitizer,
-                               LinkResolver links, MediaService mediaService,
-                               ContentRepository contents) {
+                                LinkResolver links, MediaService mediaService,
+                                ContentRepository contents) {
         this.objectMapper = objectMapper;
         this.htmlSanitizer = htmlSanitizer;
         this.links = links;
@@ -68,7 +68,7 @@ public class SiteConfigValidator {
         return normalized;
     }
 
-    // ---------------------------------------------------------------- SITE
+    // -------------------------------------------------- SITE
 
     private ObjectNode site(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
@@ -127,7 +127,7 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // ---------------------------------------------------------- NAVIGATION
+    // -------------------------------------------------- NAVIGATION
 
     private ObjectNode navigation(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
@@ -292,7 +292,7 @@ public class SiteConfigValidator {
         return result;
     }
 
-    // --------------------------------------------------------------- ABOUT
+    // -------------------------------------------------- ABOUT
 
     private ObjectNode about(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
@@ -342,7 +342,7 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // ------------------------------------------------------------- CONTACT
+    // -------------------------------------------------- CONTACT
 
     private ObjectNode contact(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
@@ -362,7 +362,7 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // ------------------------------------------------------------- PRIVACY
+    // -------------------------------------------------- PRIVACY
 
     private ObjectNode privacy(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
@@ -381,10 +381,14 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // ---------------------------------------------------------------- HOME
+    // -------------------------------------------------- HOME
+
+    private static final List<String> DEFAULT_HOME_SECTIONS = List.of(
+            "metrics", "services", "cases", "customers", "news", "consultation");
 
     private ObjectNode home(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
+        node.set("sectionOrder", sectionOrder(draft.get("sectionOrder")));
         node.set("hero", hero(draft.get("hero"), errors));
         node.set("metrics", metrics(draft.get("metrics"), errors));
         node.set("services", services(draft.get("services"), errors));
@@ -393,6 +397,25 @@ public class SiteConfigValidator {
         node.set("news", news(draft.get("news"), errors));
         node.set("consultation", consultation(draft.get("consultation"), errors));
         return node;
+    }
+
+    private ArrayNode sectionOrder(JsonNode source) {
+        ArrayNode arr = objectMapper.createArrayNode();
+        Set<String> added = new HashSet<>();
+        if (source != null && source.isArray()) {
+            for (JsonNode item : source) {
+                String key = item != null && item.isString() ? item.asString().trim() : "";
+                if (DEFAULT_HOME_SECTIONS.contains(key) && added.add(key)) {
+                    arr.add(key);
+                }
+            }
+        }
+        for (String defKey : DEFAULT_HOME_SECTIONS) {
+            if (added.add(defKey)) {
+                arr.add(defKey);
+            }
+        }
+        return arr;
     }
 
     private ObjectNode hero(JsonNode source, List<FieldErrorItem> errors) {
@@ -577,7 +600,7 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // ----------------------------------------------------------- 发布校验
+    // -------------------------------------------------- 发布校验
 
     /**
      * 发布前的完整校验：必填、目标存在且已发布、类型匹配。
@@ -748,39 +771,28 @@ public class SiteConfigValidator {
             }
             links.publishable(consultation.get("link"), null);
             String type = text(consultation.get("link"), "type");
-            if (!"CONSULT".equals(type) && !"PAGE".equals(type)) {
-                errors.add(new FieldErrorItem("consultation.link", "咨询区按钮只能指向咨询动作或联系页"));
-            } else if ("PAGE".equals(type) && !"CONTACT".equals(text(consultation.get("link"), "pageCode"))) {
-                errors.add(new FieldErrorItem("consultation.link", "咨询区按钮只能指向联系页"));
-            }
         }
     }
 
-    private void publishIdBlock(JsonNode draft, String field, String expectedType, int max,
+    private void publishIdBlock(JsonNode draft, String key, String typeName, int max,
                                 List<FieldErrorItem> errors) {
-        JsonNode block = draft.get(field);
+        JsonNode block = draft.get(key);
         if (block == null) {
             return;
         }
         JsonNode ids = block.get("contentIds");
-        if (ids == null || !ids.isArray()) {
-            return;
-        }
-        if (ids.size() > max) {
-            errors.add(new FieldErrorItem(field + ".contentIds", "最多选择 " + max + " 项"));
-        }
-        for (int i = 0; i < ids.size(); i++) {
-            long id = ids.get(i).asLong();
-            var row = contents.findPublishedById(id);
-            if (row.isEmpty()) {
-                errors.add(new FieldErrorItem(field + ".contentIds[" + i + "]", "内容不存在或未发布"));
-            } else if (!row.get().contentType().name().equals(expectedType)) {
-                errors.add(new FieldErrorItem(field + ".contentIds[" + i + "]", "内容类型不匹配"));
+        if (ids != null && ids.isArray()) {
+            for (int i = 0; i < ids.size(); i++) {
+                long id = ids.get(i).asLong();
+                var row = contents.findPublishedById(id);
+                if (row.isEmpty() || !row.get().contentType().name().equals(typeName)) {
+                    errors.add(new FieldErrorItem(key + ".contentIds[" + i + "]", "内容不存在、未发布或类型不匹配"));
+                }
             }
         }
     }
 
-    // -------------------------------------------------------------- 工具
+    // -------------------------------------------------- 校验辅助工具
 
     private ObjectNode linkOrNull(JsonNode raw, String path, String label, List<FieldErrorItem> errors) {
         LinkResolver.SeedErrors seed = new LinkResolver.SeedErrors();
@@ -793,19 +805,9 @@ public class SiteConfigValidator {
         if (node == null || node.isNull()) {
             return null;
         }
-        long id;
-        if (node.isNumber()) {
-            id = node.asLong();
-        } else {
-            try {
-                id = Long.parseLong(node.asString());
-            } catch (NumberFormatException ex) {
-                errors.add(new FieldErrorItem(path, label + "不合法"));
-                return null;
-            }
-        }
-        if (id <= 0) {
-            errors.add(new FieldErrorItem(path, label + "不合法"));
+        Long id = node.isNumber() ? node.asLong() : parseLong(node.asString());
+        if (id == null || id <= 0) {
+            errors.add(new FieldErrorItem(path, label + " ID 不合法"));
             return null;
         }
         if (!mediaExists(id)) {
@@ -858,7 +860,7 @@ public class SiteConfigValidator {
     }
 
     private String stableKey(JsonNode item, String prefix, String fallback,
-                             Set<String> used, String path, List<FieldErrorItem> errors) {
+                            Set<String> used, String path, List<FieldErrorItem> errors) {
         String key = text(item, "key");
         if (key.isEmpty() || !key.matches("^[a-z0-9-]{4,40}$") || used.contains(key)) {
             key = fallback + "-" + Integer.toHexString(ThreadLocalRandom.current().nextInt(0x10000, 0xfffff));
@@ -899,7 +901,7 @@ public class SiteConfigValidator {
     }
 
     private String externalOrEmpty(JsonNode node, String field, String path, String label,
-                                   List<FieldErrorItem> errors) {
+                                    List<FieldErrorItem> errors) {
         String url = text(node, field).trim();
         if (url.isEmpty()) {
             return "";
@@ -929,4 +931,5 @@ public class SiteConfigValidator {
         }
         return value;
     }
+
 }

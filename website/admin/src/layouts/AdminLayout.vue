@@ -26,11 +26,12 @@ const breadcrumbs = computed(() => {
   }
   if (path.startsWith('/contents')) {
     const isEdit = path.includes('/edit')
-    const isNew = path.includes('/new')
-    const listTitle = String(route.meta.title ?? '内容')
-    if (isNew) return [{ label: '内容管理' }, { label: listTitle, to: path.replace('/new', '') }, { label: '新建' }]
-    if (isEdit) return [{ label: '内容管理' }, { label: listTitle, to: path.split('/').slice(0, 3).join('/') }, { label: '编辑' }]
-    return [{ label: '内容管理' }, { label: listTitle }]
+    const isCreate = path.includes('/create') || path.includes('/new')
+    const baseListPath = '/' + path.split('/').filter(Boolean).slice(0, 2).join('/')
+    const listTitle = String(route.meta.title ?? '内容').replace(/^(新建|编辑)/, '')
+    if (isCreate) return [{ label: '内容管理' }, { label: `${listTitle}管理`, to: baseListPath }, { label: '新建' }]
+    if (isEdit) return [{ label: '内容管理' }, { label: `${listTitle}管理`, to: baseListPath }, { label: '编辑' }]
+    return [{ label: '内容管理' }, { label: metaTitle }]
   }
   if (path.startsWith('/pages')) {
     return [{ label: '单页管理' }, { label: metaTitle }]
@@ -55,6 +56,10 @@ function handleResize() {
   if (window.innerWidth < 1024) {
     isCollapse.value = true
   }
+}
+
+function openVisualStudio() {
+  router.push('/preview/home')
 }
 
 function openLiveSite() {
@@ -104,6 +109,16 @@ onBeforeUnmount(() => {
             </svg>
           </el-icon>
           <template #title>工作台</template>
+        </el-menu-item>
+
+        <el-menu-item index="/preview/home">
+          <el-icon>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+          </el-icon>
+          <template #title>实景预演编辑台</template>
         </el-menu-item>
 
         <el-sub-menu index="site">
@@ -193,7 +208,7 @@ onBeforeUnmount(() => {
             <el-icon>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
             </el-icon>
             <span>系统管理</span>
@@ -228,7 +243,15 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="header-right">
-          <!-- 快捷访问官网前台 -->
+          <button
+            type="button"
+            class="btn-studio"
+            title="进入所见即所得的全站实景交互预演编辑台"
+            @click="openVisualStudio"
+          >
+            <span>🎨 实景预演交互编辑</span>
+          </button>
+
           <button type="button" class="btn-live-site" title="在新标签页中查看官网前台效果" @click="openLiveSite">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -367,12 +390,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.collapse-btn:hover {
-  background: rgba(16, 16, 20, 0.06);
-  color: var(--a-text);
 }
 
 .breadcrumb {
@@ -387,7 +404,28 @@ onBeforeUnmount(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.btn-studio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: linear-gradient(135deg, #6d5ce8 0%, #5b4be8 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(91, 75, 232, 0.28);
+  transition: all 0.2s ease;
+}
+
+.btn-studio:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(91, 75, 232, 0.4);
 }
 
 .btn-live-site {
@@ -408,7 +446,6 @@ onBeforeUnmount(() => {
 .btn-live-site:hover {
   background: var(--a-brand, #5b4be8);
   color: #ffffff;
-  border-color: var(--a-brand, #5b4be8);
 }
 
 .user-profile {
@@ -416,7 +453,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   padding: 4px 8px;
-  border-radius: 8px;
 }
 
 .user-avatar {
@@ -445,7 +481,6 @@ onBeforeUnmount(() => {
 .user-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--a-text);
 }
 
 .user-role-badge {
@@ -481,12 +516,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.icon-btn:hover {
-  background: rgba(16, 16, 20, 0.06);
-  color: var(--a-text);
 }
 
 .icon-btn--logout:hover {
