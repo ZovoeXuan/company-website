@@ -31,6 +31,25 @@ export interface NavItem {
   children?: NavItem[]
 }
 
+export interface MegaSubItem {
+  label: string
+  path?: string
+  tag?: string
+  isVideo?: boolean
+  videoUrl?: string
+  videoTitle?: string
+}
+
+export interface MegaColumn {
+  title: string
+  items: MegaSubItem[]
+}
+
+export interface MegaCta {
+  text?: string
+  linkText?: string
+}
+
 export interface SiteConfig {
   siteName: string
   slogan: string
@@ -39,6 +58,8 @@ export interface SiteConfig {
   faviconUrl?: string | null
   defaultSeo?: { title: string; description: string }
   nav: NavItem[]
+  megaColumns?: MegaColumn[]
+  megaCta?: MegaCta | null
   contact: {
     phone: string
     email: string

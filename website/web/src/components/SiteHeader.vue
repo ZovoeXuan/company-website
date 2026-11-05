@@ -5,12 +5,24 @@ import { openConsult } from '@/composables/consult'
 import { openVideo } from '@/composables/videoModal'
 import type { NavItem } from '@/data/types'
 
+import type { MegaColumn, MegaCta, MegaSubItem } from '@/data/types'
+import { computed } from 'vue'
+
 const props = defineProps<{
   siteName: string
   nav: NavItem[]
+  megaColumns?: MegaColumn[]
+  megaCta?: MegaCta | null
   logoUrl?: string | null
   logoAlt?: string
 }>()
+
+const activeMegaColumns = computed(() => {
+  if (props.megaColumns && props.megaColumns.length > 0) {
+    return props.megaColumns
+  }
+  return defaultMegaColumns
+})
 
 const route = useRoute()
 const open = ref(false)
@@ -62,17 +74,6 @@ function toggleMenu(item: NavItem) {
   openMenu.value = openMenu.value === item.label ? null : item.label
 }
 
-interface MegaSubItem {
-  label: string
-  path?: string
-  tag?: string
-  isVideo?: boolean
-}
-
-interface MegaColumn {
-  title: string
-  items: MegaSubItem[]
-}
 
 const defaultMegaColumns: MegaColumn[] = [
   {
@@ -117,8 +118,8 @@ function handleMegaAction(subItem: MegaSubItem) {
   openMenu.value = null
   if (subItem.isVideo) {
     openVideo({
-      title: '紫宝盒 | 物流行业首款全场景AI工具产品演示',
-      url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      title: subItem.videoTitle || (subItem.label ? `${subItem.label} | 产品操作演示` : '产品操作演示'),
+      url: subItem.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
     })
   }
 }
@@ -188,7 +189,7 @@ onBeforeUnmount(() => {
                   <!-- 对齐视频 5 列业务全景下拉菜单 -->
                   <template v-if="item.label.includes('产品') || item.label.includes('方案')">
                     <div class="mega-cols">
-                      <div v-for="col in defaultMegaColumns" :key="col.title" class="mega-col">
+                      <div v-for="col in activeMegaColumns" :key="col.title" class="mega-col">
                         <div class="mega-col__title">{{ col.title }}</div>
                         <ul class="mega-col__list">
                           <li v-for="sub in col.items" :key="sub.label">
@@ -259,9 +260,9 @@ onBeforeUnmount(() => {
                   </template>
 
                   <div class="mega__foot">
-                    <span>需要专业场景建议？</span>
+                    <span>{{ props.megaCta?.text || '需要专业场景建议？' }}</span>
                     <button type="button" class="mega__foot-cta" @click="consult('NAVIGATION')">
-                      联系技术专家 <span aria-hidden="true">→</span>
+                      {{ props.megaCta?.linkText || '联系技术专家' }} <span aria-hidden="true">→</span>
                     </button>
                   </div>
                 </div>

@@ -154,7 +154,10 @@ public class SiteConfigService {
         seoView.put("description", text(seo, "description"));
         data.put("defaultSeo", seoView);
 
-        data.put("nav", nav(publishedOrEmpty(SiteConfigKey.NAVIGATION), formEnabled));
+        JsonNode navJson = publishedOrEmpty(SiteConfigKey.NAVIGATION);
+        data.put("nav", nav(navJson, formEnabled));
+        data.put("megaColumns", megaColumns(navJson));
+        data.put("megaCta", megaCta(navJson));
 
         // 联系方式只在 CONTACT 维护；旧快照里的 SITE.contact 作为兼容回退
         Map<String, Object> contact = new LinkedHashMap<>();
@@ -346,6 +349,58 @@ public class SiteConfigService {
             }
         }
         return groups;
+    }
+
+    private List<Map<String, Object>> megaColumns(JsonNode navJson) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (navJson == null) {
+            return result;
+        }
+        JsonNode cols = navJson.get("megaColumns");
+        if (cols == null || !cols.isArray()) {
+            return result;
+        }
+        for (JsonNode col : cols) {
+            Map<String, Object> colMap = new LinkedHashMap<>();
+            colMap.put("title", text(col, "title"));
+            List<Map<String, Object>> itemsList = new ArrayList<>();
+            JsonNode items = col.get("items");
+            if (items != null && items.isArray()) {
+                for (JsonNode item : items) {
+                    Map<String, Object> itemMap = new LinkedHashMap<>();
+                    itemMap.put("label", text(item, "label"));
+                    itemMap.put("path", text(item, "path"));
+                    itemMap.put("tag", text(item, "tag"));
+                    itemMap.put("isVideo", bool(item, "isVideo", false));
+                    itemMap.put("videoUrl", text(item, "videoUrl"));
+                    itemMap.put("videoTitle", text(item, "videoTitle"));
+                    itemsList.add(itemMap);
+                }
+            }
+            colMap.put("items", itemsList);
+            result.add(colMap);
+        }
+        return result;
+    }
+
+    private Map<String, Object> megaCta(JsonNode navJson) {
+        if (navJson == null) {
+            return null;
+        }
+        JsonNode cta = navJson.get("megaCta");
+        if (cta == null || !cta.isObject()) {
+            return null;
+        }
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("text", text(cta, "text"));
+        map.put("linkText", text(cta, "linkText"));
+        return map;
+    }
+
+    private boolean bool(JsonNode node, String field, boolean fallback) {
+        if (node == null) return fallback;
+        JsonNode val = node.get(field);
+        return val == null || val.isNull() ? fallback : val.asBoolean(fallback);
     }
 
     private boolean isEnabled(JsonNode node) {

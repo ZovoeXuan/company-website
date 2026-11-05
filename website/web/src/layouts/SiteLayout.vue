@@ -33,6 +33,8 @@ onMounted(async () => {
       v-if="config"
       :site-name="config.siteName"
       :nav="config.nav"
+      :mega-columns="config.megaColumns"
+      :mega-cta="config.megaCta"
       :logo-url="config.logoUrl"
       :logo-alt="config.logoAlt"
     />

@@ -202,6 +202,61 @@ public class SiteConfigValidator {
             }
         }
         node.set("items", result);
+
+        // 产品/解决方案 5列全景下拉大菜单配置
+        ArrayNode megaResult = objectMapper.createArrayNode();
+        JsonNode mega = draft.get("megaColumns");
+        if (mega != null && mega.isArray()) {
+            if (mega.size() > 8) {
+                errors.add(new FieldErrorItem("megaColumns", "大菜单列数最多 8 列"));
+            }
+            for (int i = 0; i < Math.min(mega.size(), 8); i++) {
+                JsonNode col = mega.get(i);
+                String path = "megaColumns[" + i + "]";
+                if (col == null || !col.isObject()) continue;
+                ObjectNode colNode = objectMapper.createObjectNode();
+                String colTitle = limit(text(col, "title"), 30, path + ".title", "大菜单列标题", errors);
+                colNode.put("title", colTitle);
+
+                ArrayNode colItems = objectMapper.createArrayNode();
+                JsonNode subItems = col.get("items");
+                if (subItems != null && subItems.isArray()) {
+                    if (subItems.size() > 15) {
+                        errors.add(new FieldErrorItem(path + ".items", "每列最多 15 个项目"));
+                    }
+                    for (int j = 0; j < Math.min(subItems.size(), 15); j++) {
+                        JsonNode sub = subItems.get(j);
+                        String subPath = path + ".items[" + j + "]";
+                        if (sub == null || !sub.isObject()) continue;
+                        ObjectNode subNode = objectMapper.createObjectNode();
+                        String label = limit(text(sub, "label"), 40, subPath + ".label", "项目名称", errors);
+                        if (label.isEmpty()) {
+                            errors.add(new FieldErrorItem(subPath + ".label", "请填写项目名称"));
+                        }
+                        subNode.put("label", label);
+                        subNode.put("path", limit(text(sub, "path"), 255, subPath + ".path", "链接路径", errors));
+                        subNode.put("tag", limit(text(sub, "tag"), 10, subPath + ".tag", "角标文案", errors));
+                        subNode.put("isVideo", bool(sub, "isVideo", false));
+                        subNode.put("videoUrl", limit(text(sub, "videoUrl"), 500, subPath + ".videoUrl", "视频链接", errors));
+                        subNode.put("videoTitle", limit(text(sub, "videoTitle"), 100, subPath + ".videoTitle", "视频标题", errors));
+                        colItems.add(subNode);
+                    }
+                }
+                colNode.set("items", colItems);
+                megaResult.add(colNode);
+            }
+        }
+        node.set("megaColumns", megaResult);
+
+        // 底部 CTA 引导条
+        JsonNode cta = draft.get("megaCta");
+        if (cta != null && cta.isObject()) {
+            ObjectNode ctaNode = objectMapper.createObjectNode();
+            ctaNode.put("text", limit(text(cta, "text"), 100, "megaCta.text", "底部提示语", errors));
+            ctaNode.put("linkText", limit(text(cta, "linkText"), 50, "megaCta.linkText", "底部链接文字", errors));
+            node.set("megaCta", ctaNode);
+        }
+
         return node;
     }
 
