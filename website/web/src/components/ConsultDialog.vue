@@ -54,7 +54,7 @@ watch(
   () => dialog.open,
   async (open) => {
     if (open) {
-      presetDemand.value = dialog.target.presetQuestion || ''
+      presetDemand.value = dialog.initialDemand || ''
       document.addEventListener('keydown', onKeydown)
       document.body.style.overflow = 'hidden'
       await nextTick()
@@ -136,9 +136,9 @@ onBeforeUnmount(() => {
           </div>
 
           <ConsultForm
-            :source-position="dialog.target.sourcePosition"
-            :content-type="dialog.target.contentType"
-            :content-id="dialog.target.contentId"
+            :source-position="dialog.sourcePosition"
+            :content-type="dialog.contentType"
+            :content-id="dialog.contentId != null ? String(dialog.contentId) : undefined"
             :initial-demand="presetDemand"
           />
         </div>

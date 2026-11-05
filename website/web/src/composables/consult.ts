@@ -1,58 +1,41 @@
 import { reactive, ref } from 'vue'
 import { getContactPage, getSite } from '@/api/public'
-import type { ContactPage, SiteConfig } from '@/data/types'
-
-export interface ConsultContext {
-  site: SiteConfig | null
-  page: ContactPage | null
-  formEnabled: boolean
-  privacyVersion: number | null
-  successText: string
-}
-
-export interface ConsultTarget {
-  sourcePosition: string
-  contentType?: string
-  contentId?: string
-  presetQuestion?: string
-}
+import type { SiteConfig } from '@/data/types'
 
 const siteCache = ref<SiteConfig | null>(null)
-let pending: Promise<ConsultContext> | null = null
-
-export function loadConsultContext(forceRefresh = false): Promise<ConsultContext> {
-  if (!pending || forceRefresh) {
-    pending = Promise.all([
-      getSite().catch(() => null),
-      getContactPage().catch(() => null),
-    ]).then(([site, page]) => {
-      if (site) siteCache.value = site
-      return {
-        site,
-        page,
-        formEnabled: Boolean(site?.formEnabled ?? page?.formEnabled),
-        privacyVersion: site?.privacyVersion ?? null,
-        successText: page?.successText || '已收到您的咨询，我们的专家顾问将在 1 个工作日内与您联系。',
-      }
-    })
-  }
-  return pending
-}
 
 export function useSiteConfigCache() {
   return { siteCache, loadConsultContext }
 }
 
-const dialog = reactive<{
-  open: boolean
-  target: ConsultTarget
-}>({
+export interface ConsultOpenOptions {
+  sourcePosition: string
+  contentType?: 'PRODUCT' | 'SOLUTION' | 'CASE'
+  contentId?: string | number
+  title?: string
+  initialDemand?: string
+}
+
+const dialog = reactive({
   open: false,
-  target: { sourcePosition: 'OTHER_CTA' },
+  sourcePosition: 'NAVIGATION',
+  contentType: undefined as 'PRODUCT' | 'SOLUTION' | 'CASE' | undefined,
+  contentId: undefined as number | undefined,
+  title: '',
+  initialDemand: '',
 })
 
-export function openConsult(target: ConsultTarget) {
-  dialog.target = { ...target }
+const roiModal = reactive({
+  open: false,
+  presetIndustry: 'logistics',
+})
+
+export function openConsult(options: ConsultOpenOptions) {
+  dialog.sourcePosition = options.sourcePosition
+  dialog.contentType = options.contentType
+  dialog.contentId = options.contentId != null ? Number(options.contentId) : undefined
+  dialog.title = options.title ?? ''
+  dialog.initialDemand = options.initialDemand ?? ''
   dialog.open = true
 }
 
@@ -62,4 +45,41 @@ export function closeConsult() {
 
 export function useConsultDialog() {
   return { dialog, openConsult, closeConsult }
+}
+
+export function openRoiCalculator(industry = 'logistics') {
+  roiModal.presetIndustry = industry
+  roiModal.open = true
+}
+
+export function closeRoiCalculator() {
+  roiModal.open = false
+}
+
+export function useRoiModal() {
+  return { roiModal, openRoiCalculator, closeRoiCalculator }
+}
+
+export interface ConsultContext {
+  formEnabled: boolean
+  privacyVersion: number | null
+  successText: string
+  phone: string
+  email: string
+}
+
+/** 打开表单时实时拉取当前发布态，不把 formEnabled 缓存在 localStorage。 */
+export async function loadConsultContext(): Promise<ConsultContext> {
+  const [site, contact] = await Promise.all([
+    getSite(),
+    getContactPage().catch(() => null),
+  ])
+  if (site) siteCache.value = site
+  return {
+    formEnabled: Boolean(site.formEnabled ?? contact?.formEnabled),
+    privacyVersion: site.privacyVersion ?? null,
+    successText: contact?.successText || '感谢您的咨询，我们的专家顾问将在 1 个工作日内与您联系。',
+    phone: contact?.phone || site.contact?.phone || '',
+    email: contact?.email || site.contact?.email || '',
+  }
 }

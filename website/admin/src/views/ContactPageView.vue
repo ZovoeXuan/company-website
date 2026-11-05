@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive } from 'vue'
+import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import { useConfig } from '@/composables/useConfig'
 
@@ -40,22 +41,36 @@ function fill() {
   form.hours = draft?.hours ?? ''
 }
 
+function validate(): boolean {
+  if (!form.phone.trim() && !form.email.trim()) {
+    ElMessage.warning('联系电话与邮箱请至少填写一项')
+    return false
+  }
+  if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) {
+    ElMessage.warning('邮箱格式不正确')
+    return false
+  }
+  return true
+}
+
 async function onSave() {
+  if (!validate()) return
   const draft = {
     ...(view.value?.draft ?? {}),
-    title: form.title,
-    description: form.description,
-    successText: form.successText,
+    title: form.title.trim() || '联系我们',
+    description: form.description.trim(),
+    successText: form.successText.trim(),
     formEnabled: form.formEnabled,
-    phone: form.phone,
-    email: form.email,
-    address: form.address,
-    hours: form.hours,
+    phone: form.phone.trim(),
+    email: form.email.trim(),
+    address: form.address.trim(),
+    hours: form.hours.trim(),
   } as ContactDraft & Record<string, unknown>
   if (await save(draft)) fill()
 }
 
 async function onPublish() {
+  if (!validate()) return
   if (await publish()) fill()
 }
 
@@ -67,7 +82,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="联系我们"
+    title="联系我们与全站咨询开关"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -80,60 +95,51 @@ onMounted(async () => {
   >
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
 
-    <el-form label-width="110px">
+    <el-form label-width="120px">
       <el-form-item label="页面标题">
-        <el-input v-model="form.title" maxlength="50" />
+        <el-input v-model="form.title" maxlength="50" show-word-limit />
       </el-form-item>
-      <el-form-item label="页面描述">
-        <el-input v-model="form.description" type="textarea" :rows="3" maxlength="300" show-word-limit />
+      <el-form-item label="页面导语说明">
+        <el-input v-model="form.description" type="textarea" :rows="2" maxlength="300" show-word-limit />
       </el-form-item>
-
-      <el-divider content-position="left">联系方式</el-divider>
-      <p class="hint">全站页头、页脚与联系页共用这一处，改一次即可全站生效。</p>
       <el-form-item label="联系电话">
-        <el-input v-model="form.phone" maxlength="40" />
+        <el-input v-model="form.phone" maxlength="40" placeholder="例如：400-888-0000" style="width: 280px" />
       </el-form-item>
-      <el-form-item label="邮箱">
-        <el-input v-model="form.email" maxlength="100" />
+      <el-form-item label="联系邮箱">
+        <el-input v-model="form.email" maxlength="100" placeholder="例如：connect@company.com" style="width: 280px" />
       </el-form-item>
-      <el-form-item label="地址">
-        <el-input v-model="form.address" maxlength="120" />
+      <el-form-item label="办公地址">
+        <el-input v-model="form.address" maxlength="120" show-word-limit />
       </el-form-item>
       <el-form-item label="服务时间">
-        <el-input v-model="form.hours" maxlength="60" placeholder="例如：工作日 9:00–18:00" />
+        <el-input v-model="form.hours" maxlength="60" placeholder="例如：周一至周日 08:30 - 20:30" style="width: 320px" />
       </el-form-item>
 
-      <el-divider content-position="left">咨询表单</el-divider>
-      <el-form-item label="启用表单">
-        <el-switch v-model="form.formEnabled" />
-        <span class="hint-inline">关闭后前台只显示联系方式，不展示表单，首页咨询按钮也会退到联系页。</span>
+      <el-divider content-position="left">在线咨询表单控制</el-divider>
+      <el-form-item label="开启在线咨询">
+        <el-switch v-model="form.formEnabled" active-text="允许访客在线提交咨询线索" inactive-text="仅展示联系方式" />
       </el-form-item>
-      <el-form-item label="提交成功提示">
-        <el-input v-model="form.successText" maxlength="200" placeholder="我们会在一个工作日内联系你" />
+      <el-form-item label="提交成功回执语">
+        <el-input
+          v-model="form.successText"
+          type="textarea"
+          :rows="2"
+          maxlength="200"
+          show-word-limit
+          placeholder="感谢您的信任！我们的行业专家将在 1 个工作日内与您联系。"
+        />
       </el-form-item>
     </el-form>
 
     <template #tips>
-      <p>发布时联系电话与邮箱至少填写一项。</p>
-      <p>表单提交接口在阶段 6 接入，当前前台只做前端校验并明确提示未发送。</p>
+      <p>此处维护的电话、邮箱、地址与服务时间将同步应用于官网「联系我们」页、全站页脚及右下角磁吸悬浮坞。</p>
+      <p>开启在线咨询前，请确保「隐私说明」页面已有正式发布版本，访客提交的手机号将在服务端以 AES-256-GCM 加密存储。</p>
     </template>
   </ConfigPanel>
 </template>
 
 <style scoped>
 .err {
-  margin-bottom: 16px;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--a-text-muted);
-  margin: 0 0 12px 110px;
-}
-
-.hint-inline {
-  margin-left: 12px;
-  font-size: 12px;
-  color: var(--a-text-muted);
+  margin-bottom: 12px;
 }
 </style>

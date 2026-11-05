@@ -44,15 +44,19 @@ const ANCHORS = [
   { value: 'consultation', label: '咨询区' },
 ]
 
-const CONTENT_TYPES = computed(() => {
-  const base = [
-    { value: 'PRODUCT', label: '产品' },
-    { value: 'SOLUTION', label: '解决方案' },
-    { value: 'CASE', label: '客户案例' },
-    { value: 'NEWS', label: '新闻' },
-  ]
-  return props.allowConsult ? base.slice(0, 3) : base
-})
+const CONTENT_TYPES = computed(() => [
+  { value: 'PRODUCT', label: '产品' },
+  { value: 'SOLUTION', label: '解决方案' },
+  { value: 'CASE', label: '客户案例' },
+  { value: 'NEWS', label: '新闻' },
+])
+
+const CONSULT_CONTENT_TYPES = [
+  { value: '', label: '通用咨询（不限内容）' },
+  { value: 'PRODUCT', label: '关联具体产品' },
+  { value: 'SOLUTION', label: '关联解决方案' },
+  { value: 'CASE', label: '关联客户案例' },
+]
 
 const typeOptions = computed(() => {
   const base = [
@@ -89,7 +93,10 @@ const contents = ref<ContentView[]>([])
 const loading = ref(false)
 
 async function loadContents(contentType: string) {
-  if (!contentType) return
+  if (!contentType) {
+    contents.value = []
+    return
+  }
   loading.value = true
   try {
     const data = await listContents({ contentType, publicationStatus: 'PUBLISHED', page: 1, pageSize: 50 })
@@ -106,6 +113,7 @@ watch(
   ([currentType, contentType]) => {
     if (currentType === 'CONTENT' || currentType === 'CONSULT') {
       if (contentType) loadContents(String(contentType))
+      else contents.value = []
     }
   },
   { immediate: true },
@@ -153,31 +161,30 @@ function patch(partial: Partial<LinkValue>) {
         style="width: 220px"
         @update:model-value="(v: string) => patch({ contentId: v })"
       >
-        <el-option v-for="item in contents" :key="item.id" :label="item.title || `#${item.id}`" :value="item.id" />
+        <el-option v-for="item in contents" :key="item.id" :label="item.title" :value="String(item.id)" />
       </el-select>
-      <span v-if="!loading && contents.length === 0" class="hint">没有可选的已发布内容</span>
     </template>
 
     <template v-else-if="type === 'EXTERNAL'">
       <el-input
         :model-value="modelValue?.url"
-        placeholder="https://example.com"
-        maxlength="500"
-        style="width: 300px"
+        placeholder="https://..."
+        style="width: 240px"
         @update:model-value="(v: string) => patch({ url: v })"
       />
       <el-checkbox
-        :model-value="modelValue?.newWindow ?? false"
+        :model-value="Boolean(modelValue?.newWindow)"
         @update:model-value="(v: boolean) => patch({ newWindow: v })"
       >
-        新窗口打开
+        新窗口
       </el-checkbox>
     </template>
 
     <template v-else-if="type === 'ANCHOR'">
       <el-select
         :model-value="modelValue?.anchorCode"
-        style="width: 180px"
+        placeholder="选择锚点"
+        style="width: 160px"
         @update:model-value="(v: string) => patch({ anchorCode: v })"
       >
         <el-option v-for="item in ANCHORS" :key="item.value" :label="item.label" :value="item.value" />
@@ -186,24 +193,23 @@ function patch(partial: Partial<LinkValue>) {
 
     <template v-else-if="type === 'CONSULT'">
       <el-select
-        :model-value="modelValue?.contentType"
-        clearable
-        placeholder="不绑定具体内容"
-        style="width: 150px"
-        @update:model-value="(v: string | undefined) => patch({ contentType: v || undefined, contentId: v ? '' : undefined })"
+        :model-value="modelValue?.contentType ?? ''"
+        placeholder="关联咨询来源（可选）"
+        style="width: 170px"
+        @update:model-value="(v: string) => patch({ contentType: v || undefined, contentId: undefined })"
       >
-        <el-option v-for="item in CONTENT_TYPES" :key="item.value" :label="item.label" :value="item.value" />
+        <el-option v-for="item in CONSULT_CONTENT_TYPES" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
       <el-select
         v-if="modelValue?.contentType"
         :model-value="modelValue?.contentId != null ? String(modelValue.contentId) : ''"
         :loading="loading"
         filterable
-        placeholder="选择上下文内容"
-        style="width: 200px"
-        @update:model-value="(v: string) => patch({ contentId: v })"
+        placeholder="选择关联的已发布内容"
+        style="width: 210px"
+        @update:model-value="(v: string) => patch({ contentId: v || undefined })"
       >
-        <el-option v-for="item in contents" :key="item.id" :label="item.title || `#${item.id}`" :value="item.id" />
+        <el-option v-for="item in contents" :key="item.id" :label="item.title" :value="String(item.id)" />
       </el-select>
     </template>
   </div>
@@ -215,10 +221,5 @@ function patch(partial: Partial<LinkValue>) {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--a-text-muted);
 }
 </style>

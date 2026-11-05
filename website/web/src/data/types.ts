@@ -45,9 +45,9 @@ export interface MegaColumn {
   items: MegaSubItem[]
 }
 
-export interface MegaCta {
-  text?: string
-  linkText?: string
+export interface QrCodeItem {
+  label: string
+  imageUrl?: string | null
 }
 
 export interface SiteConfig {
@@ -59,7 +59,7 @@ export interface SiteConfig {
   defaultSeo?: { title: string; description: string }
   nav: NavItem[]
   megaColumns?: MegaColumn[]
-  megaCta?: MegaCta | null
+  megaCta?: { text: string; linkText: string } | null
   contact: {
     phone: string
     email: string
@@ -74,6 +74,7 @@ export interface SiteConfig {
     policeUrl?: string
     groups: Array<{ title: string; links: NavItem[] }>
     links: NavItem[]
+    qrCodes?: QrCodeItem[]
   }
   formEnabled?: boolean
   privacyVersion?: number | null
@@ -150,6 +151,7 @@ export interface HomeNewsItem {
 export interface HomeView {
   version: number | null
   publishedAt: string | null
+  sectionOrder?: string[]
   hero: { items: HomeHeroItem[] }
   metrics: (HomeBlock & { items: HomeMetric[] }) | null
   services: (HomeBlock & { groups: HomeServiceGroup[] }) | null

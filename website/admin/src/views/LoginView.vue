@@ -10,6 +10,7 @@ const route = useRoute()
 const { login } = useAuth()
 
 const form = ref({ username: '', password: '' })
+const showPassword = ref(false)
 const submitting = ref(false)
 const errorText = ref('')
 
@@ -29,7 +30,7 @@ async function submit() {
     const apiError = error instanceof ApiError ? error : null
     errorText.value = apiError?.message ?? '登录失败，请稍后重试'
     if (apiError?.requestId) {
-      ElMessage.error(`${errorText.value}（${apiError.requestId}）`)
+      ElMessage.error(`${errorText.value} (${apiError.requestId})`)
     }
   } finally {
     submitting.value = false
@@ -39,98 +40,132 @@ async function submit() {
 
 <template>
   <div class="login">
+    <div class="login__glow" aria-hidden="true"></div>
     <div class="panel">
       <div class="brand">
-        <span class="logo">示</span>
+        <span class="logo">G</span>
         <div>
-          <p class="brand-name">示例科技</p>
-          <p class="brand-sub">内容管理后台</p>
+          <p class="brand-name">官网内容管理与可视化中台</p>
+          <p class="brand-sub">Enterprise CMS & Visual Live Studio</p>
         </div>
       </div>
 
-      <h1>登录</h1>
+      <h1>欢迎登录管理后台</h1>
 
       <form class="form" @submit.prevent="submit">
         <label class="field">
-          <span>账号</span>
-          <input v-model="form.username" autocomplete="username" placeholder="请输入账号" />
+          <span>管理员 / 编辑账号</span>
+          <input v-model="form.username" autocomplete="username" placeholder="请输入登录账号" />
         </label>
         <label class="field">
-          <span>密码</span>
-          <input v-model="form.password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+          <span>安全密码</span>
+          <div class="pwd-wrap">
+            <input
+              v-model="form.password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder="请输入登录密码"
+            />
+            <button type="button" class="pwd-toggle" @click="showPassword = !showPassword">
+              {{ showPassword ? '隐藏' : '显示' }}
+            </button>
+          </div>
         </label>
 
         <p v-if="errorText" class="error">{{ errorText }}</p>
 
         <button type="submit" class="submit" :disabled="submitting">
-          {{ submitting ? '登录中…' : '登录' }}
+          {{ submitting ? '安全验证登录中...' : '立即登录控制台' }}
         </button>
       </form>
 
-      <p class="hint">账号由管理员创建，不提供自助注册与找回密码。连续失败会被临时限制登录。</p>
+      <p class="hint">
+        账号由系统管理员统一分配（ADMIN 管理员 / EDITOR 内容编辑）。连续输错密码将触发防暴力破解保护。
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
 .login {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f6f8fa;
+  background: radial-gradient(circle at 20% 20%, #1d1848 0%, #0b0d17 65%);
   padding: 24px;
+  overflow: hidden;
+}
+
+.login__glow {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(91, 75, 232, 0.32) 0%, transparent 70%);
+  top: -120px;
+  right: -80px;
+  pointer-events: none;
 }
 
 .panel {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 380px;
-  background: #fff;
-  border: 1px solid var(--a-border);
-  border-radius: 12px;
-  padding: 28px;
+  max-width: 410px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  padding: 34px 32px;
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.45);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 26px;
 }
 
 .logo {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: #e6f1fb;
-  color: #185fa5;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b4be8 100%);
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 18px;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(91, 75, 232, 0.35);
 }
 
 .brand-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 700;
+  color: #101014;
+  margin: 0;
 }
 
 .brand-sub {
   font-size: 12px;
-  color: var(--a-text-muted);
-  margin-top: 2px;
+  color: #6b7280;
+  margin: 2px 0 0;
 }
 
 h1 {
-  font-size: 18px;
-  font-weight: 500;
-  margin-bottom: 18px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #101014;
+  margin: 0 0 20px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .field {
@@ -138,47 +173,80 @@ h1 {
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  color: var(--a-text-muted);
+  font-weight: 600;
+  color: #374151;
 }
 
 .field input {
-  height: 38px;
-  border: 1px solid var(--a-border);
-  border-radius: 8px;
-  padding: 0 12px;
+  height: 42px;
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 0 14px;
   font-size: 14px;
-  color: var(--a-text);
+  color: #111827;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .field input:focus {
-  border-color: #185fa5;
+  border-color: #5b4be8;
+  box-shadow: 0 0 0 3px rgba(91, 75, 232, 0.14);
+}
+
+.pwd-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pwd-toggle {
+  position: absolute;
+  right: 10px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: #5b4be8;
+  cursor: pointer;
 }
 
 .error {
   font-size: 13px;
-  color: #c0392b;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 0;
 }
 
 .submit {
-  height: 38px;
+  height: 44px;
   border: none;
-  border-radius: 8px;
-  background: #185fa5;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #5b4be8 100%);
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
+  margin-top: 6px;
+  box-shadow: 0 10px 24px rgba(91, 75, 232, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(91, 75, 232, 0.42);
 }
 
 .submit:disabled {
   opacity: 0.6;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .hint {
-  margin-top: 18px;
+  margin-top: 22px;
   font-size: 12px;
-  color: var(--a-text-muted);
-  line-height: 1.7;
+  color: #6b7280;
+  line-height: 1.6;
 }
 </style>

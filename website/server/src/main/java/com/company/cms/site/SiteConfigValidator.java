@@ -123,6 +123,27 @@ public class SiteConfigValidator {
         }
         node.set("footerGroups", groups);
 
+        ArrayNode qrCodes = objectMapper.createArrayNode();
+        JsonNode rawQrs = draft.get("qrCodes");
+        if (rawQrs != null && rawQrs.isArray()) {
+            for (int i = 0; i < Math.min(rawQrs.size(), 4); i++) {
+                JsonNode q = rawQrs.get(i);
+                if (q == null || !q.isObject()) continue;
+                ObjectNode qNode = objectMapper.createObjectNode();
+                qNode.put("label", limit(text(q, "label"), 20, "qrCodes[" + i + "].label", "二维码名称", errors));
+                Long qMediaId = mediaId(q.get("mediaId"), "qrCodes[" + i + "].mediaId", "二维码图片", errors);
+                if (qMediaId != null) {
+                    qNode.put("mediaId", qMediaId);
+                    qNode.put("imageUrl", "/api/public/media/" + qMediaId);
+                } else {
+                    String imgUrl = text(q, "imageUrl");
+                    if (!imgUrl.isEmpty()) qNode.put("imageUrl", imgUrl);
+                }
+                qrCodes.add(qNode);
+            }
+        }
+        node.set("qrCodes", qrCodes);
+
         // 联系方式统一在 CONTACT 维护，这里不再接受重复录入
         return node;
     }

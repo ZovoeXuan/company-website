@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
 import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
-import { get } from '@/api/http'
-import { getMedia, type MediaItem } from '@/api/content'
+import type { MediaItem } from '@/api/content'
 
 interface HeroItem {
   key?: string
@@ -15,8 +15,8 @@ interface HeroItem {
   sortOrder: number
   title: string
   subtitle: string
-  desktopMediaId?: number
-  mobileMediaId?: number
+  desktopMediaId: number | null
+  mobileMediaId: number | null
   imageAlt: string
   buttonText: string
   link: LinkValue | null
@@ -36,304 +36,263 @@ interface ServiceGroup {
   sortOrder: number
   title: string
   description: string
-  imageMediaId?: number
-  contentType: string
+  imageMediaId: number | null
+  contentType: 'PRODUCT' | 'SOLUTION'
   contentIds: number[]
   moreLink: LinkValue | null
 }
 
-interface BlockShape {
-  enabled: boolean
-  title: string
-  subtitle: string
+interface HomeDraft {
+  sectionOrder?: string[]
+  hero: { items: HeroItem[] }
+  metrics: { enabled: boolean; title: string; subtitle: string; items: MetricItem[] }
+  services: { enabled: boolean; title: string; subtitle: string; groups: ServiceGroup[] }
+  cases: { enabled: boolean; title: string; subtitle: string; contentIds: number[] }
+  customers: { enabled: boolean; title: string; subtitle: string; contentIds: number[] }
+  news: {
+    enabled: boolean
+    title: string
+    subtitle: string
+    mode: 'SELECTED' | 'LATEST'
+    limit: number
+    contentIds: number[]
+  }
+  consultation: {
+    title: string
+    subtitle: string
+    buttonText: string
+    link: LinkValue | null
+  }
 }
 
-interface HomeDraft {
-  hero: { items: HeroItem[] }
-  metrics: BlockShape & { items: MetricItem[] }
-  services: BlockShape & { groups: ServiceGroup[] }
-  cases: BlockShape & { contentIds: number[] }
-  customers: BlockShape & { contentIds: number[] }
-  news: BlockShape & { mode: string; limit: number; contentIds: number[] }
-  consultation: { title: string; subtitle: string; buttonText: string; link: LinkValue | null }
+const SECTION_LABELS: Record<string, { name: string; desc: string }> = {
+  metrics: { name: '企业关键指标 (metrics)', desc: '四列大数字规模与实力背书' },
+  services: { name: '产品与解决方案分组 (services)', desc: '左右交错核心产品与方案推荐卡' },
+  cases: { name: '标杆客户案例 (cases)', desc: '行业头部客户实践与成果数据' },
+  customers: { name: '合作客户标识墙 (customers)', desc: '合作伙伴与客户 Logo 墙/跑马灯' },
+  news: { name: '最新动态与洞察 (news)', desc: '手选或自动按最新日期展示企业动态' },
+  consultation: { name: '底部咨询与 ROI 行动区 (consultation)', desc: '全站转化收口与专家预约引导' },
 }
+
+const DEFAULT_ORDER = ['metrics', 'services', 'cases', 'customers', 'news', 'consultation']
+
+const router = useRouter()
+const activeTab = ref('order')
+const pickerOpen = ref(false)
+const pickerKind = ref<'IMAGE' | 'VIDEO' | 'ALL'>('ALL')
+let pickerCallback: ((media: MediaItem) => void) | null = null
 
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<HomeDraft & Record<string, unknown>>('HOME')
 
-/** 预览用后台会话，新窗口打开；首屏与区块取草稿，关联内容取线上版本 */
-function openPreview() {
-  window.open(`${import.meta.env.BASE_URL}preview/home`, '_blank', 'noopener')
-}
-
-function emptyDraft(): HomeDraft {
-  return {
-    hero: { items: [] },
-    metrics: { enabled: true, title: '企业实力', subtitle: '', items: [] },
-    services: { enabled: true, title: '产品与解决方案', subtitle: '', groups: [] },
-    cases: { enabled: true, title: '客户案例', subtitle: '', contentIds: [] },
-    customers: { enabled: true, title: '客户标识', subtitle: '', contentIds: [] },
-    news: { enabled: true, title: '新闻动态', subtitle: '', mode: 'SELECTED', limit: 3, contentIds: [] },
-    consultation: { title: '了解适合您的服务', subtitle: '', buttonText: '立即咨询', link: { type: 'CONSULT' } },
-  }
-}
-
-const form = reactive<HomeDraft>(emptyDraft())
-
-// 已发布内容索引：用来发现草稿里指向「已下线/已删除」内容的引用
-const publishedIndex = ref<Map<string, string>>(new Map())
-
-const missingRefs = computed(() => {
-  const missing: string[] = []
-  const check = (ids: number[] | undefined, label: string) => {
-    for (const id of ids ?? []) {
-      if (!publishedIndex.value.has(String(id))) {
-        missing.push(`${label} #${id}`)
-      }
-    }
-  }
-  for (const group of form.services.groups) {
-    check(group.contentIds, `产品服务/${group.title || '未命名分组'}`)
-  }
-  check(form.cases.contentIds, '客户案例')
-  check(form.customers.contentIds, '客户标识')
-  if (form.news.mode === 'SELECTED') {
-    check(form.news.contentIds, '新闻')
-  }
-  return missing
+const form = reactive<HomeDraft>({
+  sectionOrder: [...DEFAULT_ORDER],
+  hero: { items: [] },
+  metrics: { enabled: true, title: '数字生产力规模背书', subtitle: '', items: [] },
+  services: { enabled: true, title: '核心产品与行业方案', subtitle: '', groups: [] },
+  cases: { enabled: true, title: '行业领军企业的共同选择', subtitle: '', contentIds: [] },
+  customers: { enabled: true, title: '生态伙伴与标杆客户', subtitle: '', contentIds: [] },
+  news: { enabled: true, title: '最新动态与前沿洞察', subtitle: '', mode: 'LATEST', limit: 3, contentIds: [] },
+  consultation: {
+    title: '准备好开启企业数字化生产力跃迁了吗？',
+    subtitle: '留下您的业务痛点，我们的行业架构师将在 1 个工作日内为您提供定制方案与演示。',
+    buttonText: '立即预约咨询',
+    link: { type: 'CONSULT' },
+  },
 })
 
-async function loadPublishedIndex() {
-  try {
-    const data = await get<{ items: Array<{ id: string; title: string }> }>(
-      '/api/admin/contents?publicationStatus=PUBLISHED&page=1&pageSize=50',
-    )
-    publishedIndex.value = new Map(data.items.map((item) => [String(item.id), item.title]))
-  } catch {
-    // 索引加载失败不阻断编辑，失效提示会退化为「全部标红」，因此这里静默
-    publishedIndex.value = new Map()
-  }
-}
-
-function blockOf(source: unknown, fallback: BlockShape): BlockShape {
-  const value = (source ?? {}) as Partial<BlockShape>
-  return {
-    enabled: value.enabled ?? fallback.enabled,
-    title: value.title ?? '',
-    subtitle: value.subtitle ?? '',
-  }
-}
-
 function fill() {
-  const draft = view.value?.draft as Partial<HomeDraft> | undefined
-  if (!draft) {
-    Object.assign(form, emptyDraft())
-    return
+  const draft = view.value?.draft
+  if (!draft) return
+
+  const rawOrder = Array.isArray(draft.sectionOrder) ? draft.sectionOrder : []
+  const mergedOrder = rawOrder.filter((k) => DEFAULT_ORDER.includes(k))
+  for (const defKey of DEFAULT_ORDER) {
+    if (!mergedOrder.includes(defKey)) mergedOrder.push(defKey)
   }
-  form.hero.items = (draft.hero?.items ?? []).map((item) => ({
+  form.sectionOrder = mergedOrder
+
+  form.hero.items = (draft.hero?.items ?? []).map((item, idx) => ({
     key: item.key,
     enabled: item.enabled ?? true,
-    sortOrder: item.sortOrder ?? 100,
+    sortOrder: item.sortOrder ?? (idx + 1) * 10,
     title: item.title ?? '',
     subtitle: item.subtitle ?? '',
-    desktopMediaId: item.desktopMediaId,
-    mobileMediaId: item.mobileMediaId,
+    desktopMediaId: item.desktopMediaId != null ? Number(item.desktopMediaId) : null,
+    mobileMediaId: item.mobileMediaId != null ? Number(item.mobileMediaId) : null,
     imageAlt: item.imageAlt ?? '',
-    buttonText: item.buttonText ?? '',
-    link: (item.link as LinkValue | null) ?? { type: 'NONE' },
+    buttonText: item.buttonText ?? '了解更多',
+    link: (item.link as LinkValue | null) ?? { type: 'CONSULT' },
   }))
 
-  const metrics = blockOf(draft.metrics, { enabled: true, title: '', subtitle: '' })
-  form.metrics.enabled = metrics.enabled
-  form.metrics.title = metrics.title
-  form.metrics.subtitle = metrics.subtitle
-  form.metrics.items = (draft.metrics?.items ?? []).map((item) => ({
-    key: item.key,
-    sortOrder: item.sortOrder ?? 100,
-    displayValue: item.displayValue ?? '',
-    unit: item.unit ?? '',
-    label: item.label ?? '',
-    description: item.description ?? '',
-  }))
+  form.metrics = {
+    enabled: draft.metrics?.enabled ?? true,
+    title: draft.metrics?.title ?? '企业实力与服务规模',
+    subtitle: draft.metrics?.subtitle ?? '',
+    items: (draft.metrics?.items ?? []).map((m, idx) => ({
+      key: m.key,
+      sortOrder: m.sortOrder ?? (idx + 1) * 10,
+      displayValue: m.displayValue ?? '',
+      unit: m.unit ?? '',
+      label: m.label ?? '',
+      description: m.description ?? '',
+    })),
+  }
 
-  const services = blockOf(draft.services, { enabled: true, title: '', subtitle: '' })
-  form.services.enabled = services.enabled
-  form.services.title = services.title
-  form.services.subtitle = services.subtitle
-  form.services.groups = (draft.services?.groups ?? []).map((group) => ({
-    key: group.key,
-    sortOrder: group.sortOrder ?? 100,
-    title: group.title ?? '',
-    description: group.description ?? '',
-    imageMediaId: group.imageMediaId,
-    contentType: group.contentType ?? 'PRODUCT',
-    contentIds: (group.contentIds ?? []).map(Number),
-    moreLink: (group.moreLink as LinkValue | null) ?? null,
-  }))
+  form.services = {
+    enabled: draft.services?.enabled ?? true,
+    title: draft.services?.title ?? '核心产品与行业方案',
+    subtitle: draft.services?.subtitle ?? '',
+    groups: (draft.services?.groups ?? []).map((g, idx) => ({
+      key: g.key,
+      sortOrder: g.sortOrder ?? (idx + 1) * 10,
+      title: g.title ?? '',
+      description: g.description ?? '',
+      imageMediaId: g.imageMediaId != null ? Number(g.imageMediaId) : null,
+      contentType: g.contentType === 'SOLUTION' ? 'SOLUTION' : 'PRODUCT',
+      contentIds: (g.contentIds ?? []).map((id) => Number(id)),
+      moreLink: (g.moreLink as LinkValue | null) ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
+    })),
+  }
 
-  const cases = blockOf(draft.cases, { enabled: true, title: '', subtitle: '' })
-  form.cases.enabled = cases.enabled
-  form.cases.title = cases.title
-  form.cases.subtitle = cases.subtitle
-  form.cases.contentIds = (draft.cases?.contentIds ?? []).map(Number)
+  form.cases = {
+    enabled: draft.cases?.enabled ?? true,
+    title: draft.cases?.title ?? '客户案例',
+    subtitle: draft.cases?.subtitle ?? '',
+    contentIds: (draft.cases?.contentIds ?? []).map((id) => Number(id)),
+  }
 
-  const customers = blockOf(draft.customers, { enabled: true, title: '', subtitle: '' })
-  form.customers.enabled = customers.enabled
-  form.customers.title = customers.title
-  form.customers.subtitle = customers.subtitle
-  form.customers.contentIds = (draft.customers?.contentIds ?? []).map(Number)
+  form.customers = {
+    enabled: draft.customers?.enabled ?? true,
+    title: draft.customers?.title ?? '合作客户',
+    subtitle: draft.customers?.subtitle ?? '',
+    contentIds: (draft.customers?.contentIds ?? []).map((id) => Number(id)),
+  }
 
-  const news = blockOf(draft.news, { enabled: true, title: '', subtitle: '' })
-  form.news.enabled = news.enabled
-  form.news.title = news.title
-  form.news.subtitle = news.subtitle
-  form.news.mode = draft.news?.mode ?? 'SELECTED'
-  form.news.limit = draft.news?.limit ?? 3
-  form.news.contentIds = (draft.news?.contentIds ?? []).map(Number)
+  form.news = {
+    enabled: draft.news?.enabled ?? true,
+    title: draft.news?.title ?? '最新动态',
+    subtitle: draft.news?.subtitle ?? '',
+    mode: draft.news?.mode === 'LATEST' ? 'LATEST' : 'SELECTED',
+    limit: draft.news?.limit ?? 3,
+    contentIds: (draft.news?.contentIds ?? []).map((id) => Number(id)),
+  }
 
-  form.consultation.title = draft.consultation?.title ?? ''
-  form.consultation.subtitle = draft.consultation?.subtitle ?? ''
-  form.consultation.buttonText = draft.consultation?.buttonText ?? ''
-  form.consultation.link = (draft.consultation?.link as LinkValue | null) ?? { type: 'CONSULT' }
-  syncMedia()
+  form.consultation = {
+    title: draft.consultation?.title ?? '了解适合您的数字化服务',
+    subtitle: draft.consultation?.subtitle ?? '',
+    buttonText: draft.consultation?.buttonText ?? '立即咨询',
+    link: (draft.consultation?.link as LinkValue | null) ?? { type: 'CONSULT' },
+  }
 }
 
-const mediaCache = reactive<Record<number, MediaItem>>({})
-
-async function syncMedia() {
-  const ids = form.hero.items
-    .flatMap((item) => [item.desktopMediaId, item.mobileMediaId])
-    .filter((id): id is number => Boolean(id && !mediaCache[id]))
-  await Promise.all(ids.map(async (id) => {
-    try {
-      mediaCache[id] = await getMedia(String(id))
-    } catch {
-      // 素材被删除时保留空预览，不阻断表单
-    }
-  }))
+function moveSection(idx: number, delta: number) {
+  if (!form.sectionOrder) return
+  const target = idx + delta
+  if (target < 0 || target >= form.sectionOrder.length) return
+  const [moved] = form.sectionOrder.splice(idx, 1)
+  form.sectionOrder.splice(target, 0, moved)
 }
 
-function isVideoMedia(id?: number): boolean {
-  return Boolean(id && mediaCache[id]?.mediaType === 'VIDEO')
+function isSectionEnabled(secKey: string): boolean {
+  if (secKey === 'consultation') return true
+  const block = (form as Record<string, any>)[secKey]
+  return Boolean(block?.enabled)
 }
 
-watch(
-  () => form.hero.items.map((item) => [item.desktopMediaId, item.mobileMediaId]),
-  () => syncMedia(),
-  { deep: true },
-)
-
-async function onSave() {
-  const payload = JSON.parse(JSON.stringify(form)) as HomeDraft
-  if (await save(payload as HomeDraft & Record<string, unknown>)) fill()
+function toggleSectionEnabled(secKey: string, val: boolean) {
+  if (secKey === 'consultation') return
+  const block = (form as Record<string, any>)[secKey]
+  if (block) block.enabled = val
 }
 
-async function onPublish() {
-  if (await publish()) fill()
+function openMedia(kind: 'IMAGE' | 'VIDEO' | 'ALL', cb: (m: MediaItem) => void) {
+  pickerKind.value = kind
+  pickerCallback = cb
+  pickerOpen.value = true
 }
 
-// ---- 首屏 ----
+function onMediaPicked(media: MediaItem) {
+  if (pickerCallback) {
+    pickerCallback(media)
+    pickerCallback = null
+  }
+  pickerOpen.value = false
+}
+
 function addHero() {
   if (form.hero.items.length >= 5) {
-    ElMessage.warning('首屏最多 5 条')
+    ElMessage.warning('首屏轮播最多 5 条')
     return
   }
   form.hero.items.push({
     enabled: true,
     sortOrder: (form.hero.items.length + 1) * 10,
-    title: '',
-    subtitle: '',
-    desktopMediaId: undefined,
-    mobileMediaId: undefined,
+    title: '让物联网与 AI 成为企业增长引擎',
+    subtitle: '全场景实时感知、智能风控与数字化协同平台',
+    desktopMediaId: null,
+    mobileMediaId: null,
     imageAlt: '',
-    buttonText: '',
-    link: { type: 'NONE' },
+    buttonText: '预约演示',
+    link: { type: 'CONSULT' },
   })
 }
 
-// ---- 指标 ----
 function addMetric() {
   if (form.metrics.items.length >= 8) {
-    ElMessage.warning('指标最多 8 条')
+    ElMessage.warning('关键指标最多 8 条')
     return
   }
   form.metrics.items.push({
     sortOrder: (form.metrics.items.length + 1) * 10,
-    displayValue: '',
-    unit: '',
-    label: '',
-    description: '',
+    displayValue: '99.9',
+    unit: '%',
+    label: '平台可用率',
+    description: '金融级高可用云原生架构保障',
   })
 }
 
-// ---- 服务分组 ----
-function addGroup() {
+function addServiceGroup() {
   if (form.services.groups.length >= 3) {
     ElMessage.warning('服务分组最多 3 组')
     return
   }
   form.services.groups.push({
     sortOrder: (form.services.groups.length + 1) * 10,
-    title: '',
-    description: '',
+    title: '智能硬件与 SaaS 平台',
+    description: '软硬一体全栈自研，开箱即用赋能业务现场。',
+    imageMediaId: null,
     contentType: 'PRODUCT',
     contentIds: [],
     moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
   })
 }
 
-// ---- 图片选择 ----
-type PickerTarget =
-  | { kind: 'heroDesktop'; index: number }
-  | { kind: 'heroMobile'; index: number }
-  | { kind: 'group'; index: number }
-
-const pickerOpen = ref(false)
-const pickerTarget = ref<PickerTarget | null>(null)
-const pickerKind = computed<'IMAGE' | 'ALL'>(() =>
-  pickerTarget.value?.kind === 'group' ? 'IMAGE' : 'ALL',
-)
-
-function openPicker(target: PickerTarget) {
-  pickerTarget.value = target
-  pickerOpen.value = true
+function applyPresetMetrics() {
+  form.metrics.enabled = true
+  form.metrics.title = '值得信赖的行业数字化基座'
+  form.metrics.subtitle = '用真实在线运行规模验证每一份交付承诺'
+  form.metrics.items = [
+    { sortOrder: 10, displayValue: '320', unit: '万+', label: '在线物联网终端', description: '7×24h 毫秒级状态感知与采集' },
+    { sortOrder: 20, displayValue: '7000', unit: '+', label: '头部标杆企业客户', description: '覆盖能源、冷链、危化、快消制造' },
+    { sortOrder: 30, displayValue: '68', unit: '%', label: '高危事故率平均下降', description: 'AI 双目防碰撞与主动安全托管' },
+    { sortOrder: 40, displayValue: '99.95', unit: '%', label: '云平台服务可用性', description: '多活容灾与国密级数据安全认证' },
+  ]
+  ElMessage.success('已填入行业标杆指标模板，保存草稿后生效')
 }
 
-function onPick(media: MediaItem) {
-  const target = pickerTarget.value
-  if (!target) return
-  if (target.kind === 'heroDesktop') {
-    form.hero.items[target.index].desktopMediaId = Number(media.id)
-  } else if (target.kind === 'heroMobile') {
-    form.hero.items[target.index].mobileMediaId = Number(media.id)
-  } else {
-    form.services.groups[target.index].imageMediaId = Number(media.id)
-  }
-  pickerOpen.value = false
+async function onSave() {
+  const payload = JSON.parse(JSON.stringify(form)) as HomeDraft & Record<string, unknown>
+  if (await save(payload)) fill()
 }
 
-function thumb(id?: number) {
-  return id ? `/api/admin/media/${id}/file` : ''
-}
-
-function move<T extends { sortOrder: number }>(list: T[], index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= list.length) return
-  const current = list[index].sortOrder
-  list[index].sortOrder = list[target].sortOrder
-  list[target].sortOrder = current
-  const [item] = list.splice(index, 1)
-  list.splice(target, 0, item)
-}
-
-function scrollToBlock(id: string) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+async function onPublish() {
+  if (await publish()) fill()
 }
 
 onMounted(async () => {
   await load()
   fill()
-  loadPublishedIndex()
 })
 </script>
 
@@ -350,400 +309,400 @@ onMounted(async () => {
     @save="onSave"
     @publish="onPublish"
   >
-    <template #header-actions>
-      <el-button size="small" @click="openPreview">预览草稿</el-button>
-    </template>
-    <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
-    <el-alert
-      type="info"
-      :closable="false"
-      class="err"
-      title="首页顺序固定：首屏 → 指标 → 产品服务 → 客户案例 → 客户标识 → 新闻 → 咨询区。区块开关与文案都要发布后才生效。"
-    />
-    <el-alert
-      v-if="missingRefs.length"
-      type="warning"
-      :closable="false"
-      class="err"
-      title="以下引用指向的内容已下线或删除，发布前请移除或替换："
-      :description="missingRefs.join('、')"
-      show-icon
-    />
-
-    <!-- 区块快速跳转导航 -->
-    <div class="nav-shortcuts">
-      <span class="shortcuts-label">快速导航：</span>
-      <el-button-group size="small">
-        <el-button @click="scrollToBlock('block-hero')">首屏 ({{ form.hero.items.length }})</el-button>
-        <el-button @click="scrollToBlock('block-metrics')">指标 ({{ form.metrics.items.length }})</el-button>
-        <el-button @click="scrollToBlock('block-services')">产品与服务 ({{ form.services.groups.length }})</el-button>
-        <el-button @click="scrollToBlock('block-cases')">案例 ({{ form.cases.contentIds.length }})</el-button>
-        <el-button @click="scrollToBlock('block-customers')">客户 ({{ form.customers.contentIds.length }})</el-button>
-        <el-button @click="scrollToBlock('block-news')">新闻动态</el-button>
-        <el-button @click="scrollToBlock('block-consultation')">咨询区</el-button>
-      </el-button-group>
+    <div class="studio-banner">
+      <div>
+        <strong class="studio-banner__title">🎨 想要更直观地边看边改？试试「全站实景交互预演工作台」</strong>
+        <p class="studio-banner__desc">
+          支持在真实官网画布上直接拖拽调整模块顺序、双击修改文字、点击替换图片/视频、绑定链接，修改结果与当前表单 100% 双向实时互通。
+        </p>
+      </div>
+      <el-button type="primary" @click="router.push('/preview/home')">
+        进入实景交互预演台 →
+      </el-button>
     </div>
 
-    <!-- 首屏 -->
-    <el-card id="block-hero" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>首屏（必显，不可整块关闭）</span>
-          <el-button size="small" @click="addHero">添加一条</el-button>
-        </div>
-      </template>
-      <p class="hint">最多 5 条，启用中的条目正式上线时必须填写标题与桌面图片；2 条以上前台提供手动切换。</p>
+    <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
 
-      <div v-for="(item, index) in form.hero.items" :key="item.key ?? `hero-${index}`" class="sub">
-        <div class="sub__head">
-          <el-switch v-model="item.enabled" active-text="启用" />
-          <span class="sub__index">第 {{ index + 1 }} 条</span>
-          <div class="sub__actions">
-            <el-button link :disabled="index === 0" @click="move(form.hero.items, index, -1)">上移</el-button>
-            <el-button link :disabled="index === form.hero.items.length - 1" @click="move(form.hero.items, index, 1)">下移</el-button>
-            <el-button link type="danger" @click="form.hero.items.splice(index, 1)">删除</el-button>
+    <el-tabs v-model="activeTab" class="home-tabs">
+      <!-- Tab 0: 模块摆放顺序与总览 -->
+      <el-tab-pane label="0. 模块摆放顺序与开关" name="order">
+        <p class="tab-hint">
+          首屏 Hero 固定置顶展示；下方 6 大业务模块可自由上下移动调整在前台首页的展示顺序，也可一键开启或隐藏。
+        </p>
+        <div class="order-list">
+          <div v-for="(secKey, idx) in form.sectionOrder" :key="secKey" class="order-item">
+            <span class="order-item__num">0{{ idx + 1 }}</span>
+            <div class="order-item__info">
+              <strong>{{ SECTION_LABELS[secKey]?.name || secKey }}</strong>
+              <span>{{ SECTION_LABELS[secKey]?.desc }}</span>
+            </div>
+            <el-switch
+              v-if="secKey !== 'consultation'"
+              :model-value="isSectionEnabled(secKey)"
+              active-text="启用"
+              inactive-text="隐藏"
+              @update:model-value="(v: boolean) => toggleSectionEnabled(secKey, v)"
+            />
+            <el-tag v-else size="small" type="info">常驻收口区</el-tag>
+            <div class="order-item__btns">
+              <el-button size="small" :disabled="idx === 0" @click="moveSection(idx, -1)">↑ 上移</el-button>
+              <el-button
+                size="small"
+                :disabled="idx === (form.sectionOrder?.length ?? 0) - 1"
+                @click="moveSection(idx, 1)"
+              >
+                ↓ 下移
+              </el-button>
+              <el-button size="small" type="primary" link @click="activeTab = secKey">编辑内容</el-button>
+            </div>
           </div>
         </div>
+      </el-tab-pane>
 
-        <el-form label-width="96px" size="small">
-          <el-form-item label="标题" required>
-            <el-input v-model="item.title" maxlength="40" show-word-limit placeholder="独立文字层，可换行" />
-          </el-form-item>
-          <el-form-item label="副标题">
-            <el-input v-model="item.subtitle" maxlength="100" show-word-limit />
-          </el-form-item>
-          <el-form-item label="桌面媒体（图片或视频）" required>
-            <div class="media">
-              <video
-                v-if="item.desktopMediaId && isVideoMedia(item.desktopMediaId)"
-                :src="thumb(item.desktopMediaId)"
-                class="media__preview"
-                muted
-                playsinline
-                preload="metadata"
-              ></video>
-              <img
-                v-else-if="item.desktopMediaId"
-                :src="thumb(item.desktopMediaId)"
-                alt="桌面首屏素材"
-                class="media__preview"
-              />
-              <span v-else class="media__empty">未选择（建议 1920×900，视频 16:9）</span>
-              <el-button size="small" @click="openPicker({ kind: 'heroDesktop', index })">选择</el-button>
-              <el-button v-if="item.desktopMediaId" size="small" link type="danger" @click="item.desktopMediaId = undefined">清除</el-button>
-            </div>
-          </el-form-item>
-          <el-form-item label="手机媒体">
-            <div class="media">
-              <video
-                v-if="item.mobileMediaId && isVideoMedia(item.mobileMediaId)"
-                :src="thumb(item.mobileMediaId)"
-                class="media__preview"
-                muted
-                playsinline
-                preload="metadata"
-              ></video>
-              <img
-                v-else-if="item.mobileMediaId"
-                :src="thumb(item.mobileMediaId)"
-                alt="手机首屏素材"
-                class="media__preview"
-              />
-              <span v-else class="media__empty">未选择时前台回退桌面素材（建议 750×1000）</span>
-              <el-button size="small" @click="openPicker({ kind: 'heroMobile', index })">选择</el-button>
-              <el-button v-if="item.mobileMediaId" size="small" link type="danger" @click="item.mobileMediaId = undefined">清除</el-button>
-            </div>
-          </el-form-item>
-          <el-form-item label="图片替代文字">
-            <el-input v-model="item.imageAlt" maxlength="120" placeholder="不填时使用首屏标题" />
-          </el-form-item>
-          <el-form-item label="按钮文案">
-            <el-input v-model="item.buttonText" maxlength="12" placeholder="不配置按钮则留空" style="width: 200px" />
-          </el-form-item>
-          <el-form-item label="按钮链接">
-            <LinkEditor v-model="item.link" :allow-none="true" />
-          </el-form-item>
-        </el-form>
-      </div>
-
-      <el-empty v-if="form.hero.items.length === 0" description="还没有首屏，发布前至少需要 1 条" />
-    </el-card>
-
-    <!-- 企业指标 -->
-    <el-card id="block-metrics" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>
-            <el-switch v-model="form.metrics.enabled" class="switch" />
-            企业指标
-          </span>
-          <el-button size="small" @click="addMetric">添加指标</el-button>
-        </div>
-      </template>
-      <p class="hint">最多 8 条。数值按字符串保存，支持「1000」「10万」「99.9%」，前台不参与计算。</p>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="区块标题"><el-input v-model="form.metrics.title" maxlength="40" /></el-form-item>
-        <el-form-item label="区块说明"><el-input v-model="form.metrics.subtitle" maxlength="200" /></el-form-item>
-      </el-form>
-
-      <div v-for="(item, index) in form.metrics.items" :key="item.key ?? `metric-${index}`" class="inline">
-        <el-input v-model="item.displayValue" maxlength="16" placeholder="1000" style="width: 110px" />
-        <el-input v-model="item.unit" maxlength="8" placeholder="+" style="width: 70px" />
-        <el-input v-model="item.label" maxlength="20" placeholder="服务客户" style="width: 140px" />
-        <el-input v-model="item.description" maxlength="80" placeholder="说明（可选）" style="width: 220px" />
-        <el-button link :disabled="index === 0" @click="move(form.metrics.items, index, -1)">上移</el-button>
-        <el-button link :disabled="index === form.metrics.items.length - 1" @click="move(form.metrics.items, index, 1)">下移</el-button>
-        <el-button link type="danger" @click="form.metrics.items.splice(index, 1)">删除</el-button>
-      </div>
-    </el-card>
-
-    <!-- 产品服务 -->
-    <el-card id="block-services" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>
-            <el-switch v-model="form.services.enabled" class="switch" />
-            产品服务
-          </span>
-          <el-button size="small" @click="addGroup">添加分组</el-button>
-        </div>
-      </template>
-      <p class="hint">
-        最多 3 组，每组只能全部是产品或全部是解决方案，只能选择已发布内容。卡片标题、摘要与封面取自内容最新发布版，这里不重复录入。
-      </p>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="区块标题"><el-input v-model="form.services.title" maxlength="40" /></el-form-item>
-        <el-form-item label="区块说明"><el-input v-model="form.services.subtitle" maxlength="200" /></el-form-item>
-      </el-form>
-
-      <div v-for="(group, index) in form.services.groups" :key="group.key ?? `group-${index}`" class="sub">
-        <div class="sub__head">
-          <span class="sub__index">分组 {{ index + 1 }}</span>
-          <div class="sub__actions">
-            <el-button link :disabled="index === 0" @click="move(form.services.groups, index, -1)">上移</el-button>
-            <el-button link :disabled="index === form.services.groups.length - 1" @click="move(form.services.groups, index, 1)">下移</el-button>
-            <el-button link type="danger" @click="form.services.groups.splice(index, 1)">删除</el-button>
+      <!-- Tab 1: 首屏 Hero -->
+      <el-tab-pane label="1. 首屏轮播 (Hero)" name="hero">
+        <p class="tab-hint">最多 5 条首屏，支持桌面大图/视频与移动端竖图自适应。正式发布至少需 1 条有效首屏。</p>
+        <div v-for="(slide, idx) in form.hero.items" :key="slide.key ?? `hero-${idx}`" class="block-card">
+          <div class="block-card__head">
+            <strong>首屏 #{{ idx + 1 }}</strong>
+            <el-switch v-model="slide.enabled" active-text="启用" />
+            <el-button link type="danger" @click="form.hero.items.splice(idx, 1)">删除</el-button>
           </div>
+          <el-form label-width="110px">
+            <el-form-item label="主标题" required>
+              <el-input v-model="slide.title" maxlength="40" show-word-limit placeholder="最多 40 字" />
+            </el-form-item>
+            <el-form-item label="副标题">
+              <el-input v-model="slide.subtitle" type="textarea" :rows="2" maxlength="100" show-word-limit />
+            </el-form-item>
+            <el-form-item label="桌面图片/视频" required>
+              <div class="media-pick-row">
+                <el-tag v-if="slide.desktopMediaId" type="success">素材 ID: #{{ slide.desktopMediaId }}</el-tag>
+                <span v-else class="muted">未选择</span>
+                <el-button size="small" @click="openMedia('ALL', (m) => (slide.desktopMediaId = Number(m.id)))">
+                  选择素材
+                </el-button>
+                <el-button v-if="slide.desktopMediaId" size="small" link type="danger" @click="slide.desktopMediaId = null">
+                  清除
+                </el-button>
+              </div>
+            </el-form-item>
+            <el-form-item label="手机端配图">
+              <div class="media-pick-row">
+                <el-tag v-if="slide.mobileMediaId" type="info">素材 ID: #{{ slide.mobileMediaId }}</el-tag>
+                <span v-else class="muted">可选，未选时自动回退桌面素材</span>
+                <el-button size="small" @click="openMedia('IMAGE', (m) => (slide.mobileMediaId = Number(m.id)))">
+                  选择图片
+                </el-button>
+                <el-button v-if="slide.mobileMediaId" size="small" link type="danger" @click="slide.mobileMediaId = null">
+                  清除
+                </el-button>
+              </div>
+            </el-form-item>
+            <el-form-item label="主按钮文案">
+              <el-input v-model="slide.buttonText" maxlength="12" style="width: 220px" placeholder="例如：预约演示" />
+            </el-form-item>
+            <el-form-item label="按钮跳转动作">
+              <LinkEditor v-model="slide.link" :allow-consult="true" />
+            </el-form-item>
+          </el-form>
         </div>
-        <el-form label-width="96px" size="small">
-          <el-form-item label="分组标题" required>
-            <el-input v-model="group.title" maxlength="30" />
+        <el-button @click="addHero">+ 添加首屏轮播项</el-button>
+      </el-tab-pane>
+
+      <!-- Tab 2: 企业指标 -->
+      <el-tab-pane label="2. 企业指标 (Metrics)" name="metrics">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.metrics.enabled" active-text="在前台启用该模块" />
+          <el-button size="small" type="primary" plain @click="applyPresetMetrics">
+            ✨ 一键填入行业标杆指标模板
+          </el-button>
+        </div>
+        <el-form label-width="110px">
+          <el-form-item label="区块标题">
+            <el-input v-model="form.metrics.title" maxlength="40" show-word-limit />
           </el-form-item>
-          <el-form-item label="分组说明">
-            <el-input v-model="group.description" type="textarea" :rows="2" maxlength="200" show-word-limit />
-          </el-form-item>
-          <el-form-item label="内容类型">
-            <el-select v-model="group.contentType" style="width: 160px" @change="group.contentIds = []">
-              <el-option label="产品" value="PRODUCT" />
-              <el-option label="解决方案" value="SOLUTION" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="分组配图">
-            <div class="media">
-              <img v-if="group.imageMediaId" :src="thumb(group.imageMediaId)" alt="分组配图" />
-              <span v-else class="media__empty">可选</span>
-              <el-button size="small" @click="openPicker({ kind: 'group', index })">选择</el-button>
-              <el-button v-if="group.imageMediaId" size="small" link type="danger" @click="group.imageMediaId = undefined">清除</el-button>
-            </div>
-          </el-form-item>
-          <el-form-item label="组内内容">
-            <ContentPicker v-model="group.contentIds" :content-type="group.contentType" :max="6" />
-          </el-form-item>
-          <el-form-item label="更多链接">
-            <LinkEditor v-model="group.moreLink" :allow-none="true" />
+          <el-form-item label="区块副标题">
+            <el-input v-model="form.metrics.subtitle" maxlength="200" show-word-limit />
           </el-form-item>
         </el-form>
-      </div>
-    </el-card>
-
-    <!-- 客户案例 -->
-    <el-card id="block-cases" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>
-            <el-switch v-model="form.cases.enabled" class="switch" />
-            客户案例
-          </span>
+        <div v-for="(m, idx) in form.metrics.items" :key="m.key ?? `m-${idx}`" class="metric-row">
+          <el-input v-model="m.displayValue" maxlength="16" placeholder="数值(如 320)" style="width: 130px" />
+          <el-input v-model="m.unit" maxlength="8" placeholder="单位(万+)" style="width: 90px" />
+          <el-input v-model="m.label" maxlength="20" placeholder="指标名称" style="width: 180px" />
+          <el-input v-model="m.description" maxlength="80" placeholder="补充说明（选填）" style="flex: 1" />
+          <el-button link type="danger" @click="form.metrics.items.splice(idx, 1)">删除</el-button>
         </div>
-      </template>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="区块标题"><el-input v-model="form.cases.title" maxlength="40" /></el-form-item>
-        <el-form-item label="区块说明"><el-input v-model="form.cases.subtitle" maxlength="200" /></el-form-item>
-        <el-form-item label="推荐案例">
-          <ContentPicker v-model="form.cases.contentIds" content-type="CASE" :max="6" />
-        </el-form-item>
-      </el-form>
-      <p class="hint">最多 6 个，按所选顺序展示；「更多案例」固定指向 /cases。</p>
-    </el-card>
+        <el-button @click="addMetric">+ 添加企业指标</el-button>
+      </el-tab-pane>
 
-    <!-- 客户标识 -->
-    <el-card id="block-customers" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>
-            <el-switch v-model="form.customers.enabled" class="switch" />
-            客户标识
-          </span>
+      <!-- Tab 3: 产品与解决方案分组 -->
+      <el-tab-pane label="3. 产品与服务 (Services)" name="services">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.services.enabled" active-text="在前台启用该模块" />
         </div>
-      </template>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="区块标题"><el-input v-model="form.customers.title" maxlength="40" /></el-form-item>
-        <el-form-item label="区块说明"><el-input v-model="form.customers.subtitle" maxlength="200" /></el-form-item>
-        <el-form-item label="客户">
-          <ContentPicker v-model="form.customers.contentIds" content-type="CUSTOMER" :max="30" />
-        </el-form-item>
-      </el-form>
-      <p class="hint">最多 30 个，按所选顺序显示；有合法客户网址时才可点击。</p>
-    </el-card>
+        <el-form label-width="110px">
+          <el-form-item label="模块主标题">
+            <el-input v-model="form.services.title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.services.subtitle" maxlength="200" show-word-limit />
+          </el-form-item>
+        </el-form>
 
-    <!-- 新闻 -->
-    <el-card id="block-news" shadow="never" class="block">
-      <template #header>
-        <div class="block__head">
-          <span>
-            <el-switch v-model="form.news.enabled" class="switch" />
-            新闻动态
-          </span>
+        <div v-for="(grp, gIdx) in form.services.groups" :key="grp.key ?? `grp-${gIdx}`" class="block-card">
+          <div class="block-card__head">
+            <strong>服务分组 #{{ gIdx + 1 }}</strong>
+            <el-button link type="danger" @click="form.services.groups.splice(gIdx, 1)">删除分组</el-button>
+          </div>
+          <el-form label-width="110px">
+            <el-form-item label="分组标题" required>
+              <el-input v-model="grp.title" maxlength="30" show-word-limit />
+            </el-form-item>
+            <el-form-item label="分组说明">
+              <el-input v-model="grp.description" type="textarea" :rows="2" maxlength="200" show-word-limit />
+            </el-form-item>
+            <el-form-item label="分组配图">
+              <div class="media-pick-row">
+                <el-tag v-if="grp.imageMediaId" type="success">素材 ID: #{{ grp.imageMediaId }}</el-tag>
+                <span v-else class="muted">可选</span>
+                <el-button size="small" @click="openMedia('ALL', (m) => (grp.imageMediaId = Number(m.id)))">
+                  选择素材
+                </el-button>
+                <el-button v-if="grp.imageMediaId" size="small" link type="danger" @click="grp.imageMediaId = null">
+                  清除
+                </el-button>
+              </div>
+            </el-form-item>
+            <el-form-item label="关联类型">
+              <el-radio-group v-model="grp.contentType" @change="grp.contentIds = []">
+                <el-radio value="PRODUCT">产品 (PRODUCT)</el-radio>
+                <el-radio value="SOLUTION">解决方案 (SOLUTION)</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="选择推荐内容">
+              <ContentPicker v-model="grp.contentIds" :content-type="grp.contentType" :max="6" />
+            </el-form-item>
+            <el-form-item label="更多链接">
+              <LinkEditor v-model="grp.moreLink" :allow-consult="true" />
+            </el-form-item>
+          </el-form>
         </div>
-      </template>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="区块标题"><el-input v-model="form.news.title" maxlength="40" /></el-form-item>
-        <el-form-item label="区块说明"><el-input v-model="form.news.subtitle" maxlength="200" /></el-form-item>
-        <el-form-item label="取数模式">
-          <el-radio-group v-model="form.news.mode">
-            <el-radio value="SELECTED">手选（按所选顺序）</el-radio>
-            <el-radio value="LATEST">最新（按展示时间倒序）</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="显示条数">
-          <el-input-number v-model="form.news.limit" :min="1" :max="6" />
-        </el-form-item>
-        <el-form-item v-if="form.news.mode === 'SELECTED'" label="手选新闻">
-          <ContentPicker v-model="form.news.contentIds" content-type="NEWS" :max="6" />
-        </el-form-item>
-      </el-form>
-      <p class="hint">
-        手选模式按所选顺序取前 {{ form.news.limit }} 条，不足时不自动补位；最新模式忽略手选，按展示日期倒序。
-      </p>
-    </el-card>
+        <el-button @click="addServiceGroup">+ 添加服务分组（最多 3 组）</el-button>
+      </el-tab-pane>
 
-    <!-- 咨询区 -->
-    <el-card id="block-consultation" shadow="never" class="block">
-      <template #header>咨询区</template>
-      <el-form label-width="96px" size="small">
-        <el-form-item label="标题" required><el-input v-model="form.consultation.title" maxlength="40" /></el-form-item>
-        <el-form-item label="副标题"><el-input v-model="form.consultation.subtitle" maxlength="200" /></el-form-item>
-        <el-form-item label="按钮文案" required><el-input v-model="form.consultation.buttonText" maxlength="12" /></el-form-item>
-        <el-form-item label="按钮动作">
-          <LinkEditor v-model="form.consultation.link" :allow-none="false" :allow-consult="true" />
-        </el-form-item>
-      </el-form>
-      <p class="hint">只允许咨询动作或联系页；联系页表单关闭时，前台自动退到「联系我们」入口。</p>
-    </el-card>
+      <!-- Tab 4: 客户案例 -->
+      <el-tab-pane label="4. 客户案例 (Cases)" name="cases">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.cases.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="110px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.cases.title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.cases.subtitle" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="精选案例">
+            <ContentPicker v-model="form.cases.contentIds" content-type="CASE" :max="6" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
 
-    <MediaPicker v-model="pickerOpen" :selected-id="null" :kind="pickerKind" @select="onPick" />
+      <!-- Tab 5: 合作客户标识 -->
+      <el-tab-pane label="5. 客户标识墙 (Customers)" name="customers">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.customers.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="110px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.customers.title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.customers.subtitle" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="选择客户标识">
+            <ContentPicker v-model="form.customers.contentIds" content-type="CUSTOMER" :max="30" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <!-- Tab 6: 新闻动态 -->
+      <el-tab-pane label="6. 新闻动态 (News)" name="news">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.news.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="110px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.news.title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="展示模式">
+            <el-radio-group v-model="form.news.mode">
+              <el-radio value="LATEST">按最新发布日期自动取前 N 条 (LATEST)</el-radio>
+              <el-radio value="SELECTED">人工手选指定新闻 (SELECTED)</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="展示条数">
+            <el-input-number v-model="form.news.limit" :min="1" :max="6" />
+          </el-form-item>
+          <el-form-item v-if="form.news.mode === 'SELECTED'" label="手选新闻">
+            <ContentPicker v-model="form.news.contentIds" content-type="NEWS" :max="6" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <!-- Tab 7: 底部咨询区 -->
+      <el-tab-pane label="7. 底部咨询区 (CTA)" name="consultation">
+        <el-form label-width="110px">
+          <el-form-item label="主标题" required>
+            <el-input v-model="form.consultation.title" maxlength="40" show-word-limit />
+          </el-form-item>
+          <el-form-item label="副标题说明">
+            <el-input v-model="form.consultation.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="按钮文字" required>
+            <el-input v-model="form.consultation.buttonText" maxlength="12" style="width: 220px" />
+          </el-form-item>
+          <el-form-item label="按钮动作">
+            <LinkEditor v-model="form.consultation.link" :allow-consult="true" :allow-none="false" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+    </el-tabs>
+
+    <MediaPicker v-model="pickerOpen" :kind="pickerKind" @select="onMediaPicked" />
 
     <template #tips>
-      <p>首页引用的内容必须是已发布状态。内容改名后无需重发首页，前台始终显示最新发布版。</p>
-      <p>内容下线后首页会自动剔除该卡片；整组为空时该组隐藏。</p>
+      <p>首页模块摆放顺序与各区块内容均已与「实景交互预演工作台 (/preview/home)」双向实时打通。</p>
+      <p>关联的产品、方案、案例、新闻与客户标识自动读取目标内容的最新线上发布版本，无需在首页重复录入标题和封面。</p>
     </template>
   </ConfigPanel>
 </template>
 
 <style scoped>
+.studio-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border: 1px solid #c4b5fd;
+  flex-wrap: wrap;
+}
+
+.studio-banner__title {
+  font-size: 14.5px;
+  color: #3730a3;
+}
+
+.studio-banner__desc {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #4f46e5;
+}
+
 .err {
   margin-bottom: 12px;
 }
 
-.nav-shortcuts {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--a-border);
-  border-radius: 8px;
-  flex-wrap: wrap;
-}
-
-.shortcuts-label {
-  font-size: 13px;
+.tab-hint {
+  font-size: 12.5px;
   color: var(--a-text-muted);
+  margin: 0 0 14px;
 }
 
-.block {
-  margin-bottom: 16px;
-}
-
-.block__head {
+.tab-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.switch {
-  margin-right: 8px;
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.hint {
-  margin: 0 0 14px;
-  font-size: 12px;
-  color: var(--a-text-muted);
-  line-height: 1.7;
-}
-
-.sub {
-  border: 1px solid var(--a-border);
-  border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 14px;
-  background: #fbfcfe;
-}
-
-.sub__head {
+.order-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  background: #fafbfe;
 }
 
-.sub__index {
+.order-item__num {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #eeebff;
+  color: #5b4be8;
+  font-weight: 700;
   font-size: 13px;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.sub__actions {
-  margin-left: auto;
+.order-item__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.inline {
+.order-item__info strong {
+  font-size: 14px;
+}
+
+.order-item__info span {
+  font-size: 12px;
+  color: var(--a-text-muted);
+}
+
+.order-item__btns {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  padding: 6px 0;
 }
 
-.media {
+.block-card {
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+  background: #fafbfe;
+}
+
+.block-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.media-pick-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.media img,
-.media__preview {
-  width: 96px;
-  height: 54px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--a-border);
-  background: #0b0b10;
-}
-
-.media__empty {
+.muted {
   font-size: 12px;
   color: var(--a-text-muted);
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 </style>

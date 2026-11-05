@@ -2,11 +2,27 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ApiError } from '@/api/http'
-import { getLead, listLeads, updateLeadStatus, type LeadDetail, type LeadListItem, type LeadStatus } from '@/api/leads'
+import {
+  getLead,
+  listLeads,
+  updateLeadStatus,
+  type LeadDetail,
+  type LeadListItem,
+  type LeadStatus,
+} from '@/api/leads'
 
+const STATUS_COLUMNS: Array<{ key: LeadStatus; label: string; tag: 'danger' | 'warning' | 'success' | 'info' }> = [
+  { key: 'NEW', label: '待跟进 (NEW)', tag: 'danger' },
+  { key: 'CONTACTED', label: '已联系跟进 (CONTACTED)', tag: 'warning' },
+  { key: 'CLOSED', label: '已闭环成单 (CLOSED)', tag: 'success' },
+  { key: 'INVALID', label: '无效线索 (INVALID)', tag: 'info' },
+]
+
+const viewMode = ref<'table' | 'kanban'>('table')
 const loading = ref(false)
 const rows = ref<LeadListItem[]>([])
 const total = ref(0)
+
 const query = reactive({
   status: '',
   keyword: '',
@@ -15,120 +31,59 @@ const query = reactive({
   pageSize: 20,
 })
 
-const statusOptions: Array<{ value: LeadStatus | ''; label: string }> = [
-  { value: '', label: '全部状态' },
-  { value: 'NEW', label: '待处理' },
-  { value: 'CONTACTED', label: '已联系' },
-  { value: 'CLOSED', label: '已关闭' },
-  { value: 'INVALID', label: '无效' },
-]
-
-const sourceLabels: Record<string, string> = {
-  HOME_HERO: '首页首屏',
-  HOME_BOTTOM: '首页底部',
-  PRODUCT_DETAIL: '产品详情',
-  SOLUTION_DETAIL: '方案详情',
-  CASE_DETAIL: '案例详情',
-  CONTACT: '联系页',
-  FLOATING: '悬浮入口',
-  NAVIGATION: '导航',
-  FOOTER: '页脚',
-  OTHER_CTA: '其他入口',
-}
-
-const detailVisible = ref(false)
+const detailOpen = ref(false)
 const detailLoading = ref(false)
-const detail = ref<LeadDetail | null>(null)
-const handling = reactive({ status: '' as LeadStatus | '', note: '' })
-const submitting = ref(false)
+const currentLead = ref<LeadDetail | null>(null)
+const followForm = reactive<{ status: LeadStatus; note: string }>({
+  status: 'CONTACTED',
+  note: '',
+})
+const savingFollow = ref(false)
 
-const nextStatuses = computed<Array<{ value: LeadStatus; label: string }>>(() => {
-  switch (detail.value?.status) {
-    case 'NEW':
-      return [
-        { value: 'CONTACTED', label: '标记为已联系' },
-        { value: 'INVALID', label: '标记为无效' },
-      ]
-    case 'CONTACTED':
-      return [
-        { value: 'CLOSED', label: '关闭线索' },
-        { value: 'INVALID', label: '标记为无效' },
-      ]
-    case 'CLOSED':
-    case 'INVALID':
-      return [{ value: 'CONTACTED', label: '重新跟进' }]
-    default:
-      return []
+const kanbanGroups = computed(() => {
+  const map: Record<LeadStatus, LeadListItem[]> = {
+    NEW: [],
+    CONTACTED: [],
+    CLOSED: [],
+    INVALID: [],
   }
+  for (const r of rows.value) {
+    if (map[r.status]) map[r.status].push(r)
+  }
+  return map
 })
 
-const noteRequired = computed(() =>
-  detail.value ? detail.value.status === 'CLOSED' || detail.value.status === 'INVALID' : false,
-)
+function isOverdueSla(row: LeadListItem): boolean {
+  if (row.status !== 'NEW' || !row.createdAt) return false
+  const created = new Date(row.createdAt).getTime()
+  if (Number.isNaN(created)) return false
+  return Date.now() - created > 24 * 3600 * 1000
+}
+
+function formatTime(value: string | null | undefined) {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
 
 async function load() {
   loading.value = true
   try {
-    const params: Parameters<typeof listLeads>[0] = {
+    const res = await listLeads({
       status: query.status || undefined,
       keyword: query.keyword.trim() || undefined,
+      from: query.range[0] || undefined,
+      to: query.range[1] || undefined,
       page: query.page,
       pageSize: query.pageSize,
-    }
-    if (query.range.length === 2) {
-      params.from = query.range[0]
-      params.to = query.range[1]
-    }
-    const data = await listLeads(params)
-    rows.value = data.items
-    total.value = data.total
+    })
+    rows.value = res.items
+    total.value = res.total
   } catch (error) {
-    ElMessage.error(error instanceof ApiError ? error.message : '咨询列表加载失败')
+    ElMessage.error(error instanceof ApiError ? error.message : '咨询线索加载失败')
   } finally {
     loading.value = false
-  }
-}
-
-async function openDetail(row: LeadListItem) {
-  detailVisible.value = true
-  detailLoading.value = true
-  detail.value = null
-  handling.note = ''
-  try {
-    const data = await getLead(row.id)
-    detail.value = data
-    handling.status = nextStatuses.value[0]?.value ?? ''
-  } catch (error) {
-    ElMessage.error(error instanceof ApiError ? error.message : '咨询详情加载失败')
-    detailVisible.value = false
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-async function submitStatus() {
-  if (!detail.value || !handling.status) {
-    ElMessage.warning('请选择要变更的状态')
-    return
-  }
-  if (noteRequired.value && !handling.note.trim()) {
-    ElMessage.warning('重新跟进必须填写原因')
-    return
-  }
-  submitting.value = true
-  try {
-    await updateLeadStatus(detail.value.id, {
-      status: handling.status,
-      note: handling.note.trim(),
-      expectedLockVersion: detail.value.lockVersion,
-    })
-    ElMessage.success('处理结果已保存')
-    detailVisible.value = false
-    await load()
-  } catch (error) {
-    ElMessage.error(error instanceof ApiError ? error.message : '处理失败，请重试')
-  } finally {
-    submitting.value = false
   }
 }
 
@@ -140,66 +95,79 @@ function resetQuery() {
   load()
 }
 
-function exportCsv() {
-  if (rows.value.length === 0) {
-    ElMessage.info('当前列表暂无数据可导出')
+async function openLeadDetail(row: LeadListItem) {
+  detailOpen.value = true
+  detailLoading.value = true
+  try {
+    const detail = await getLead(row.id)
+    currentLead.value = detail
+    followForm.status = detail.status === 'NEW' ? 'CONTACTED' : detail.status
+    followForm.note = detail.lastNote ?? ''
+  } catch (error) {
+    ElMessage.error(error instanceof ApiError ? error.message : '详情加载失败')
+    detailOpen.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function saveFollowUp() {
+  if (!currentLead.value) return
+  if (
+    (currentLead.value.status === 'CLOSED' || currentLead.value.status === 'INVALID') &&
+    followForm.status === 'CONTACTED' &&
+    !followForm.note.trim()
+  ) {
+    ElMessage.warning('将已关闭或无效线索重新激活为跟进中时，必须填写跟进备注说明原因')
     return
   }
-  const headers = ['回执号', '姓名', '公司', '手机号', '来源位置', '关联内容', '状态', '处理人', '提交时间']
-  const csvRows = [headers.join(',')]
-
-  for (const row of rows.value) {
-    const line = [
-      `"${row.receiptNo ?? ''}"`,
-      `"${(row.name ?? '').replace(/"/g, '""')}"`,
-      `"${(row.companyName ?? '').replace(/"/g, '""')}"`,
-      `"${row.phoneMasked ?? ''}"`,
-      `"${sourceLabel(row.sourcePosition)}"`,
-      `"${(row.contentTitle ?? '').replace(/"/g, '""')}"`,
-      `"${statusLabel(row.status)}"`,
-      `"${row.handledByName ?? ''}"`,
-      `"${formatTime(row.createdAt)}"`,
-    ]
-    csvRows.push(line.join(','))
+  savingFollow.value = true
+  try {
+    await updateLeadStatus(currentLead.value.id, {
+      status: followForm.status,
+      note: followForm.note.trim(),
+      expectedLockVersion: currentLead.value.lockVersion,
+    })
+    ElMessage.success('线索状态与跟进记录已更新')
+    detailOpen.value = false
+    await load()
+  } catch (error) {
+    ElMessage.error(error instanceof ApiError ? error.message : '保存失败')
+  } finally {
+    savingFollow.value = false
   }
+}
 
-  const blob = new Blob(['\uFEFF' + csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
+function exportLeadsCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning('当前列表没有可导出的线索')
+    return
+  }
+  const headers = ['单号', '姓名', '公司名称', '脱敏电话', '来源位置', '关联内容', '状态', '处理人', '提交时间']
+  const lines = [
+    headers.join(','),
+    ...rows.value.map((r) =>
+      [
+        r.receiptNo,
+        `"${(r.name || '').replace(/"/g, '""')}"`,
+        `"${(r.companyName || '').replace(/"/g, '""')}"`,
+        r.phoneMasked,
+        r.sourcePosition,
+        `"${(r.contentTitle || '-').replace(/"/g, '""')}"`,
+        r.status,
+        r.handledByName || '-',
+        formatTime(r.createdAt),
+      ].join(','),
+    ),
+  ]
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `咨询线索_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `leads-p${query.page}.csv`
   a.click()
   URL.revokeObjectURL(url)
-  ElMessage.success('已导出当前咨询线索数据')
-}
-
-async function copyPhone(phone: string) {
-  try {
-    await navigator.clipboard.writeText(phone)
-    ElMessage.success('手机号已复制')
-  } catch {
-    ElMessage.warning(`复制失败：${phone}`)
-  }
-}
-
-function statusLabel(status: string) {
-  return statusOptions.find((item) => item.value === status)?.label ?? status
-}
-
-function statusTagType(status: string) {
-  if (status === 'NEW') return 'warning'
-  if (status === 'CONTACTED') return 'primary'
-  if (status === 'CLOSED') return 'info'
-  return 'danger'
-}
-
-function sourceLabel(status: string) {
-  return sourceLabels[status] ?? status
-}
-
-function formatTime(value?: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+  ElMessage.success('已导出当前页脱敏线索列表 CSV')
 }
 
 onMounted(load)
@@ -209,131 +177,192 @@ onMounted(load)
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>咨询管理</span>
-        <div class="head-actions">
-          <el-select v-model="query.status" style="width: 130px">
-            <el-option v-for="item in statusOptions" :key="item.value" :value="item.value" :label="item.label" />
-          </el-select>
-          <el-input
-            v-model="query.keyword"
-            placeholder="姓名或公司关键字"
-            clearable
-            style="width: 200px"
-            @keyup.enter="query.page = 1; load()"
-          />
-          <el-date-picker
-            v-model="query.range"
-            type="daterange"
-            value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            style="width: 250px"
-          />
-          <el-button type="primary" @click="query.page = 1; load()">查询</el-button>
-          <el-button @click="resetQuery">重置</el-button>
-          <el-button type="success" plain @click="exportCsv">导出 CSV</el-button>
+        <div>
+          <span class="head__title">客户咨询线索管理</span>
+          <span class="head__sub">列表默认展示末四位脱敏手机号；点击「查看并跟进」触发审计并解密完整号码</span>
+        </div>
+        <div class="head__actions">
+          <el-radio-group v-model="viewMode" size="small">
+            <el-radio-button value="table">📋 表格视图</el-radio-button>
+            <el-radio-button value="kanban">🗂️ 看板视图 (Kanban)</el-radio-button>
+          </el-radio-group>
+          <el-button size="small" plain @click="exportLeadsCsv">导出当前页 CSV</el-button>
+          <el-button size="small" @click="load">刷新</el-button>
         </div>
       </div>
     </template>
 
-    <el-table v-loading="loading" :data="rows" border>
-      <el-table-column label="提交时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-      </el-table-column>
-      <el-table-column prop="name" label="姓名" width="100" />
-      <el-table-column prop="companyName" label="公司" min-width="160" show-overflow-tooltip />
-      <el-table-column prop="phoneMasked" label="手机" width="120" />
-      <el-table-column label="来源" width="120">
-        <template #default="{ row }">{{ sourceLabel(row.sourcePosition) }}</template>
-      </el-table-column>
-      <el-table-column label="关联内容" min-width="140">
-        <template #default="{ row }">{{ row.contentTitle || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
+    <div class="filters">
+      <el-select
+        v-model="query.status"
+        placeholder="全部状态"
+        clearable
+        style="width: 160px"
+        @change="query.page = 1; load()"
+      >
+        <el-option v-for="col in STATUS_COLUMNS" :key="col.key" :label="col.label" :value="col.key" />
+      </el-select>
+      <el-input
+        v-model="query.keyword"
+        placeholder="搜索姓名 / 公司名称..."
+        clearable
+        style="width: 220px"
+        @keyup.enter="query.page = 1; load()"
+      />
+      <el-date-picker
+        v-model="query.range"
+        type="daterange"
+        value-format="YYYY-MM-DD"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        style="width: 250px"
+      />
+      <el-button type="primary" @click="query.page = 1; load()">查询</el-button>
+      <el-button @click="resetQuery">重置</el-button>
+    </div>
+
+    <!-- 模式 A：表格视图 -->
+    <el-table v-if="viewMode === 'table'" v-loading="loading" :data="rows" border stripe>
+      <el-table-column prop="receiptNo" label="回执单号" width="135" />
+      <el-table-column label="客户姓名" width="140">
         <template #default="{ row }">
-          <el-tag size="small" :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+          <strong>{{ row.name }}</strong>
+          <el-tag v-if="isOverdueSla(row)" size="small" type="danger" style="margin-left: 6px">
+            超时未跟进
+          </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="处理人" width="110">
-        <template #default="{ row }">{{ row.handledByName || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="90" fixed="right">
+      <el-table-column prop="companyName" label="公司名称" min-width="180" />
+      <el-table-column prop="phoneMasked" label="联系电话(脱敏)" width="135" />
+      <el-table-column label="来源位置 / 关联内容" min-width="180">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openDetail(row)">查看</el-button>
+          <span>{{ row.sourcePosition }}</span>
+          <span v-if="row.contentTitle" class="sub-txt"> · {{ row.contentTitle }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="120" align="center">
+        <template #default="{ row }">
+          <el-tag
+            size="small"
+            :type="
+              row.status === 'NEW'
+                ? 'danger'
+                : row.status === 'CONTACTED'
+                ? 'warning'
+                : row.status === 'CLOSED'
+                ? 'success'
+                : 'info'
+            "
+          >
+            {{ row.status }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="handledByName" label="跟进人" width="110">
+        <template #default="{ row }">{{ row.handledByName || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="提交时间" width="168">
+        <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="130" fixed="right" align="center">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openLeadDetail(row)">查看并跟进</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      class="pager"
-      :total="total"
-      v-model:page-size="query.pageSize"
-      v-model:current-page="query.page"
-      :page-sizes="[10, 20, 50, 100]"
-      layout="total, sizes, prev, pager, next, jumper"
-      @current-change="load"
-      @size-change="query.page = 1; load()"
-    />
-  </el-card>
-
-  <el-dialog v-model="detailVisible" title="咨询详情" width="720px" destroy-on-close>
-    <div v-loading="detailLoading">
-      <div v-if="detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="回执号">{{ detail.receiptNo }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
-            <el-tag size="small" :type="statusTagType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="姓名">{{ detail.name }}</el-descriptions-item>
-          <el-descriptions-item label="公司">{{ detail.companyName }}</el-descriptions-item>
-          <el-descriptions-item label="手机号">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span>{{ detail.phone }}</span>
-              <el-button size="small" link type="primary" @click="copyPhone(detail.phone)">复制</el-button>
-            </div>
-          </el-descriptions-item>
-          <el-descriptions-item label="提交时间">{{ formatTime(detail.createdAt) }}</el-descriptions-item>
-          <el-descriptions-item label="来源位置">{{ sourceLabel(detail.sourcePosition) }}</el-descriptions-item>
-          <el-descriptions-item label="来源路径">{{ detail.sourcePath }}</el-descriptions-item>
-          <el-descriptions-item label="关联内容">{{ detail.contentTitle || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="隐私同意">
-            版本 {{ detail.consentVersion }} · {{ formatTime(detail.consentAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="处理人">{{ detail.handledByName || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="处理时间">{{ formatTime(detail.handledAt) }}</el-descriptions-item>
-          <el-descriptions-item label="最近备注" :span="2">{{ detail.lastNote || '—' }}</el-descriptions-item>
-        </el-descriptions>
-
-        <div class="demand">
-          <p class="demand__label">需求描述</p>
-          <p class="demand__text">{{ detail.demand }}</p>
+    <!-- 模式 B：Kanban 看板视图 -->
+    <div v-else v-loading="loading" class="kanban">
+      <div v-for="col in STATUS_COLUMNS" :key="col.key" class="kanban__col">
+        <div class="kanban__head">
+          <strong>{{ col.label }}</strong>
+          <el-tag size="small" :type="col.tag">{{ kanbanGroups[col.key].length }}</el-tag>
         </div>
-
-        <div class="handle">
-          <p class="handle__title">处理</p>
-          <div class="handle__row">
-            <el-select v-model="handling.status" placeholder="选择目标状态" style="width: 200px">
-              <el-option
-                v-for="item in nextStatuses"
-                :key="item.value"
-                :value="item.value"
-                :label="item.label"
-              />
-            </el-select>
-            <el-input
-              v-model="handling.note"
-              type="textarea"
-              :rows="2"
-              maxlength="2000"
-              show-word-limit
-              :placeholder="noteRequired ? '重新跟进必须填写原因' : '处理备注（可选）'"
-            />
+        <div class="kanban__list">
+          <div
+            v-for="item in kanbanGroups[col.key]"
+            :key="item.id"
+            class="kanban-card"
+            :class="{ 'kanban-card--overdue': isOverdueSla(item) }"
+            @click="openLeadDetail(item)"
+          >
+            <div class="kanban-card__top">
+              <strong>{{ item.name }}</strong>
+              <span class="kanban-card__phone">{{ item.phoneMasked }}</span>
+            </div>
+            <p class="kanban-card__company">{{ item.companyName }}</p>
+            <div class="kanban-card__foot">
+              <span>{{ item.sourcePosition }}</span>
+              <span>{{ formatTime(item.createdAt) }}</span>
+            </div>
           </div>
-          <el-button type="primary" :loading="submitting" @click="submitStatus">保存处理结果</el-button>
+          <p v-if="kanbanGroups[col.key].length === 0" class="kanban__empty">暂无该状态线索</p>
         </div>
       </div>
     </div>
-  </el-dialog>
+
+    <el-pagination
+      class="pager"
+      layout="total, prev, pager, next"
+      :total="total"
+      :page-size="query.pageSize"
+      :current-page="query.page"
+      @current-change="(p: number) => { query.page = p; load() }"
+    />
+
+    <!-- 线索详情与状态流转弹窗 -->
+    <el-dialog v-model="detailOpen" title="客户咨询详情与跟进记录" width="620px">
+      <div v-loading="detailLoading">
+        <el-descriptions v-if="currentLead" :column="2" border>
+          <el-descriptions-item label="回执单号">{{ currentLead.receiptNo }}</el-descriptions-item>
+          <el-descriptions-item label="当前状态">
+            <el-tag size="small">{{ currentLead.status }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="客户姓名">{{ currentLead.name }}</el-descriptions-item>
+          <el-descriptions-item label="完整联系电话">
+            <strong class="phone-full">{{ currentLead.phone }}</strong>
+          </el-descriptions-item>
+          <el-descriptions-item label="公司名称" :span="2">{{ currentLead.companyName }}</el-descriptions-item>
+          <el-descriptions-item label="来源路径">{{ currentLead.sourcePath }}</el-descriptions-item>
+          <el-descriptions-item label="来源位置">{{ currentLead.sourcePosition }}</el-descriptions-item>
+          <el-descriptions-item label="关联内容" :span="2">
+            {{ currentLead.contentTitle ? `${currentLead.contentType} #${currentLead.contentId} - ${currentLead.contentTitle}` : '无特定关联' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="隐私协议版本">v{{ currentLead.consentVersion }}</el-descriptions-item>
+          <el-descriptions-item label="提交时间">{{ formatTime(currentLead.createdAt) }}</el-descriptions-item>
+          <el-descriptions-item label="咨询需求描述" :span="2">
+            <div class="demand-box">{{ currentLead.demand || '-' }}</div>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <el-form v-if="currentLead" label-position="top" class="follow-form">
+          <el-form-item label="流转状态">
+            <el-radio-group v-model="followForm.status">
+              <el-radio value="CONTACTED">已联系跟进 (CONTACTED)</el-radio>
+              <el-radio value="CLOSED">已闭环完成 (CLOSED)</el-radio>
+              <el-radio value="INVALID">标记无效 (INVALID)</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="内部跟进备注 (最多 2000 字)">
+            <el-input
+              v-model="followForm.note"
+              type="textarea"
+              :rows="3"
+              maxlength="2000"
+              show-word-limit
+              placeholder="记录沟通情况、客户预算或下一步安排..."
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <template #footer>
+        <el-button @click="detailOpen = false">关闭</el-button>
+        <el-button type="primary" :loading="savingFollow" @click="saveFollowUp">保存跟进结果</el-button>
+      </template>
+    </el-dialog>
+  </el-card>
 </template>
 
 <style scoped>
@@ -345,65 +374,140 @@ onMounted(load)
   flex-wrap: wrap;
 }
 
-.head-actions {
+.head__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.head__sub {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--a-text-muted);
+}
+
+.head__actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.sub-txt {
+  color: var(--a-text-muted);
+  font-size: 12px;
+}
+
+/* 看板视图 */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kanban__col {
+  background: #f6f8fb;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+
+.kanban__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+}
+
+.kanban__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kanban-card {
+  background: #ffffff;
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.kanban-card--overdue {
+  border-left: 3px solid #ef4444;
+}
+
+.kanban-card__top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+}
+
+.kanban-card__phone {
+  font-size: 12px;
+  color: #5b4be8;
+  font-family: monospace;
+}
+
+.kanban-card__company {
+  margin: 6px 0;
+  font-size: 12.5px;
+  color: var(--a-text-muted);
+}
+
+.kanban-card__foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.kanban__empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--a-text-muted);
+  padding: 32px 0;
+}
+
+.phone-full {
+  color: #5b4be8;
+  font-size: 15px;
+  font-family: monospace;
+}
+
+.demand-box {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8f9fc;
+  padding: 10px 12px;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+
+.follow-form {
+  margin-top: 16px;
 }
 
 .pager {
   margin-top: 14px;
   justify-content: flex-end;
-}
-
-.demand {
-  margin-top: 16px;
-  padding: 14px 16px;
-  background: var(--a-surface, #f7f8fa);
-  border-radius: 8px;
-}
-
-.demand__label {
-  font-size: 12px;
-  color: var(--a-text-muted);
-  margin-bottom: 6px;
-}
-
-.demand__text {
-  font-size: 14px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
-
-.handle {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--a-border, #e5e7eb);
-}
-
-.handle__title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 12px;
-}
-
-.handle__row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.handle__row :deep(.el-textarea) {
-  flex: 1;
-}
-
-@media (max-width: 720px) {
-  .handle__row {
-    flex-direction: column;
-  }
-  .handle__row :deep(.el-select) {
-    width: 100% !important;
-  }
 }
 </style>

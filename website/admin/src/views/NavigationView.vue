@@ -14,7 +14,7 @@ interface NavNode {
   children?: NavNode[]
 }
 
-export interface MegaSubItem {
+interface MegaSubItem {
   label: string
   path: string
   tag?: string
@@ -23,28 +23,36 @@ export interface MegaSubItem {
   videoTitle?: string
 }
 
-export interface MegaColumn {
+interface MegaColumn {
   title: string
   items: MegaSubItem[]
-}
-
-export interface MegaCta {
-  text: string
-  linkText: string
 }
 
 interface NavigationDraft {
   items: NavNode[]
   megaColumns?: MegaColumn[]
-  megaCta?: MegaCta
+  megaCta?: { text: string; linkText: string }
 }
 
-const defaultMegaColumns: MegaColumn[] = [
+const activeTab = ref<'main' | 'mega'>('main')
+
+const { view, loading, saving, publishing, loadError, load, save, publish } =
+  useConfig<NavigationDraft & Record<string, unknown>>('NAVIGATION')
+
+const form = reactive<{
+  items: NavNode[]
+  megaColumns: MegaColumn[]
+  megaCta: { text: string; linkText: string }
+}>({
+  items: [],
+  megaColumns: [],
+  megaCta: { text: '需要专业场景建议？', linkText: '联系技术专家' },
+})
+
+const DEFAULT_MEGA_COLUMNS: MegaColumn[] = [
   {
     title: 'AI产品',
-    items: [
-      { label: '紫宝盒', path: '/products/1', tag: '首款', isVideo: false }
-    ]
+    items: [{ label: '紫宝盒', path: '/products/1', tag: '首款', isVideo: false }],
   },
   {
     title: 'IoT服务',
@@ -52,23 +60,23 @@ const defaultMegaColumns: MegaColumn[] = [
       { label: '安全管家', path: '/products?category=安全', isVideo: false },
       { label: '冷链管家', path: '/products?category=冷链', isVideo: false },
       { label: '流向管家', path: '/products?category=流向', isVideo: false },
-      { label: '追货管家', path: '/products?category=追货', isVideo: false }
-    ]
+      { label: '追货管家', path: '/products?category=追货', isVideo: false },
+    ],
   },
   {
     title: '交易服务',
     items: [
       { label: '财运通', path: '/solutions?category=交易', isVideo: false },
-      { label: '数字能源', path: '/solutions?category=能源', isVideo: false }
-    ]
+      { label: '数字能源', path: '/solutions?category=能源', isVideo: false },
+    ],
   },
   {
     title: '解决方案',
     items: [
       { label: '大宗物流数字化', path: '/solutions/1', isVideo: false },
       { label: '连锁零售数字化', path: '/solutions/2', isVideo: false },
-      { label: '饲料防偷盗 AI 治理', path: '/solutions/3', isVideo: false }
-    ]
+      { label: '饲料防偷盗 AI 治理', path: '/solutions/3', isVideo: false },
+    ],
   },
   {
     title: '产品演示',
@@ -78,26 +86,11 @@ const defaultMegaColumns: MegaColumn[] = [
         path: '',
         isVideo: true,
         videoTitle: '紫宝盒 | 物流行业首款全场景AI工具产品演示',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-      }
-    ]
-  }
+        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      },
+    ],
+  },
 ]
-
-const { view, loading, saving, publishing, loadError, load, save, publish } =
-  useConfig<NavigationDraft & Record<string, unknown>>('NAVIGATION')
-
-const activeTab = ref('top')
-
-const form = reactive<{
-  items: NavNode[]
-  megaColumns: MegaColumn[]
-  megaCta: MegaCta
-}>({
-  items: [],
-  megaColumns: [],
-  megaCta: { text: '需要专业场景建议？', linkText: '联系技术专家' }
-})
 
 function normalize(node: Partial<NavNode>): NavNode {
   return {
@@ -122,30 +115,33 @@ function fill() {
   if (form.items.length === 0) {
     form.items = [
       normalize({ label: '首页', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: 10 }),
-      normalize({ label: '产品', link: { type: 'PAGE', pageCode: 'PRODUCTS' }, sortOrder: 20 }),
-      normalize({ label: '解决方案', link: { type: 'PAGE', pageCode: 'SOLUTIONS' }, sortOrder: 30 }),
-      normalize({ label: '客户案例', link: { type: 'PAGE', pageCode: 'CASES' }, sortOrder: 40 }),
-      normalize({ label: '新闻', link: { type: 'PAGE', pageCode: 'NEWS' }, sortOrder: 50 }),
-      normalize({ label: '关于我们', link: { type: 'PAGE', pageCode: 'ABOUT' }, sortOrder: 60 }),
-      normalize({ label: '联系我们', link: { type: 'PAGE', pageCode: 'CONTACT' }, sortOrder: 70 }),
+      normalize({ label: '产品与方案', link: { type: 'PAGE', pageCode: 'PRODUCTS' }, sortOrder: 20 }),
+      normalize({ label: '客户案例', link: { type: 'PAGE', pageCode: 'CASES' }, sortOrder: 30 }),
+      normalize({ label: '新闻动态', link: { type: 'PAGE', pageCode: 'NEWS' }, sortOrder: 40 }),
+      normalize({ label: '关于我们', link: { type: 'PAGE', pageCode: 'ABOUT' }, sortOrder: 50 }),
     ]
   }
-
-  // 大菜单回填
-  if (draft?.megaColumns && draft.megaColumns.length > 0) {
-    form.megaColumns = JSON.parse(JSON.stringify(draft.megaColumns))
-  } else {
-    form.megaColumns = JSON.parse(JSON.stringify(defaultMegaColumns))
+  form.megaColumns = (draft?.megaColumns ?? []).map((col) => ({
+    title: col.title ?? '',
+    items: (col.items ?? []).map((sub) => ({
+      label: sub.label ?? '',
+      path: sub.path ?? '',
+      tag: sub.tag ?? '',
+      isVideo: Boolean(sub.isVideo),
+      videoUrl: sub.videoUrl ?? '',
+      videoTitle: sub.videoTitle ?? '',
+    })),
+  }))
+  form.megaCta = {
+    text: draft?.megaCta?.text ?? '需要专业场景建议？',
+    linkText: draft?.megaCta?.linkText ?? '联系技术专家',
   }
+}
 
-  if (draft?.megaCta) {
-    form.megaCta = {
-      text: draft.megaCta.text ?? '需要专业场景建议？',
-      linkText: draft.megaCta.linkText ?? '联系技术专家'
-    }
-  } else {
-    form.megaCta = { text: '需要专业场景建议？', linkText: '联系技术专家' }
-  }
+function applyDefaultMega() {
+  form.megaColumns = JSON.parse(JSON.stringify(DEFAULT_MEGA_COLUMNS))
+  form.megaCta = { text: '需要专业场景建议？', linkText: '联系技术专家' }
+  ElMessage.success('已载入 5 列业务全景菜单预设，保存草稿后生效')
 }
 
 function addTop() {
@@ -153,7 +149,9 @@ function addTop() {
     ElMessage.warning('顶级导航最多 8 项')
     return
   }
-  form.items.push(normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (form.items.length + 1) * 10 }))
+  form.items.push(
+    normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (form.items.length + 1) * 10 }),
+  )
 }
 
 function addChild(item: NavNode) {
@@ -162,7 +160,9 @@ function addChild(item: NavNode) {
     ElMessage.warning('子菜单最多 10 项')
     return
   }
-  item.children.push(normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (item.children.length + 1) * 10 }))
+  item.children.push(
+    normalize({ label: '', link: { type: 'PAGE', pageCode: 'HOME' }, sortOrder: (item.children.length + 1) * 10 }),
+  )
 }
 
 function move<T extends { sortOrder: number }>(list: T[], index: number, delta: number) {
@@ -175,79 +175,68 @@ function move<T extends { sortOrder: number }>(list: T[], index: number, delta: 
   list.splice(target, 0, item)
 }
 
-// ----------------- 大菜单操作函数 -----------------
-function addCol() {
-  if (form.megaColumns.length >= 6) {
-    ElMessage.warning('大菜单最多 6 列')
+function addMegaCol() {
+  if (form.megaColumns.length >= 8) {
+    ElMessage.warning('全景大菜单最多 8 列')
     return
   }
   form.megaColumns.push({
-    title: '新分类',
-    items: [{ label: '新产品', path: '/products', tag: '', isVideo: false }]
+    title: '新业务列',
+    items: [{ label: '示例产品', path: '/products', tag: '', isVideo: false }],
   })
 }
 
-function removeCol(index: number) {
-  form.megaColumns.splice(index, 1)
-}
-
-function moveCol(index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= form.megaColumns.length) return
-  const [col] = form.megaColumns.splice(index, 1)
-  form.megaColumns.splice(target, 0, col)
-}
-
-function addItem(col: MegaColumn) {
-  if (col.items.length >= 12) {
-    ElMessage.warning('每列最多 12 个选项')
+function addMegaItem(col: MegaColumn) {
+  if (col.items.length >= 15) {
+    ElMessage.warning('每列最多 15 个项目')
     return
   }
-  col.items.push({
-    label: '',
-    path: '/products',
-    tag: '',
-    isVideo: false
-  })
+  col.items.push({ label: '', path: '/products', tag: '', isVideo: false })
 }
 
-function moveItem(list: MegaSubItem[], index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= list.length) return
-  const [item] = list.splice(index, 1)
-  list.splice(target, 0, item)
-}
-
-function resetToDefaultMega() {
-  form.megaColumns = JSON.parse(JSON.stringify(defaultMegaColumns))
-  form.megaCta = { text: '需要专业场景建议？', linkText: '联系技术专家' }
-  ElMessage.success('已重置为系统默认 5 列全景菜单配置')
-}
-
-async function onSave() {
-  if (form.items.some((item) => !item.label.trim())) {
-    ElMessage.warning('顶级导航名称不能为空')
-    return
-  }
-  for (const col of form.megaColumns) {
-    if (!col.title.trim()) {
-      ElMessage.warning('大菜单列标题不能为空')
-      return
+function validateBeforeSave(): boolean {
+  for (let i = 0; i < form.items.length; i++) {
+    const item = form.items[i]
+    if (!item.label.trim()) {
+      ElMessage.warning(`第 ${i + 1} 个顶级导航名称不能为空`)
+      return false
     }
-    for (const sub of col.items) {
-      if (!sub.label.trim()) {
-        ElMessage.warning(`列「${col.title}」中有未填写的选项名称`)
-        return
+    for (let j = 0; j < (item.children?.length ?? 0); j++) {
+      const child = item.children![j]
+      if (!child.label.trim()) {
+        ElMessage.warning(`导航「${item.label}」的第 ${j + 1} 个子项名称不能为空`)
+        return false
+      }
+      if (!child.link || child.link.type === 'NONE') {
+        ElMessage.warning(`子菜单「${child.label}」必须配置有效跳转链接`)
+        return false
       }
     }
   }
-  if (await save({
+  for (let c = 0; c < form.megaColumns.length; c++) {
+    const col = form.megaColumns[c]
+    if (!col.title.trim()) {
+      ElMessage.warning(`全景菜单第 ${c + 1} 列标题不能为空`)
+      return false
+    }
+    for (let k = 0; k < col.items.length; k++) {
+      if (!col.items[k].label.trim()) {
+        ElMessage.warning(`全景菜单「${col.title}」中第 ${k + 1} 项名称不能为空`)
+        return false
+      }
+    }
+  }
+  return true
+}
+
+async function onSave() {
+  if (!validateBeforeSave()) return
+  const payload: NavigationDraft & Record<string, unknown> = {
     items: form.items,
     megaColumns: form.megaColumns,
-    megaCta: form.megaCta
-  } as NavigationDraft & Record<string, unknown>)) {
-    fill()
+    megaCta: form.megaCta,
   }
+  if (await save(payload)) fill()
 }
 
 async function onPublish() {
@@ -262,7 +251,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="导航与产品下拉菜单"
+    title="导航与全景大菜单管理"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -275,14 +264,14 @@ onMounted(async () => {
   >
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
 
-    <el-tabs v-model="activeTab" class="nav-tabs" type="border-card">
-      <!-- Tab 1: 顶部主导航 -->
-      <el-tab-pane label="顶部主导航设置" name="top">
+    <el-tabs v-model="activeTab">
+      <!-- Tab 1: 常规两级导航树 -->
+      <el-tab-pane label="1. 顶部主导航菜单 (items)" name="main">
         <el-alert
           type="info"
           :closable="false"
           class="err"
-          title="设置官网顶部主导航条（最多 8 项，每项最多 10 个子项）。点击保存并发布后在前台生效。"
+          title="最多两级，顶层最多 8 项、每项最多 10 个子项。有子项的父节点可以设为「无链接」；叶子节点必须有有效链接才能发布。"
         />
 
         <div v-for="(item, index) in form.items" :key="item.key ?? `top-${index}`" class="node">
@@ -300,7 +289,7 @@ onMounted(async () => {
 
           <div class="node__link">
             <span class="label">链接</span>
-            <LinkEditor v-model="item.link" :allow-none="true" />
+            <LinkEditor v-model="item.link" :allow-none="true" :allow-consult="true" />
             <span v-if="item.children?.length" class="hint">已有子项时，这里可设为「无链接」，前台作为展开父节点</span>
           </div>
 
@@ -308,7 +297,7 @@ onMounted(async () => {
             <div v-for="(child, childIndex) in item.children" :key="child.key ?? `child-${index}-${childIndex}`" class="child">
               <el-switch v-model="child.enabled" />
               <el-input v-model="child.label" maxlength="20" placeholder="子项名称" style="width: 150px" />
-              <LinkEditor v-model="child.link" :allow-none="false" />
+              <LinkEditor v-model="child.link" :allow-none="false" :allow-consult="true" />
               <el-button link :disabled="childIndex === 0" @click="move(item.children!, childIndex, -1)">上移</el-button>
               <el-button link :disabled="childIndex === (item.children?.length ?? 0) - 1" @click="move(item.children!, childIndex, 1)">下移</el-button>
               <el-button link type="danger" @click="item.children!.splice(childIndex, 1)">删除</el-button>
@@ -316,78 +305,64 @@ onMounted(async () => {
           </div>
         </div>
 
-        <el-button class="add" @click="addTop">+ 添加导航项</el-button>
+        <el-button class="add" @click="addTop">+ 添加顶级导航项</el-button>
       </el-tab-pane>
 
-      <!-- Tab 2: 产品与解决方案下拉大菜单 -->
-      <el-tab-pane label="产品/方案 5列全景下拉大菜单" name="mega">
-        <el-alert
-          type="success"
-          :closable="false"
-          class="err"
-          title="这里专门控制鼠标悬停在顶部「产品」或「解决方案」时展开的 5 列业务全景下拉菜单。您可以自由修改每一列的标题、包含的产品/服务选项、红底徽标（如“首款”）、跳转路径以及演示视频。"
-        />
+      <!-- Tab 2: 5列业务全景下拉大菜单 (megaColumns + megaCta) -->
+      <el-tab-pane label="2. 五列业务全景下拉菜单 (megaColumns)" name="mega">
+        <div class="mega-toolbar">
+          <p class="hint">
+            当前台导航项名称包含「产品」或「方案」且展开时，将自动渲染此五列业务全景大菜单（支持角标与视频弹窗演示）。
+          </p>
+          <el-button size="small" type="primary" plain @click="applyDefaultMega">
+            ✨ 一键载入默认五列全景模板
+          </el-button>
+        </div>
 
-        <div class="mega-builder">
-          <div v-for="(col, cIndex) in form.megaColumns" :key="cIndex" class="mega-card">
-            <div class="mega-card__head">
-              <div class="mega-card__title-box">
-                <span class="mega-card__col-num">第 {{ cIndex + 1 }} 列</span>
-                <el-input v-model="col.title" placeholder="列标题（如：AI产品）" style="width: 130px" />
-              </div>
-              <div class="mega-card__ops">
-                <el-button link size="small" :disabled="cIndex === 0" @click="moveCol(cIndex, -1)">← 左移</el-button>
-                <el-button link size="small" :disabled="cIndex === form.megaColumns.length - 1" @click="moveCol(cIndex, 1)">右移 →</el-button>
-                <el-button link size="small" type="danger" @click="removeCol(cIndex)">删除列</el-button>
-              </div>
+        <div v-for="(col, cIdx) in form.megaColumns" :key="`mega-col-${cIdx}`" class="node">
+          <div class="node__head">
+            <strong>第 {{ cIdx + 1 }} 列</strong>
+            <el-input v-model="col.title" maxlength="30" placeholder="列标题（如：AI产品 / IoT服务）" style="width: 220px" />
+            <div class="node__actions">
+              <el-button link @click="addMegaItem(col)">+ 添加子项</el-button>
+              <el-button link type="danger" @click="form.megaColumns.splice(cIdx, 1)">删除列</el-button>
             </div>
+          </div>
 
-            <div class="mega-card__items">
-              <div v-for="(sub, sIndex) in col.items" :key="sIndex" class="mega-row">
-                <div class="mega-row__main">
-                  <span class="mega-row__dot">•</span>
-                  <el-input v-model="sub.label" placeholder="产品/选项名称" style="width: 120px" />
-                  <el-input v-if="!sub.isVideo" v-model="sub.path" placeholder="跳转路径（如 /products/1）" style="width: 150px" />
-                  <el-input v-model="sub.tag" placeholder="角标（如首款）" style="width: 80px" />
-                  <el-checkbox v-model="sub.isVideo">▶ 演示视频</el-checkbox>
-                  <div class="mega-row__actions">
-                    <el-button link size="small" :disabled="sIndex === 0" @click="moveItem(col.items, sIndex, -1)">↑</el-button>
-                    <el-button link size="small" :disabled="sIndex === col.items.length - 1" @click="moveItem(col.items, sIndex, 1)">↓</el-button>
-                    <el-button link size="small" type="danger" @click="col.items.splice(sIndex, 1)">✕</el-button>
-                  </div>
-                </div>
-
-                <div v-if="sub.isVideo" class="mega-row__video">
-                  <el-input v-model="sub.videoTitle" placeholder="视频标题（如：紫宝盒产品操作演示）" style="width: 220px" />
-                  <el-input v-model="sub.videoUrl" placeholder="MP4 视频直链（留空使用默认示例视频）" style="flex: 1" />
-                </div>
-              </div>
-
-              <el-button class="mega-add-sub-btn" size="small" plain @click="addItem(col)">+ 添加菜单选项</el-button>
+          <div class="children">
+            <div v-for="(sub, sIdx) in col.items" :key="`mega-sub-${cIdx}-${sIdx}`" class="child">
+              <el-input v-model="sub.label" maxlength="40" placeholder="项目名称" style="width: 150px" />
+              <el-input v-model="sub.tag" maxlength="10" placeholder="角标(如:首款)" style="width: 110px" />
+              <el-checkbox v-model="sub.isVideo">视频演示弹窗</el-checkbox>
+              <template v-if="sub.isVideo">
+                <el-input v-model="sub.videoTitle" maxlength="100" placeholder="视频弹窗标题" style="width: 190px" />
+                <el-input v-model="sub.videoUrl" maxlength="500" placeholder="视频 MP4 地址" style="width: 220px" />
+              </template>
+              <template v-else>
+                <el-input v-model="sub.path" maxlength="255" placeholder="站内路径（如 /products/1）" style="width: 240px" />
+              </template>
+              <el-button link type="danger" @click="col.items.splice(sIdx, 1)">删除</el-button>
             </div>
           </div>
         </div>
 
-        <div class="mega-footer-actions">
-          <el-button type="primary" plain @click="addCol" :disabled="form.megaColumns.length >= 6">+ 添加新列（最多6列）</el-button>
-          <el-button @click="resetToDefaultMega">重置为系统默认 5 列</el-button>
-        </div>
+        <el-button class="add" @click="addMegaCol">+ 添加全景菜单列</el-button>
 
-        <div class="mega-cta-card">
-          <div class="mega-cta-card__title">下拉菜单底部咨询引导横条</div>
-          <div class="mega-cta-card__row">
-            <span class="label">提示文字：</span>
-            <el-input v-model="form.megaCta.text" placeholder="例如：需要专业场景建议？" style="width: 240px" />
-            <span class="label" style="margin-left: 16px">按钮文字：</span>
-            <el-input v-model="form.megaCta.linkText" placeholder="例如：联系技术专家" style="width: 160px" />
-          </div>
-        </div>
+        <el-divider content-position="left">全景菜单底部引导条 (megaCta)</el-divider>
+        <el-form label-width="110px">
+          <el-form-item label="左侧提示文案">
+            <el-input v-model="form.megaCta.text" maxlength="100" style="width: 320px" />
+          </el-form-item>
+          <el-form-item label="右侧按钮文字">
+            <el-input v-model="form.megaCta.linkText" maxlength="50" style="width: 220px" />
+          </el-form-item>
+        </el-form>
       </el-tab-pane>
     </el-tabs>
 
     <template #tips>
-      <p><b>主导航：</b>叶子节点必须有有效链接才能发布；父节点无有效子项时整块隐藏。</p>
-      <p><b>5列大菜单：</b>在此处修改列标题、产品选项、角标或视频链接，保存并发布后，官网前台下拉菜单即刻全网更新！</p>
+      <p>页脚链接在「全站设置」的页脚分组里维护，不在导航中重复配置。</p>
+      <p>目标内容下线后，前台会自动隐藏该导航项；父节点没有有效子项时整块隐藏。</p>
     </template>
   </ConfigPanel>
 </template>
@@ -397,10 +372,13 @@ onMounted(async () => {
   margin-bottom: 12px;
 }
 
-.nav-tabs {
-  margin-bottom: 16px;
-  background: #fff;
-  border-radius: 8px;
+.mega-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .node {
@@ -438,11 +416,13 @@ onMounted(async () => {
 .label {
   font-size: 13px;
   color: var(--a-text-muted);
+  width: 40px;
 }
 
 .hint {
   font-size: 12px;
   color: var(--a-text-muted);
+  margin: 0;
 }
 
 .children {
@@ -463,127 +443,5 @@ onMounted(async () => {
 
 .add {
   margin-top: 4px;
-}
-
-/* 5列大菜单样式 */
-.mega-builder {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.mega-card {
-  border: 1px solid var(--a-border);
-  border-radius: 8px;
-  background: #f8fafc;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.mega-card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: #edf2f7;
-  border-bottom: 1px solid var(--a-border);
-}
-
-.mega-card__title-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mega-card__col-num {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4a5568;
-  background: #e2e8f0;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.mega-card__ops {
-  display: flex;
-  gap: 4px;
-}
-
-.mega-card__items {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
-
-.mega-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 6px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-}
-
-.mega-row__main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.mega-row__dot {
-  color: #6366f1;
-  font-weight: bold;
-}
-
-.mega-row__actions {
-  margin-left: auto;
-  display: flex;
-  gap: 2px;
-}
-
-.mega-row__video {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 16px;
-}
-
-.mega-add-sub-btn {
-  margin-top: 4px;
-  align-self: flex-start;
-}
-
-.mega-footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.mega-cta-card {
-  border: 1px dashed var(--a-border);
-  border-radius: 8px;
-  padding: 14px 18px;
-  background: #fbfcfe;
-}
-
-.mega-cta-card__title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  color: #334155;
-}
-
-.mega-cta-card__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 </style>

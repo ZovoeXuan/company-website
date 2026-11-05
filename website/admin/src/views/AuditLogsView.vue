@@ -14,6 +14,16 @@ interface AuditRow {
   createdAt: string
 }
 
+const QUICK_ACTIONS = [
+  { label: '全部操作', value: '' },
+  { label: '登录认证', value: 'LOGIN' },
+  { label: '配置发布', value: 'CONFIG_PUBLISH' },
+  { label: '内容发布', value: 'CONTENT_PUBLISH' },
+  { label: '内容下线', value: 'CONTENT_OFFLINE' },
+  { label: '线索跟进', value: 'LEAD' },
+  { label: '账号变更', value: 'USER' },
+]
+
 const loading = ref(false)
 const rows = ref<AuditRow[]>([])
 const total = ref(0)
@@ -25,11 +35,17 @@ const query = reactive({
 })
 
 function formatTime(value: string | null) {
-  if (!value) return '—'
+  if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
+function selectQuickAction(act: string) {
+  query.action = act
+  query.page = 1
+  load()
 }
 
 function resetQuery() {
@@ -37,6 +53,37 @@ function resetQuery() {
   query.range = []
   query.page = 1
   load()
+}
+
+function exportCurrentCsv() {
+  if (!rows.value.length) {
+    ElMessage.warning('当前页暂无日志可导出')
+    return
+  }
+  const headers = ['ID', '时间', '操作人', '动作', '目标类型', '目标ID', '结果', '摘要']
+  const csvRows = [
+    headers.join(','),
+    ...rows.value.map((r) =>
+      [
+        r.id,
+        formatTime(r.createdAt),
+        r.actorName || '-',
+        r.action,
+        r.targetType || '-',
+        r.targetId || '-',
+        r.result,
+        `"${(r.summary || '').replace(/"/g, '""')}"`,
+      ].join(','),
+    ),
+  ]
+  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `cms-audit-logs-p${query.page}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出当前页审计日志 CSV')
 }
 
 async function load() {
@@ -70,65 +117,77 @@ onMounted(load)
   <el-card shadow="never">
     <template #header>
       <div class="head">
-        <span>操作审计日志</span>
-        <div class="head-actions">
+        <div>
+          <span class="head__title">操作审计日志</span>
+          <span class="head__sub">记录全站登录、账号变更、发布下线与线索查阅痕迹（只读不可篡改）</span>
+        </div>
+        <div class="filters">
           <el-input
             v-model="query.action"
-            placeholder="动作关键字，如 LOGIN"
+            placeholder="动作代码（如 LOGIN / PUBLISH）"
             clearable
-            style="width: 200px"
+            style="width: 210px"
             @keyup.enter="query.page = 1; load()"
           />
           <el-date-picker
             v-model="query.range"
             type="daterange"
             value-format="YYYY-MM-DD"
+            range-separator="至"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             style="width: 250px"
           />
           <el-button type="primary" @click="query.page = 1; load()">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
+          <el-button plain @click="exportCurrentCsv">导出当前页 CSV</el-button>
         </div>
       </div>
     </template>
 
-    <el-table v-loading="loading" :data="rows" border stripe style="width: 100%">
-      <el-table-column label="操作时间" width="180">
+    <div class="quick-bar">
+      <button
+        v-for="item in QUICK_ACTIONS"
+        :key="item.label"
+        type="button"
+        class="quick-chip"
+        :class="{ 'is-active': query.action === item.value }"
+        @click="selectQuickAction(item.value)"
+      >
+        {{ item.label }}
+      </button>
+    </div>
+
+    <el-table v-loading="loading" :data="rows" border stripe>
+      <el-table-column label="时间" width="175">
         <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作账号" width="140">
-        <template #default="{ row }">{{ row.actorName || '系统' }}</template>
+      <el-table-column prop="actorName" label="操作人" width="130">
+        <template #default="{ row }">{{ row.actorName || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="action" label="操作动作" width="180">
+      <el-table-column prop="action" label="动作" width="170" />
+      <el-table-column label="对象" width="160">
         <template #default="{ row }">
-          <el-tag size="small" type="info" effect="plain">{{ row.action }}</el-tag>
+          {{ row.targetType ? `${row.targetType}${row.targetId ? '#' + row.targetId : ''}` : '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="目标对象" width="140">
-        <template #default="{ row }">
-          {{ row.targetType ? `${row.targetType} #${row.targetId ?? ''}` : '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="执行结果" width="90">
+      <el-table-column label="结果" width="95" align="center">
         <template #default="{ row }">
           <el-tag size="small" :type="row.result === 'SUCCESS' ? 'success' : 'danger'">
-            {{ row.result === 'SUCCESS' ? '成功' : '失败' }}
+            {{ row.result }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="summary" label="日志详情" min-width="260" show-overflow-tooltip />
+      <el-table-column prop="summary" label="摘要说明" min-width="240" />
     </el-table>
 
     <el-pagination
-      v-model:current-page="query.page"
-      v-model:page-size="query.pageSize"
-      :page-sizes="[20, 50, 100]"
-      layout="total, sizes, prev, pager, next, jumper"
-      :total="total"
       class="pager"
-      @current-change="load"
-      @size-change="query.page = 1; load()"
+      layout="total, prev, pager, next"
+      :total="total"
+      :page-size="query.pageSize"
+      :current-page="query.page"
+      @current-change="(p: number) => { query.page = p; load() }"
     />
   </el-card>
 </template>
@@ -142,10 +201,44 @@ onMounted(load)
   flex-wrap: wrap;
 }
 
-.head-actions {
+.head__title {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.head__sub {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--a-text-muted);
+}
+
+.filters {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.quick-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.quick-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--a-border);
+  background: #fafbfe;
+  font-size: 12px;
+  color: var(--a-text-muted);
+  cursor: pointer;
+}
+
+.quick-chip.is-active {
+  background: #5b4be8;
+  border-color: #5b4be8;
+  color: #ffffff;
 }
 
 .pager {

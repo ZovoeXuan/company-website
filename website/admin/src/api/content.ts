@@ -109,10 +109,10 @@ export function publishContent(id: string, expectedLockVersion: number, expected
   })
 }
 
-export function offlineContent(id: string, expectedLockVersion: number) {
+export function offlineContent(id: string, expectedLockVersion: number, expectedDraftVersion = 1) {
   return request<void>(`/api/admin/contents/${id}/offline`, {
     method: 'POST',
-    body: { expectedLockVersion, expectedDraftVersion: 1 },
+    body: { expectedLockVersion, expectedDraftVersion },
   })
 }
 
@@ -120,6 +120,16 @@ export function deleteContent(id: string, expectedLockVersion: number) {
   return request<void>(`/api/admin/contents/${id}?expectedLockVersion=${expectedLockVersion}`, {
     method: 'DELETE',
   })
+}
+
+/** 一键克隆内容为新草稿副本 */
+export async function cloneContent(id: string) {
+  const detail = await getContent(id)
+  const clonedDraft: Record<string, unknown> = {
+    ...detail.draft,
+    title: `${String(detail.draft.title || detail.content.title || '未命名')} (副本)`,
+  }
+  return createContent(detail.content.contentType, clonedDraft)
 }
 
 // ---- 分类 ----
@@ -146,11 +156,12 @@ export function listCategories(params?: string | { categoryType?: string; keywor
 export function createCategory(
   arg1: string | { categoryType: string; name: string; sortOrder?: number },
   name?: string,
-  sortOrder = 100
+  sortOrder = 100,
 ) {
-  const body = typeof arg1 === 'string'
-    ? { categoryType: arg1, name: name ?? '', sortOrder }
-    : arg1
+  const body =
+    typeof arg1 === 'string'
+      ? { categoryType: arg1, name: name ?? '', sortOrder }
+      : arg1
   return request<string>('/api/admin/categories', {
     method: 'POST',
     body,
@@ -175,10 +186,10 @@ export function publishCategory(id: string, expectedLockVersion: number, expecte
   })
 }
 
-export function offlineCategory(id: string, expectedLockVersion: number) {
+export function offlineCategory(id: string, expectedLockVersion: number, expectedDraftVersion = 1) {
   return request<void>(`/api/admin/categories/${id}/offline`, {
     method: 'POST',
-    body: { expectedLockVersion, expectedDraftVersion: 1 },
+    body: { expectedLockVersion, expectedDraftVersion },
   })
 }
 

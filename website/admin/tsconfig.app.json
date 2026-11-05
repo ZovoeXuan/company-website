@@ -6,7 +6,9 @@
     "allowArbitraryExtensions": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "vue": ["./node_modules/vue"],
+      "vue/*": ["./node_modules/vue/*"]
     },
 
     /* Linting */

@@ -20,6 +20,12 @@ interface FooterGroup {
   links: FooterLink[]
 }
 
+interface QrCodeConfig {
+  label: string
+  mediaId?: string
+  imageUrl?: string
+}
+
 interface SiteDraft {
   siteName: string
   slogan: string
@@ -28,11 +34,12 @@ interface SiteDraft {
   icpUrl: string
   policeText: string
   policeUrl: string
-  logoMediaId?: number
+  logoMediaId?: number | null
   logoAlt: string
-  faviconMediaId?: number
+  faviconMediaId?: number | null
   defaultSeo: { title: string; description: string }
   footerGroups: FooterGroup[]
+  qrCodes?: QrCodeConfig[]
 }
 
 const { view, loading, saving, publishing, loadError, load, save, publish } =
@@ -52,6 +59,7 @@ interface SiteForm {
   seoTitle: string
   seoDescription: string
   footerGroups: FooterGroup[]
+  qrCodes: QrCodeConfig[]
 }
 
 const values = ref<SiteForm>({
@@ -62,16 +70,20 @@ const values = ref<SiteForm>({
   icpUrl: '',
   policeText: '',
   policeUrl: '',
-  logoMediaId: '' as string,
+  logoMediaId: '',
   logoAlt: '',
-  faviconMediaId: '' as string,
+  faviconMediaId: '',
   seoTitle: '',
   seoDescription: '',
-  footerGroups: [] as FooterGroup[],
+  footerGroups: [],
+  qrCodes: [
+    { label: '公众号', mediaId: '', imageUrl: '' },
+    { label: '视频号', mediaId: '', imageUrl: '' },
+  ],
 })
 
 const pickerOpen = ref(false)
-const pickerTarget = ref<'logo' | 'favicon'>('logo')
+const pickerTarget = ref<'logo' | 'favicon' | 'qr0' | 'qr1'>('logo')
 
 function emptyLink(): FooterLink {
   return { label: '', enabled: true, sortOrder: 100, link: { type: 'PAGE', pageCode: 'CONTACT' } }
@@ -105,10 +117,19 @@ function fill() {
   if (values.value.footerGroups.length === 0) {
     values.value.footerGroups = [{ title: '快速入口', links: [emptyLink()] }]
   }
+  if (Array.isArray(draft.qrCodes) && draft.qrCodes.length > 0) {
+    values.value.qrCodes = draft.qrCodes.map((q) => ({
+      label: q.label ?? '公众号',
+      mediaId: q.mediaId ? String(q.mediaId) : '',
+      imageUrl: q.imageUrl ?? (q.mediaId ? `/api/public/media/${q.mediaId}` : ''),
+    }))
+  }
 }
 
 function buildDraft(): SiteDraft & Record<string, unknown> {
   const base = { ...(view.value?.draft ?? {}) } as Record<string, unknown>
+  delete base.logoMediaId
+  delete base.faviconMediaId
   return {
     ...base,
     siteName: values.value.siteName.trim(),
@@ -118,26 +139,69 @@ function buildDraft(): SiteDraft & Record<string, unknown> {
     icpUrl: values.value.icpUrl.trim(),
     policeText: values.value.policeText.trim(),
     policeUrl: values.value.policeUrl.trim(),
-    logoMediaId: values.value.logoMediaId ? Number(values.value.logoMediaId) : undefined,
+    logoMediaId: values.value.logoMediaId ? Number(values.value.logoMediaId) : null,
     logoAlt: values.value.logoAlt.trim(),
-    faviconMediaId: values.value.faviconMediaId ? Number(values.value.faviconMediaId) : undefined,
-    defaultSeo: { title: values.value.seoTitle.trim(), description: values.value.seoDescription.trim() },
+    faviconMediaId: values.value.faviconMediaId ? Number(values.value.faviconMediaId) : null,
+    defaultSeo: {
+      title: values.value.seoTitle.trim(),
+      description: values.value.seoDescription.trim(),
+    },
     footerGroups: values.value.footerGroups.map((group) => ({
       title: group.title.trim(),
-      links: group.links.map((link) => ({ ...link, label: link.label.trim() })),
+      links: group.links.map((link, idx) => ({
+        ...link,
+        label: link.label.trim(),
+        sortOrder: (idx + 1) * 10,
+      })),
+    })),
+    qrCodes: values.value.qrCodes.map((q) => ({
+      label: q.label.trim() || '公众号',
+      mediaId: q.mediaId || undefined,
+      imageUrl: q.mediaId ? `/api/public/media/${q.mediaId}` : q.imageUrl || undefined,
     })),
   } as SiteDraft & Record<string, unknown>
 }
 
-async function onSave() {
+function validateBeforeSave(): boolean {
   if (!values.value.siteName.trim()) {
     ElMessage.warning('站点名称不能为空')
-    return
+    return false
   }
+  const hasIcpText = Boolean(values.value.icpText.trim())
+  const hasIcpUrl = Boolean(values.value.icpUrl.trim())
+  if (hasIcpText !== hasIcpUrl) {
+    ElMessage.warning('ICP 备案号与备案链接需成对填写（或同时留空）')
+    return false
+  }
+  const hasPoliceText = Boolean(values.value.policeText.trim())
+  const hasPoliceUrl = Boolean(values.value.policeUrl.trim())
+  if (hasPoliceText !== hasPoliceUrl) {
+    ElMessage.warning('公安备案号与备案链接需成对填写（或同时留空）')
+    return false
+  }
+  for (let i = 0; i < values.value.footerGroups.length; i++) {
+    const g = values.value.footerGroups[i]
+    if (!g.title.trim()) {
+      ElMessage.warning(`页脚第 ${i + 1} 组标题不能为空`)
+      return false
+    }
+    for (let j = 0; j < g.links.length; j++) {
+      if (!g.links[j].label.trim()) {
+        ElMessage.warning(`页脚分组「${g.title}」第 ${j + 1} 个链接名称不能为空`)
+        return false
+      }
+    }
+  }
+  return true
+}
+
+async function onSave() {
+  if (!validateBeforeSave()) return
   if (await save(buildDraft())) fill()
 }
 
 async function onPublish() {
+  if (!validateBeforeSave()) return
   if (await publish()) fill()
 }
 
@@ -149,6 +213,13 @@ function addGroup() {
   values.value.footerGroups.push({ title: '', links: [emptyLink()] })
 }
 
+function moveGroup(idx: number, delta: number) {
+  const target = idx + delta
+  if (target < 0 || target >= values.value.footerGroups.length) return
+  const [item] = values.value.footerGroups.splice(idx, 1)
+  values.value.footerGroups.splice(target, 0, item)
+}
+
 function addLink(group: FooterGroup) {
   if (group.links.length >= 10) {
     ElMessage.warning('每组最多 10 个链接')
@@ -157,7 +228,14 @@ function addLink(group: FooterGroup) {
   group.links.push({ ...emptyLink(), sortOrder: (group.links.length + 1) * 10 })
 }
 
-function openPicker(target: 'logo' | 'favicon') {
+function moveLink(group: FooterGroup, idx: number, delta: number) {
+  const target = idx + delta
+  if (target < 0 || target >= group.links.length) return
+  const [item] = group.links.splice(idx, 1)
+  group.links.splice(target, 0, item)
+}
+
+function openPicker(target: 'logo' | 'favicon' | 'qr0' | 'qr1') {
   pickerTarget.value = target
   pickerOpen.value = true
 }
@@ -165,8 +243,14 @@ function openPicker(target: 'logo' | 'favicon') {
 function onPick(media: MediaItem) {
   if (pickerTarget.value === 'logo') {
     values.value.logoMediaId = String(media.id)
-  } else {
+  } else if (pickerTarget.value === 'favicon') {
     values.value.faviconMediaId = String(media.id)
+  } else if (pickerTarget.value === 'qr0') {
+    values.value.qrCodes[0].mediaId = String(media.id)
+    values.value.qrCodes[0].imageUrl = `/api/public/media/${media.id}`
+  } else if (pickerTarget.value === 'qr1') {
+    values.value.qrCodes[1].mediaId = String(media.id)
+    values.value.qrCodes[1].imageUrl = `/api/public/media/${media.id}`
   }
   pickerOpen.value = false
 }
@@ -219,7 +303,7 @@ onMounted(async () => {
         </div>
       </el-form-item>
 
-      <el-divider content-position="left">默认 SEO</el-divider>
+      <el-divider content-position="left">默认 SEO 与搜索结果实时预览</el-divider>
       <p class="hint">页面没有单独 SEO 时的兜底值，发布时必填。</p>
       <el-form-item label="默认标题">
         <el-input v-model="values.seoTitle" maxlength="80" show-word-limit />
@@ -228,7 +312,21 @@ onMounted(async () => {
         <el-input v-model="values.seoDescription" type="textarea" :rows="2" maxlength="200" show-word-limit />
       </el-form-item>
 
-      <el-divider content-position="left">页脚</el-divider>
+      <!-- Google SERP & 社交分享卡片实时预览 -->
+      <div class="serp-preview-wrap">
+        <div class="serp-card">
+          <span class="serp-card__badge">Google / 百度搜索结果预览 (SERP)</span>
+          <p class="serp-card__url">https://www.company-domain.com › 首页</p>
+          <h4 class="serp-card__title">
+            {{ values.seoTitle || values.siteName || '企业官方网站' }} - {{ values.siteName || '品牌名称' }}
+          </h4>
+          <p class="serp-card__desc">
+            {{ values.seoDescription || values.slogan || '请在上方填写默认 SEO 描述文案，建议控制在 80～160 字以内，提升自然搜索点击率。' }}
+          </p>
+        </div>
+      </div>
+
+      <el-divider content-position="left">页脚备案与关注二维码</el-divider>
       <el-form-item label="版权文案">
         <el-input v-model="values.copyrightText" maxlength="120" placeholder="© 2026 示例科技有限公司" />
       </el-form-item>
@@ -237,34 +335,53 @@ onMounted(async () => {
         <el-input v-model="values.icpUrl" maxlength="500" placeholder="https://beian.miit.gov.cn/" style="width: 300px; margin-left: 8px" />
       </el-form-item>
       <el-form-item label="公安备案">
-        <el-input v-model="values.policeText" maxlength="80" placeholder="选填" style="width: 260px" />
+        <el-input v-model="values.policeText" maxlength="80" placeholder="选填（需与链接成对填写）" style="width: 260px" />
         <el-input v-model="values.policeUrl" maxlength="500" placeholder="https://" style="width: 300px; margin-left: 8px" />
+      </el-form-item>
+      <el-form-item label="页脚双二维码">
+        <div class="qr-config-row">
+          <div v-for="(qr, qIdx) in values.qrCodes" :key="qIdx" class="qr-config-box">
+            <img v-if="qr.mediaId" :src="`/api/admin/media/${qr.mediaId}/file`" :alt="qr.label" />
+            <span v-else class="media__empty">默认矢量图</span>
+            <el-input v-model="qr.label" maxlength="12" style="width: 96px" placeholder="标签" />
+            <el-button size="small" @click="openPicker(qIdx === 0 ? 'qr0' : 'qr1')">选二维码</el-button>
+            <el-button v-if="qr.mediaId" size="small" link type="danger" @click="qr.mediaId = ''; qr.imageUrl = ''">
+              重置
+            </el-button>
+          </div>
+        </div>
       </el-form-item>
     </el-form>
 
-    <el-divider content-position="left">页脚分组</el-divider>
+    <el-divider content-position="left">页脚分组（支持上下排序）</el-divider>
     <p class="hint">最多 4 组，每组最多 10 个链接。空组不会出现在前台。</p>
 
     <div v-for="(group, groupIndex) in values.footerGroups" :key="`group-${groupIndex}`" class="group">
       <div class="group__head">
         <el-input v-model="group.title" maxlength="20" placeholder="分组标题" style="width: 180px" />
-        <el-button link @click="addLink(group)">添加链接</el-button>
+        <el-button link :disabled="groupIndex === 0" @click="moveGroup(groupIndex, -1)">↑ 上移分组</el-button>
+        <el-button link :disabled="groupIndex === values.footerGroups.length - 1" @click="moveGroup(groupIndex, 1)">
+          ↓ 下移分组
+        </el-button>
+        <el-button link type="primary" @click="addLink(group)">+ 添加链接</el-button>
         <el-button link type="danger" @click="values.footerGroups.splice(groupIndex, 1)">删除分组</el-button>
       </div>
       <div v-for="(link, linkIndex) in group.links" :key="link.key ?? `link-${groupIndex}-${linkIndex}`" class="group__row">
         <el-switch v-model="link.enabled" />
         <el-input v-model="link.label" maxlength="20" placeholder="链接名称" style="width: 140px" />
-        <LinkEditor v-model="link.link" :allow-none="false" />
+        <LinkEditor v-model="link.link" :allow-none="false" :allow-consult="true" />
+        <el-button link :disabled="linkIndex === 0" @click="moveLink(group, linkIndex, -1)">上移</el-button>
+        <el-button link :disabled="linkIndex === group.links.length - 1" @click="moveLink(group, linkIndex, 1)">下移</el-button>
         <el-button link type="danger" @click="group.links.splice(linkIndex, 1)">删除</el-button>
       </div>
     </div>
-    <el-button class="add" @click="addGroup">添加分组</el-button>
+    <el-button class="add" @click="addGroup">+ 添加页脚分组</el-button>
 
     <MediaPicker v-model="pickerOpen" :selected-id="null" @select="onPick" />
 
     <template #tips>
       <p>电话、邮箱、地址在「联系我们」页维护，这里不重复填写。</p>
-      <p>备案号与备案链接需成对填写，只填一个会在发布时被拒绝。</p>
+      <p>备案号与备案链接需成对填写，只填一个会在保存或发布时被拦截提示。</p>
     </template>
   </ConfigPanel>
 </template>
@@ -301,6 +418,73 @@ onMounted(async () => {
   background: #f6f8fa;
 }
 
+.serp-preview-wrap {
+  margin: 0 0 20px 110px;
+}
+
+.serp-card {
+  max-width: 620px;
+  background: #ffffff;
+  border: 1px solid var(--a-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.serp-card__badge {
+  display: inline-block;
+  font-size: 11px;
+  color: #5b4be8;
+  background: #eeebff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.serp-card__url {
+  margin: 0;
+  font-size: 12px;
+  color: #202124;
+}
+
+.serp-card__title {
+  margin: 4px 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #1a0dab;
+}
+
+.serp-card__desc {
+  margin: 0;
+  font-size: 13px;
+  color: #4d5156;
+  line-height: 1.55;
+}
+
+.qr-config-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.qr-config-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--a-border);
+  border-radius: 8px;
+  background: #fafbfe;
+}
+
+.qr-config-box img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .group {
   border: 1px solid var(--a-border);
   border-radius: 8px;
@@ -313,6 +497,7 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .group__row {
