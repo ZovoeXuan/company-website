@@ -1,6 +1,5 @@
 /**
  * 与后端公开 DTO 对齐的展示类型。
- * 后端接口就绪后，把 api/public.ts 里的 mock 换成 apiGet 即可，页面不需要改。
  */
 
 export interface MediaRef {
@@ -22,11 +21,9 @@ export interface PageResult<T> {
 
 export interface NavItem {
   label: string
-  /** 站内路径；纯外链项与咨询动作此处为空字符串 */
   path: string
   url?: string | null
   newWindow?: boolean
-  /** PAGE / CONTENT / EXTERNAL / CONSULT / ANCHOR */
   linkType?: string | null
   children?: NavItem[]
 }
@@ -182,7 +179,6 @@ export interface OutcomeMetric {
   label: string
 }
 
-/** 列表与首页卡片共用的摘要结构，字段与后端公开 DTO 一致 */
 export interface ContentSummary {
   id: string
   title: string
@@ -242,11 +238,33 @@ export interface NewsDetail extends NewsSummary {
   next?: { id: string; title: string } | null
 }
 
+export interface AboutValueItem {
+  title: string
+  lines: string[]
+}
+
+export interface AboutOfficeItem {
+  city: string
+  phone: string
+  address: string
+  image?: string
+  mapX?: number
+  mapY?: number
+}
+
 export interface AboutPage {
+  heroTitle?: string
+  introTitle?: string
   intro: string
+  introImage?: string
   mission: string
+  vision?: string
+  values?: AboutValueItem[]
   milestones: Array<{ year: string; title: string; description: string }>
   qualifications: Array<{ name: string; description: string }>
+  joinTitle?: string
+  joinButtonText?: string
+  offices?: AboutOfficeItem[]
 }
 
 export interface PrivacyPage {

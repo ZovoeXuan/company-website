@@ -317,8 +317,19 @@ public class SiteConfigValidator {
 
     private ObjectNode about(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
+        node.put("heroTitle", limit(text(draft, "heroTitle"), 100, "heroTitle", "首屏标题", errors));
+        node.put("introTitle", limit(text(draft, "introTitle"), 60, "introTitle", "简介标题", errors));
         node.put("intro", limit(text(draft, "intro"), 2000, "intro", "公司简介", errors));
         node.put("mission", limit(text(draft, "mission"), 2000, "mission", "使命", errors));
+        node.put("vision", limit(text(draft, "vision"), 500, "vision", "愿景", errors));
+        node.put("joinTitle", limit(text(draft, "joinTitle"), 60, "joinTitle", "招聘横幅标题", errors));
+        node.put("joinButtonText", limit(text(draft, "joinButtonText"), 20, "joinButtonText", "招聘按钮文字", errors));
+        if (draft.get("values") != null && draft.get("values").isArray()) {
+            node.set("values", draft.get("values"));
+        }
+        if (draft.get("offices") != null && draft.get("offices").isArray()) {
+            node.set("offices", draft.get("offices"));
+        }
 
         ArrayNode milestones = objectMapper.createArrayNode();
         JsonNode source = draft.get("milestones");
@@ -815,9 +826,9 @@ public class SiteConfigValidator {
 
     // -------------------------------------------------- 校验辅助工具
 
-    private ObjectNode linkOrNull(JsonNode raw, String path, String label, List<FieldErrorItem> errors) {
+    private ObjectNode linkOrNull(JsonNode linkNode, String path, String label, List<FieldErrorItem> errors) {
         LinkResolver.SeedErrors seed = new LinkResolver.SeedErrors();
-        ObjectNode node = links.normalize(raw, path, label, seed);
+        ObjectNode node = links.normalize(linkNode, path, label, seed);
         errors.addAll(seed.items());
         return node;
     }

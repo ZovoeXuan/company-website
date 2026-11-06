@@ -6,7 +6,6 @@ import SiteFooter from '@/components/SiteFooter.vue'
 import ConsultDialog from '@/components/ConsultDialog.vue'
 import FloatingActions from '@/components/FloatingActions.vue'
 import VideoModal from '@/components/VideoModal.vue'
-import RoiCalculatorModal from '@/components/RoiCalculatorModal.vue'
 import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
 import type { SiteConfig } from '@/data/types'
@@ -62,7 +61,6 @@ onMounted(loadSite)
 
     <ConsultDialog />
     <VideoModal />
-    <RoiCalculatorModal />
   </div>
 </template>
 

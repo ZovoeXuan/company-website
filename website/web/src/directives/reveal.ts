@@ -10,17 +10,16 @@ function getObserver(): IntersectionObserver | null {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             entry.target.classList.add('is-revealed')
-            observer?.unobserve(entry.target)
           }
         }
       },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' },
     )
   }
   return observer
 }
 
-/** v-reveal：进入视口后上浮淡入，可选数字表示延迟毫秒。 */
+/** v-reveal：滑到哪里缓慢浮现弹出，可选数字表示延迟毫秒。 */
 export const vReveal: Directive<HTMLElement, number | undefined> = {
   mounted(el, binding) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

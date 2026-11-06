@@ -1812,17 +1812,7 @@ onBeforeUnmount(() => {
                       </div>
                     </div>
 
-                    <!-- 分组右侧视觉配图 -->
-                    <div
-                      class="service-group-stage__media"
-                      :title="studioMode === 'edit' ? '点击更换该分组配图' : ''"
-                      @click.stop="studioMode === 'edit' && triggerMediaPick({ target: 'serviceGroup', index: gIdx })"
-                    >
-                      <img v-if="grp.imageMediaId" :src="mediaUrl(grp.imageMediaId)" :alt="grp.title" />
-                      <div v-else class="media-placeholder">
-                        <span>🖼️ {{ studioMode === 'edit' ? '点击上传/选择分组配图' : '暂无配图' }}</span>
-                      </div>
-                    </div>
+
                   </div>
                 </div>
               </section>
@@ -3100,10 +3090,8 @@ onBeforeUnmount(() => {
 
 /* 服务分组舞台 */
 .service-group-stage {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 28px;
-  padding: 24px;
+  display: block;
+  padding: 28px;
   border-radius: 18px;
   background: #ffffff;
   border: 1px solid rgba(16, 16, 20, 0.08);
@@ -3146,22 +3134,7 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
 }
 
-.service-group-stage__media {
-  border-radius: 14px;
-  overflow: hidden;
-  background: #eef2f6;
-  min-height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
 
-.service-group-stage__media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 .media-placeholder {
   color: #64748b;
@@ -3170,9 +3143,9 @@ onBeforeUnmount(() => {
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-  margin-top: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 14px;
 }
 
 .cards-grid--3 {

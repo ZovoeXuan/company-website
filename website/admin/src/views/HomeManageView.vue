@@ -462,18 +462,7 @@ onMounted(async () => {
             <el-form-item label="分组说明">
               <el-input v-model="grp.description" type="textarea" :rows="2" maxlength="200" show-word-limit />
             </el-form-item>
-            <el-form-item label="分组配图">
-              <div class="media-pick-row">
-                <el-tag v-if="grp.imageMediaId" type="success">素材 ID: #{{ grp.imageMediaId }}</el-tag>
-                <span v-else class="muted">可选</span>
-                <el-button size="small" @click="openMedia('ALL', (m) => (grp.imageMediaId = Number(m.id)))">
-                  选择素材
-                </el-button>
-                <el-button v-if="grp.imageMediaId" size="small" link type="danger" @click="grp.imageMediaId = null">
-                  清除
-                </el-button>
-              </div>
-            </el-form-item>
+
             <el-form-item label="关联类型">
               <el-radio-group v-model="grp.contentType" @change="grp.contentIds = []">
                 <el-radio value="PRODUCT">产品 (PRODUCT)</el-radio>
