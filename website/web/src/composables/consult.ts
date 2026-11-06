@@ -1,6 +1,12 @@
 import { reactive, ref } from 'vue'
-import type { SiteConfig } from '@/data/types'
 import { getContactPage, getSite } from '@/api/public'
+import type { SiteConfig } from '@/data/types'
+
+const siteCache = ref<SiteConfig | null>(null)
+export function useSiteConfigCache() {
+  return { siteCache, loadConsultContext }
+}
+
 
 export interface ConsultOpenOptions {
   sourcePosition: string
@@ -17,6 +23,12 @@ const dialog = reactive({
   contentId: undefined as number | undefined,
   title: '',
   initialDemand: '',
+})
+
+/** 小七 AI 助手右侧抽屉全局状态 */
+const xiaoqi = reactive({
+  open: false,
+  initialQuestion: '',
 })
 
 export function openConsult(options: ConsultOpenOptions) {
@@ -36,6 +48,19 @@ export function useConsultDialog() {
   return { dialog, openConsult, closeConsult }
 }
 
+export function openXiaoQi(question = '') {
+  xiaoqi.initialQuestion = question
+  xiaoqi.open = true
+}
+
+export function closeXiaoQi() {
+  xiaoqi.open = false
+}
+
+export function useXiaoQiDrawer() {
+  return { xiaoqi, openXiaoQi, closeXiaoQi }
+}
+
 export interface ConsultContext {
   formEnabled: boolean
   privacyVersion: number | null
@@ -45,23 +70,18 @@ export interface ConsultContext {
 }
 
 /** 打开表单时实时拉取当前发布态，不把 formEnabled 缓存在 localStorage。 */
-
-const siteCache = ref<SiteConfig | null>(null)
-
-export function useSiteConfigCache() {
-  return { siteCache, loadConsultContext }
-}
-
 export async function loadConsultContext(): Promise<ConsultContext> {
   const [site, contact] = await Promise.all([
     getSite(),
     getContactPage().catch(() => null),
   ])
-  if (site) siteCache.value = site as any
+  if (site) {
+    siteCache.value = site as any
+  }
   return {
-    formEnabled: Boolean(site.formEnabled ?? contact?.formEnabled),
-    privacyVersion: site.privacyVersion ?? null,
-    successText: contact?.successText || '感谢您的咨询，我们的顾问将在 1 个工作日内与您联系。',
+    formEnabled: Boolean(site.formEnabled ?? contact?.formEnabled ?? true),
+    privacyVersion: site.privacyVersion ?? 1,
+    successText: contact?.successText || '预约成功！我们的产品专家将在 1 个工作日内与您联系安排产品演示。',
     phone: contact?.phone || site.contact?.phone || '',
     email: contact?.email || site.contact?.email || '',
   }

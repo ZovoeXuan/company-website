@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { openConsult } from '@/composables/consult'
-import type { NavItem, SiteConfig } from '@/data/types'
+import type { ContactEmailItem, NavItem, QrCodeItem, SiteConfig } from '@/data/types'
 
 const props = defineProps<{ config: SiteConfig }>()
 
@@ -9,470 +8,382 @@ const defaultFooterGroups: Array<{ title: string; links: NavItem[] }> = [
   {
     title: 'IoT服务',
     links: [
-      { label: '安全管家', path: '/products' },
-      { label: '冷链管家', path: '/products' },
-      { label: '流向管家', path: '/products' },
-      { label: '追货管家', path: '/products' },
+      { label: '安全管家', path: '/products?category=安全' },
+      { label: '冷链管家', path: '/products?category=冷链' },
+      { label: '流向管家', path: '/products?category=流向' },
+      { label: '追货管家', path: '/products?category=追货' },
       { label: '开放平台', path: '/products' },
     ],
   },
   {
     title: '交易服务',
     links: [
-      { label: '财运通', path: '/solutions' },
-      { label: '数字能源', path: '/solutions' },
+      { label: '财运通', path: '/solutions?category=交易' },
+      { label: '数字能源', path: '/solutions?category=能源' },
       { label: '共享挂车', path: '/solutions' },
     ],
   },
   {
     title: '解决方案',
     links: [
-      { label: '大宗物流数字化', path: '/solutions' },
-      { label: '连锁零售数字化', path: '/solutions' },
-      { label: '饲料防偷盗 AI 治理', path: '/solutions' },
+      { label: '大宗物流数字化', path: '/solutions/1' },
+      { label: '连锁零售数字化', path: '/solutions/2' },
+      { label: '饲料防偷盗 AI 治理', path: '/solutions/3' },
     ],
   },
   {
     title: '关于我们',
     links: [
-      { label: '企业简介', path: '/about' },
-      { label: '发展历程', path: '/about' },
-      { label: '新闻中心', path: '/news' },
-      { label: '联系我们', path: '/contact' },
+      { label: '企业简介', path: '/about?tab=intro#part' },
+      { label: '管理团队', path: '/about?tab=team#part' },
+      { label: '媒体中心', path: '/about?tab=media#part' },
+      { label: '加入我们', path: '/about?tab=join#part' },
     ],
   },
 ]
 
 const groups = computed(() => {
   const configured = props.config.footer?.groups ?? []
-  return configured.length > 0 ? configured : defaultFooterGroups
+  if (configured.length > 0) {
+    return configured.map((g) => {
+      if (g.title === '关于我们') {
+        return {
+          title: g.title,
+          links: [
+            { label: '企业简介', path: '/about?tab=intro#part' },
+            { label: '管理团队', path: '/about?tab=team#part' },
+            { label: '媒体中心', path: '/about?tab=media#part' },
+            { label: '加入我们', path: '/about?tab=join#part' },
+          ],
+        }
+      }
+      return g
+    })
+  }
+  return defaultFooterGroups
 })
 
-const contactPhone = computed(() => props.config.contact?.phone || '400-888-6688')
-const contactEmail = computed(() => props.config.contact?.email || 'connect@g7.com.cn')
+const contactEmails = computed<ContactEmailItem[]>(() => {
+  if (props.config.contactEmails && props.config.contactEmails.length > 0) {
+    return props.config.contactEmails
+  }
+  const primary = props.config.contact?.email || 'connect@g7.com.cn'
+  return [
+    { email: primary, desc: '媒体联系&数据合作' },
+    { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
+  ]
+})
+
 const contactAddress = computed(
-  () => props.config.contact?.address || '北京市海淀区中关村南大街1号 / 深圳湾科技生态园',
+  () => props.config.contact?.address || '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
 )
-const contactHours = computed(() => props.config.contact?.hours || '周一至周日 09:00 - 18:00')
-const copyrightText = computed(
-  () => props.config.footer?.copyright || `© ${new Date().getFullYear()} ${props.config.siteName} 版权所有`,
-)
+
+const qrCodes = computed<QrCodeItem[]>(() => {
+  const raw = props.config.footer?.qrCodes ?? []
+  if (raw.length >= 2) return raw
+  if (raw.length === 1) {
+    return [raw[0], { label: '视频号', imageUrl: '' }]
+  }
+  return [
+    { label: '公众号', imageUrl: '' },
+    { label: '视频号', imageUrl: '' },
+  ]
+})
+
+const icpText = computed(() => props.config.footer?.icp || '京ICP备08004136号')
+const icpUrl = computed(() => props.config.footer?.icpUrl || 'https://beian.miit.gov.cn/')
+const copyrightText = computed(() => props.config.footer?.copyright || '© 2026 G7E6.com.cn')
+
+function switchLang(lang: 'zh' | 'en') {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 </script>
 
 <template>
-  <footer class="footer on-dark">
-    <!-- 页脚上方醒目 CTA 横幅 -->
-    <div class="footer-cta-band">
-      <div class="container container--wide footer-cta-band__inner">
-        <div>
-          <h2 class="footer-cta-band__title">以物联网技术和软件服务改变公路货运</h2>
-          <p class="footer-cta-band__sub">立即预约行业专家，获取针对您车队与业务场景的定制化降本增效方案</p>
-        </div>
-        <button
-          type="button"
-          class="btn footer-cta-band__btn"
-          @click="openConsult({ sourcePosition: 'FOOTER' })"
-        >
-          立即咨询 →
-        </button>
-      </div>
-    </div>
-
-    <!-- 多列企业导航与联系矩阵 -->
-    <div class="container container--wide footer__body">
-      <!-- 品牌标识列 -->
-      <div class="footer__col footer__col--brand">
-        <RouterLink to="/" class="footer__logo" :aria-label="`${config.siteName} 首页`">
-          <img v-if="config.logoUrl" :src="config.logoUrl" :alt="config.logoAlt || config.siteName" class="footer__logo-img" />
-          <template v-else>
-            <span class="footer__mark" aria-hidden="true">{{ config.siteName?.slice(0, 1) || 'G' }}</span>
-            <span class="footer__name">{{ config.siteName }}</span>
-          </template>
-        </RouterLink>
-        <p class="footer__motto">{{ config.slogan || '领先的物联网与数字化软件服务商' }}</p>
+  <!-- 1:1 还原四段视频底部深色 6 栏页脚（双二维码上下垂直叠放、邮箱职能副标题、右侧语言与备案对齐） -->
+  <footer class="g7-footer">
+    <div class="container container--wide g7-footer__inner">
+      <!-- 左侧斜体 G 标识 -->
+      <div class="g7-footer__brand">
+        <RouterLink to="/" class="g7-footer__mark" aria-label="返回首页">G</RouterLink>
       </div>
 
-      <!-- 业务与方案列 -->
-      <nav v-for="group in groups" :key="group.title" class="footer__col" :aria-label="group.title">
-        <p class="footer__title">{{ group.title }}</p>
-        <ul class="footer__list">
-          <li v-for="item in group.links" :key="item.label">
-            <button
-              v-if="item.linkType === 'CONSULT'"
-              type="button"
-              class="footer__link footer__link--button"
-              @click="openConsult({ sourcePosition: 'FOOTER' })"
-            >
-              {{ item.label }}
-            </button>
+      <!-- 4 列导航分组（IoT服务 / 交易服务 / 解决方案 / 关于我们） -->
+      <div v-for="grp in groups" :key="grp.title" class="g7-footer__col">
+        <h3 class="g7-footer__title">{{ grp.title }}</h3>
+        <ul class="g7-footer__list">
+          <li v-for="lnk in grp.links" :key="lnk.label">
             <a
-              v-else-if="item.url"
-              :href="item.url"
-              class="footer__link"
-              :target="item.newWindow ? '_blank' : undefined"
-              :rel="item.newWindow ? 'noopener noreferrer' : undefined"
+              v-if="lnk.url"
+              :href="lnk.url"
+              class="g7-footer__link"
+              :target="lnk.newWindow ? '_blank' : undefined"
+              :rel="lnk.newWindow ? 'noopener noreferrer' : undefined"
             >
-              {{ item.label }}
+              {{ lnk.label }}
             </a>
-            <RouterLink v-else-if="item.path" :to="item.path" class="footer__link">
-              {{ item.label }}
+            <RouterLink v-else :to="lnk.path || '/'" class="g7-footer__link">
+              {{ lnk.label }}
             </RouterLink>
-            <span v-else class="footer__link">{{ item.label }}</span>
-          </li>
-        </ul>
-      </nav>
-
-      <!-- 联系我们列（突出大字号服务热线，对齐 ui-redesign.md 规范） -->
-      <div class="footer__col footer__col--contact">
-        <p class="footer__title">联系我们</p>
-        <div class="footer__hotline">
-          <span class="footer__contact-label">全国服务热线 ({{ contactHours }})</span>
-          <a :href="`tel:${contactPhone}`" class="footer__phone">{{ contactPhone }}</a>
-        </div>
-        <ul class="footer__list">
-          <li class="footer__contact-item">
-            <span class="footer__contact-label">商务合作与媒体联系</span>
-            <a :href="`mailto:${contactEmail}`" class="footer__link">{{ contactEmail }}</a>
-          </li>
-          <li class="footer__contact-address">
-            {{ contactAddress }}
           </li>
         </ul>
       </div>
 
-      <!-- 关注我们列 -->
-      <div class="footer__col footer__col--qr">
-        <p class="footer__title">关注我们</p>
-        <div class="qr-group">
-          <div class="qr-item">
-            <div class="qr-item__box" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-                <rect x="14" y="14" width="3" height="3"></rect>
-                <rect x="18" y="18" width="3" height="3"></rect>
+      <!-- 第 5 列：联系我们（双邮箱 + 灰色职能说明 + 底部地址） -->
+      <div class="g7-footer__col g7-footer__col--contact">
+        <h3 class="g7-footer__title">联系我们</h3>
+        <div v-for="item in contactEmails" :key="item.email" class="g7-footer__email-block">
+          <a :href="`mailto:${item.email}`" class="g7-footer__email">{{ item.email }}</a>
+          <span class="g7-footer__email-desc">{{ item.desc }}</span>
+        </div>
+        <p class="g7-footer__addr">{{ contactAddress }}</p>
+      </div>
+
+      <!-- 第 6 列：关注我们（双二维码上下垂直排列：公众号在上、视频号在下） -->
+      <div class="g7-footer__col g7-footer__col--qr">
+        <h3 class="g7-footer__title">关注我们</h3>
+        <div class="g7-footer__qr-stack">
+          <div v-for="(qr, qIdx) in qrCodes" :key="`${qr.label}-${qIdx}`" class="g7-footer__qr-item">
+            <div class="g7-footer__qr-box">
+              <img v-if="qr.imageUrl" :src="qr.imageUrl" :alt="qr.label" />
+              <svg
+                v-else
+                viewBox="0 0 100 100"
+                class="g7-footer__qr-svg"
+                aria-hidden="true"
+              >
+                <rect width="100" height="100" fill="#ffffff" />
+                <rect x="8" y="8" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
+                <rect x="16" y="16" width="10" height="10" fill="#111" />
+                <rect x="66" y="8" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
+                <rect x="74" y="16" width="10" height="10" fill="#111" />
+                <rect x="8" y="66" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
+                <rect x="16" y="74" width="10" height="10" fill="#111" />
+                <rect x="42" y="12" width="6" height="6" fill="#111" />
+                <rect x="52" y="20" width="6" height="12" fill="#111" />
+                <rect x="40" y="40" width="20" height="20" rx="3" fill="#4f46e5" />
+                <text x="50" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="900" font-style="italic">G</text>
+                <rect x="14" y="44" width="18" height="6" fill="#111" />
+                <rect x="68" y="44" width="18" height="6" fill="#111" />
+                <rect x="44" y="68" width="12" height="6" fill="#111" />
+                <rect x="64" y="66" width="10" height="10" fill="#111" />
+                <rect x="80" y="74" width="12" height="18" fill="#111" />
+                <rect x="44" y="82" width="18" height="10" fill="#111" />
               </svg>
             </div>
-            <span class="qr-item__label">官方公众号</span>
-          </div>
-          <div class="qr-item">
-            <div class="qr-item__box" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="12" r="9"></circle>
-                <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon>
-              </svg>
-            </div>
-            <span class="qr-item__label">官方视频号</span>
+            <span class="g7-footer__qr-label">{{ qr.label }}</span>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 底部版权与备案条 -->
-    <div class="container container--wide footer__bottom">
-      <div class="footer__bottom-left">
-        <a
-          v-if="config.footer?.icp && config.footer?.icpUrl"
-          :href="config.footer.icpUrl"
-          class="footer__legal"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {{ config.footer.icp }}
-        </a>
-        <span v-else-if="config.footer?.icp" class="footer__legal">{{ config.footer.icp }}</span>
+      <!-- 第 7 列：网站语言 + 底部备案版权信息同列对齐 -->
+      <div class="g7-footer__col g7-footer__col--lang">
+        <div>
+          <h3 class="g7-footer__title">网站语言</h3>
+          <div class="g7-footer__langs">
+            <button type="button" class="g7-footer__lang-btn" @click="switchLang('zh')">中文</button>
+            <button type="button" class="g7-footer__lang-btn is-muted" @click="switchLang('en')">English</button>
+          </div>
+        </div>
 
-        <template v-if="config.footer?.policeText">
-          <span class="footer__divider">|</span>
+        <div class="g7-footer__legal">
+          <RouterLink to="/privacy" class="g7-footer__legal-link">网络货运信息公示</RouterLink>
           <a
-            v-if="config.footer.policeUrl"
-            :href="config.footer.policeUrl"
-            class="footer__legal"
+            :href="icpUrl"
             target="_blank"
             rel="noopener noreferrer"
+            class="g7-footer__legal-link"
           >
-            {{ config.footer.policeText }}
+            {{ icpText }}
           </a>
-          <span v-else class="footer__legal">{{ config.footer.policeText }}</span>
-        </template>
-
-        <span class="footer__divider">|</span>
-        <RouterLink to="/privacy" class="footer__legal">隐私说明</RouterLink>
-        <span class="footer__divider">|</span>
-        <RouterLink to="/contact" class="footer__legal">联系我们</RouterLink>
-      </div>
-      <div class="footer__bottom-right">
-        <span>{{ copyrightText }}</span>
+          <RouterLink to="/privacy" class="g7-footer__legal-link">隐私说明</RouterLink>
+          <p class="g7-footer__copy">{{ copyrightText }}</p>
+        </div>
       </div>
     </div>
   </footer>
 </template>
 
 <style scoped>
-.footer {
-  background: #090a0f;
-  color: #a0a4b8;
-  margin-top: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.footer-cta-band {
-  background: linear-gradient(90deg, #11131f 0%, #191636 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 44px 0;
-}
-
-.footer-cta-band__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-@media (max-width: 768px) {
-  .footer-cta-band__inner {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-.footer-cta-band__title {
-  margin: 0;
-  font-size: clamp(22px, 2.6vw, 30px);
-  font-weight: 700;
+.g7-footer {
+  background: #060709;
   color: #ffffff;
-  letter-spacing: -0.02em;
+  padding: 76px 0 68px;
 }
 
-.footer-cta-band__sub {
-  margin: 8px 0 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.footer-cta-band__btn {
-  background: #5b4be8;
-  color: #ffffff;
-  border: none;
-  font-weight: 600;
-  font-size: 15px;
-  padding: 13px 32px;
-  border-radius: 999px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.25s ease;
-  box-shadow: 0 8px 24px rgba(91, 75, 232, 0.35);
-}
-
-.footer-cta-band__btn:hover {
-  background: #4636d6;
-  transform: translateY(-2px);
-}
-
-.footer__body {
+.g7-footer__inner {
+  max-width: 1180px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 160px repeat(4, minmax(0, 1fr)) 1.5fr 130px;
-  gap: 32px;
-  padding: 64px 0 54px;
+  grid-template-columns: 52px repeat(4, minmax(96px, 1fr)) 190px 108px 148px;
+  gap: 24px;
+  align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .footer__body {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 680px) {
-  .footer__body {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
-}
-
-.footer__col--brand {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.footer__logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #fff;
-  text-decoration: none;
-}
-
-.footer__logo-img {
-  max-height: 34px;
-  max-width: 150px;
-  object-fit: contain;
-}
-
-.footer__mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #7a6bff 0%, #5b4be8 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 17px;
-  color: #fff;
-}
-
-.footer__name {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.footer__motto {
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-  line-height: 1.6;
-}
-
-.footer__title {
-  margin: 0 0 18px;
-  font-size: 14px;
-  font-weight: 600;
+.g7-footer__mark {
+  display: inline-block;
+  font-size: 20px;
+  font-weight: 900;
+  font-style: italic;
   color: #ffffff;
-  letter-spacing: 0.04em;
-}
-
-.footer__hotline {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 14px;
-}
-
-.footer__phone {
-  font-size: 24px;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: -0.01em;
   text-decoration: none;
-  transition: color 0.2s ease;
+  line-height: 1;
 }
 
-.footer__phone:hover {
-  color: #8b7df0;
+.g7-footer__title {
+  font-size: 13px;
+  font-weight: 400;
+  color: #6e7380;
+  margin: 0 0 24px;
 }
 
-.footer__list {
+.g7-footer__list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
 }
 
-.footer__link {
+.g7-footer__link {
   font-size: 13px;
-  color: #8c90a4;
+  color: #d0d5dd;
   text-decoration: none;
-  background: none;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: color 0.2s ease;
+  transition: color 0.18s ease;
 }
 
-.footer__link:hover {
+.g7-footer__link:hover {
   color: #ffffff;
 }
 
-.footer__contact-item {
+.g7-footer__email-block {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  margin-bottom: 22px;
 }
 
-.footer__contact-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.42);
+.g7-footer__email {
+  font-size: 13.5px;
+  color: #e5e7eb;
+  text-decoration: none;
 }
 
-.footer__contact-address {
+.g7-footer__email:hover {
+  color: #ffffff;
+}
+
+.g7-footer__email-desc {
   font-size: 12px;
-  line-height: 1.6;
-  color: #717588;
-  margin-top: 6px;
+  color: #5f6470;
 }
 
-.qr-group {
-  display: flex;
-  gap: 16px;
+.g7-footer__addr {
+  margin: 26px 0 0;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #6e7380;
 }
 
-.qr-item {
+.g7-footer__qr-stack {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.qr-item__box {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
-  background: #181b24;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.75);
-  transition: border-color 0.2s ease, transform 0.2s ease;
-}
-
-.qr-item:hover .qr-item__box {
-  border-color: #5b4be8;
-  transform: translateY(-2px);
-}
-
-.qr-item__label {
-  font-size: 11px;
-  color: #8c90a4;
-}
-
-.footer__bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 20px;
-  padding: 24px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
-  color: #686c7e;
-  flex-wrap: wrap;
 }
 
-.footer__bottom-left {
+.g7-footer__qr-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  width: 84px;
 }
 
-.footer__legal {
-  color: inherit;
-  text-decoration: none;
-  transition: color 0.2s ease;
+.g7-footer__qr-box {
+  width: 84px;
+  height: 84px;
+  background: #ffffff;
+  padding: 4px;
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-.footer__legal:hover {
+.g7-footer__qr-box img,
+.g7-footer__qr-svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.g7-footer__qr-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #98a2b3;
+}
+
+.g7-footer__col--lang {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 245px;
+}
+
+.g7-footer__langs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.g7-footer__lang-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.g7-footer__lang-btn.is-muted {
+  color: #5f6470;
+}
+
+.g7-footer__lang-btn:hover {
   color: #ffffff;
 }
 
-.footer__divider {
-  opacity: 0.3;
+.g7-footer__legal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.g7-footer__legal-link {
+  font-size: 12.5px;
+  color: #d0d5dd;
+  text-decoration: none;
+}
+
+.g7-footer__legal-link:hover {
+  color: #ffffff;
+}
+
+.g7-footer__copy {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #5f6470;
+}
+
+@media (max-width: 1024px) {
+  .g7-footer__inner {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+  }
+  .g7-footer__col--lang {
+    min-height: auto;
+  }
 }
 </style>

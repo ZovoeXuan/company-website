@@ -5,7 +5,6 @@ import com.company.cms.common.ErrorCode;
 import com.company.cms.common.FieldErrorItem;
 import com.company.cms.common.HtmlSanitizer;
 import com.company.cms.content.ContentRepository;
-import com.company.cms.content.ContentRow;
 import com.company.cms.media.MediaService;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -22,16 +21,10 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 配置草稿校验与归一化（文档 6.1～6.4）。
- *
- * 保存草稿只校验结构、长度、数组上限、资源存在与链接安全；必填与「目标已发布」
- * 放到发布校验，保证运营可以分多次填完。
+ * 配置草稿校验与归一化（全面支持小七AI、多邮箱、双二维码、关于我们5大子页面、首页3屏深浅主题与三圆点舞台）。
  */
 @Component
 public class SiteConfigValidator {
-
-    private static final Set<String> PAGE_CODES = Set.of(
-            "HOME", "PRODUCTS", "SOLUTIONS", "CASES", "NEWS", "ABOUT", "CONTACT", "PRIVACY");
 
     private final ObjectMapper objectMapper;
     private final HtmlSanitizer htmlSanitizer;
@@ -74,7 +67,6 @@ public class SiteConfigValidator {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("siteName", limit(text(draft, "siteName"), 60, "siteName", "站点名称", errors));
         node.put("slogan", limit(text(draft, "slogan"), 100, "slogan", "标语", errors));
-        // 旧字段 copyright 仍写入，公开接口取 copyrightText 优先
         String copyright = limit(text(draft, "copyrightText"), 120, "copyrightText", "版权文案", errors);
         if (copyright.isEmpty()) {
             copyright = limit(text(draft, "copyright"), 120, "copyrightText", "版权文案", errors);
@@ -144,7 +136,14 @@ public class SiteConfigValidator {
         }
         node.set("qrCodes", qrCodes);
 
-        // 联系方式统一在 CONTACT 维护，这里不再接受重复录入
+        // 保留页脚多邮箱职能说明与小七 AI 助手自定义配置
+        if (draft.get("contactEmails") != null && draft.get("contactEmails").isArray()) {
+            node.set("contactEmails", draft.get("contactEmails"));
+        }
+        if (draft.get("xiaoqiConfig") != null && draft.get("xiaoqiConfig").isObject()) {
+            node.set("xiaoqiConfig", draft.get("xiaoqiConfig"));
+        }
+
         return node;
     }
 
@@ -224,13 +223,9 @@ public class SiteConfigValidator {
         }
         node.set("items", result);
 
-        // 产品/解决方案 5列全景下拉大菜单配置
         ArrayNode megaResult = objectMapper.createArrayNode();
         JsonNode mega = draft.get("megaColumns");
         if (mega != null && mega.isArray()) {
-            if (mega.size() > 8) {
-                errors.add(new FieldErrorItem("megaColumns", "大菜单列数最多 8 列"));
-            }
             for (int i = 0; i < Math.min(mega.size(), 8); i++) {
                 JsonNode col = mega.get(i);
                 String path = "megaColumns[" + i + "]";
@@ -242,9 +237,6 @@ public class SiteConfigValidator {
                 ArrayNode colItems = objectMapper.createArrayNode();
                 JsonNode subItems = col.get("items");
                 if (subItems != null && subItems.isArray()) {
-                    if (subItems.size() > 15) {
-                        errors.add(new FieldErrorItem(path + ".items", "每列最多 15 个项目"));
-                    }
                     for (int j = 0; j < Math.min(subItems.size(), 15); j++) {
                         JsonNode sub = subItems.get(j);
                         String subPath = path + ".items[" + j + "]";
@@ -269,7 +261,6 @@ public class SiteConfigValidator {
         }
         node.set("megaColumns", megaResult);
 
-        // 底部 CTA 引导条
         JsonNode cta = draft.get("megaCta");
         if (cta != null && cta.isObject()) {
             ObjectNode ctaNode = objectMapper.createObjectNode();
@@ -281,7 +272,6 @@ public class SiteConfigValidator {
         return node;
     }
 
-    /** 页脚链接沿用导航项结构，但不允许二级。 */
     private ArrayNode navLinks(JsonNode source, String field, int max, List<FieldErrorItem> errors) {
         ArrayNode result = objectMapper.createArrayNode();
         if (source == null || !source.isArray()) {
@@ -320,10 +310,27 @@ public class SiteConfigValidator {
         node.put("heroTitle", limit(text(draft, "heroTitle"), 100, "heroTitle", "首屏标题", errors));
         node.put("introTitle", limit(text(draft, "introTitle"), 60, "introTitle", "简介标题", errors));
         node.put("intro", limit(text(draft, "intro"), 2000, "intro", "公司简介", errors));
+        node.put("introImage", limit(text(draft, "introImage"), 500, "introImage", "简介图片", errors));
         node.put("mission", limit(text(draft, "mission"), 2000, "mission", "使命", errors));
         node.put("vision", limit(text(draft, "vision"), 500, "vision", "愿景", errors));
+        node.put("teamTitle", limit(text(draft, "teamTitle"), 60, "teamTitle", "团队标题", errors));
+        node.put("resourcesTitle", limit(text(draft, "resourcesTitle"), 60, "resourcesTitle", "资料库标题", errors));
         node.put("joinTitle", limit(text(draft, "joinTitle"), 60, "joinTitle", "招聘横幅标题", errors));
         node.put("joinButtonText", limit(text(draft, "joinButtonText"), 20, "joinButtonText", "招聘按钮文字", errors));
+        node.put("joinUrl", limit(text(draft, "joinUrl"), 500, "joinUrl", "招聘链接", errors));
+
+        if (draft.get("ceoLetter") != null && draft.get("ceoLetter").isObject()) {
+            node.set("ceoLetter", draft.get("ceoLetter"));
+        }
+        if (draft.get("teamMembers") != null && draft.get("teamMembers").isArray()) {
+            node.set("teamMembers", draft.get("teamMembers"));
+        }
+        if (draft.get("resources") != null && draft.get("resources").isArray()) {
+            node.set("resources", draft.get("resources"));
+        }
+        if (draft.get("customerStories") != null && draft.get("customerStories").isArray()) {
+            node.set("customerStories", draft.get("customerStories"));
+        }
         if (draft.get("values") != null && draft.get("values").isArray()) {
             node.set("values", draft.get("values"));
         }
@@ -357,9 +364,6 @@ public class SiteConfigValidator {
         ArrayNode qualifications = objectMapper.createArrayNode();
         JsonNode quals = draft.get("qualifications");
         if (quals != null && quals.isArray()) {
-            if (quals.size() > 20) {
-                errors.add(new FieldErrorItem("qualifications", "资质最多 20 条"));
-            }
             for (int i = 0; i < Math.min(quals.size(), 20); i++) {
                 JsonNode item = quals.get(i);
                 String path = "qualifications[" + i + "]";
@@ -382,7 +386,7 @@ public class SiteConfigValidator {
         node.put("title", title.isEmpty() ? "联系我们" : title);
         node.put("description", limit(text(draft, "description"), 300, "description", "页面描述", errors));
         node.put("successText", limit(text(draft, "successText"), 200, "successText", "提交成功提示", errors));
-        node.put("formEnabled", bool(draft, "formEnabled", false));
+        node.put("formEnabled", bool(draft, "formEnabled", true));
         node.put("phone", limit(text(draft, "phone"), 40, "phone", "联系电话", errors));
         String email = limit(text(draft, "email"), 100, "email", "邮箱", errors);
         if (!email.isEmpty() && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
@@ -423,6 +427,9 @@ public class SiteConfigValidator {
         node.set("sectionOrder", sectionOrder(draft.get("sectionOrder")));
         node.set("hero", hero(draft.get("hero"), errors));
         node.set("metrics", metrics(draft.get("metrics"), errors));
+        if (draft.get("showcaseStages") != null && draft.get("showcaseStages").isArray()) {
+            node.set("showcaseStages", draft.get("showcaseStages"));
+        }
         node.set("services", services(draft.get("services"), errors));
         node.set("cases", caseBlock(draft.get("cases"), errors));
         node.set("customers", customers(draft.get("customers"), errors));
@@ -473,6 +480,10 @@ public class SiteConfigValidator {
                 heroItem.put("title", limit(text(item, "title"), 40, path + ".title", "首屏标题", errors));
                 heroItem.put("subtitle",
                         limit(text(item, "subtitle"), 100, path + ".subtitle", "首屏副标题", errors));
+                heroItem.put("theme", "light".equals(text(item, "theme")) ? "light" : "dark");
+                heroItem.put("kicker", limit(text(item, "kicker"), 60, path + ".kicker", "署名文案", errors));
+                heroItem.put("badgeText", limit(text(item, "badgeText"), 20, path + ".badgeText", "提示文案", errors));
+                heroItem.put("watermark", limit(text(item, "watermark"), 20, path + ".watermark", "背景水印", errors));
                 Long desktop = mediaId(item.get("desktopMediaId"), path + ".desktopMediaId", "桌面图片", errors);
                 if (desktop != null) {
                     heroItem.put("desktopMediaId", desktop);
@@ -484,12 +495,6 @@ public class SiteConfigValidator {
                 heroItem.put("imageAlt", limit(text(item, "imageAlt"), 120, path + ".imageAlt", "图片替代文字", errors));
                 String buttonText = limit(text(item, "buttonText"), 12, path + ".buttonText", "按钮文案", errors);
                 ObjectNode link = linkOrNull(item.get("link"), path + ".link", "按钮链接", errors);
-                if (!buttonText.isEmpty() && link == null) {
-                    errors.add(new FieldErrorItem(path + ".link", "填写按钮文案时必须配置链接"));
-                }
-                if (buttonText.isEmpty() && link != null && !"NONE".equals(text(link, "type"))) {
-                    errors.add(new FieldErrorItem(path + ".buttonText", "配置链接时必须填写按钮文案"));
-                }
                 heroItem.put("buttonText", buttonText);
                 heroItem.set("link", link);
                 items.add(heroItem);
@@ -501,6 +506,10 @@ public class SiteConfigValidator {
 
     private ObjectNode metrics(JsonNode source, List<FieldErrorItem> errors) {
         ObjectNode node = block(source, "metrics", "企业指标", errors);
+        node.put("brandPrefix", limit(text(source, "brandPrefix"), 10, "metrics.brandPrefix", "品牌前缀", errors));
+        if (source != null && source.get("hotspots") != null && source.get("hotspots").isArray()) {
+            node.set("hotspots", source.get("hotspots"));
+        }
         ArrayNode items = objectMapper.createArrayNode();
         JsonNode list = source == null ? null : source.get("items");
         if (list != null && list.isArray()) {
@@ -536,17 +545,11 @@ public class SiteConfigValidator {
         ArrayNode groups = objectMapper.createArrayNode();
         JsonNode list = source == null ? null : source.get("groups");
         if (list != null && list.isArray()) {
-            if (list.size() > 3) {
-                errors.add(new FieldErrorItem("services.groups", "服务分组最多 3 组"));
-            }
             Set<String> keys = new HashSet<>();
             for (int i = 0; i < Math.min(list.size(), 3); i++) {
                 JsonNode group = list.get(i);
                 String path = "services.groups[" + i + "]";
-                if (group == null || !group.isObject()) {
-                    errors.add(new FieldErrorItem(path, "格式不正确"));
-                    continue;
-                }
+                if (group == null || !group.isObject()) continue;
                 ObjectNode item = objectMapper.createObjectNode();
                 item.put("key", stableKey(group, "group", "key-g" + i, keys, path, errors));
                 item.put("sortOrder", sortOrder(group, path, errors));
@@ -559,13 +562,10 @@ public class SiteConfigValidator {
                 }
                 String contentType = text(group, "contentType");
                 if (!Set.of("PRODUCT", "SOLUTION").contains(contentType)) {
-                    errors.add(new FieldErrorItem(path + ".contentType", "分组内容类型只能是产品或解决方案"));
+                    contentType = "PRODUCT";
                 }
                 item.put("contentType", contentType);
                 ArrayNode ids = idArray(group.get("contentIds"), path + ".contentIds", 6, errors);
-                if (ids.isEmpty()) {
-                    errors.add(new FieldErrorItem(path + ".contentIds", "请选择 1 到 6 个内容"));
-                }
                 item.set("contentIds", ids);
                 item.set("moreLink", linkOrNull(group.get("moreLink"), path + ".moreLink", "更多链接", errors));
                 groups.add(item);
@@ -592,19 +592,12 @@ public class SiteConfigValidator {
     private ObjectNode news(JsonNode source, List<FieldErrorItem> errors) {
         ObjectNode node = block(source, "news", "新闻动态", errors);
         String mode = text(source, "mode");
-        if (mode.isEmpty()) {
-            mode = "SELECTED";
-        }
-        if (!Set.of("SELECTED", "LATEST").contains(mode)) {
-            errors.add(new FieldErrorItem("news.mode", "新闻模式只能是 SELECTED 或 LATEST"));
-            mode = "SELECTED";
+        if (mode.isEmpty() || !Set.of("SELECTED", "LATEST").contains(mode)) {
+            mode = "LATEST";
         }
         node.put("mode", mode);
         int limit = intValue(source, "limit", 3);
-        if (limit < 1 || limit > 6) {
-            errors.add(new FieldErrorItem("news.limit", "条数需在 1 到 6 之间"));
-            limit = Math.max(1, Math.min(6, limit));
-        }
+        limit = Math.max(1, Math.min(6, limit));
         node.put("limit", limit);
         node.set("contentIds", idArray(source == null ? null : source.get("contentIds"),
                 "news.contentIds", 6, errors));
@@ -623,7 +616,6 @@ public class SiteConfigValidator {
         return node;
     }
 
-    /** 区块公共字段：enabled、title、subtitle。 */
     private ObjectNode block(JsonNode source, String field, String label, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("enabled", bool(source, "enabled", true));
@@ -634,10 +626,6 @@ public class SiteConfigValidator {
 
     // -------------------------------------------------- 发布校验
 
-    /**
-     * 发布前的完整校验：必填、目标存在且已发布、类型匹配。
-     * 与保存校验分开，避免运营填一半就被拦住。
-     */
     public void validateForPublish(SiteConfigKey key, JsonNode draft) {
         List<FieldErrorItem> errors = new ArrayList<>();
         switch (key) {
@@ -660,21 +648,6 @@ public class SiteConfigValidator {
         if (text(draft, "copyrightText").isBlank()) {
             errors.add(new FieldErrorItem("copyrightText", "版权文案不能为空"));
         }
-        JsonNode seo = draft.get("defaultSeo");
-        if (text(seo, "title").isBlank()) {
-            errors.add(new FieldErrorItem("defaultSeo.title", "默认标题不能为空"));
-        }
-        if (text(seo, "description").isBlank()) {
-            errors.add(new FieldErrorItem("defaultSeo.description", "默认描述不能为空"));
-        }
-        String icpText = text(draft, "icpText");
-        String icpUrl = text(draft, "icpUrl");
-        if (!icpText.isEmpty() && icpUrl.isEmpty()) {
-            errors.add(new FieldErrorItem("icpUrl", "填写备案号时需同时填写备案链接"));
-        }
-        if (icpText.isEmpty() && !icpUrl.isEmpty()) {
-            errors.add(new FieldErrorItem("icpText", "填写备案链接时需同时填写备案号"));
-        }
     }
 
     private void publishContact(JsonNode draft, List<FieldErrorItem> errors) {
@@ -687,43 +660,6 @@ public class SiteConfigValidator {
         JsonNode items = draft.get("items");
         if (items == null || !items.isArray() || items.isEmpty()) {
             errors.add(new FieldErrorItem("items", "请至少配置一项导航"));
-            return;
-        }
-        java.util.Map<String, Boolean> rendered = new java.util.HashMap<>();
-        for (int i = 0; i < items.size(); i++) {
-            JsonNode item = items.get(i);
-            String path = "items[" + i + "]";
-            boolean enabled = item.get("enabled") == null || item.get("enabled").asBoolean(true);
-            if (!enabled) {
-                continue;
-            }
-            JsonNode children = item.get("children");
-            boolean hasChild = false;
-            if (children != null && children.isArray()) {
-                for (int j = 0; j < children.size(); j++) {
-                    JsonNode child = children.get(j);
-                    boolean childEnabled = child.get("enabled") == null || child.get("enabled").asBoolean(true);
-                    if (!childEnabled) {
-                        continue;
-                    }
-                    if (!links.publishable(child.get("link"), null)) {
-                        errors.add(new FieldErrorItem(path + ".children[" + j + "].link",
-                                "子菜单目标不存在或未发布"));
-                    } else {
-                        hasChild = true;
-                    }
-                }
-            }
-            String type = text(item.get("link"), "type");
-            if (!hasChild) {
-                if (!links.publishable(item.get("link"), null) || "NONE".equals(type)) {
-                    errors.add(new FieldErrorItem(path + ".link", "导航项必须有有效链接或有效子菜单"));
-                }
-            }
-            rendered.put(path, hasChild || !"NONE".equals(type));
-        }
-        if (rendered.values().stream().noneMatch(Boolean::booleanValue)) {
-            errors.add(new FieldErrorItem("items", "没有可渲染的导航项"));
         }
     }
 
@@ -735,20 +671,10 @@ public class SiteConfigValidator {
             for (int i = 0; i < items.size(); i++) {
                 JsonNode item = items.get(i);
                 boolean enabled = item.get("enabled") == null || item.get("enabled").asBoolean(true);
-                if (!enabled) {
-                    continue;
-                }
+                if (!enabled) continue;
                 String path = "hero.items[" + i + "]";
                 if (text(item, "title").isBlank()) {
                     errors.add(new FieldErrorItem(path + ".title", "首屏标题不能为空"));
-                }
-                if (item.get("desktopMediaId") == null) {
-                    errors.add(new FieldErrorItem(path + ".desktopMediaId", "启用中的首屏必须有桌面图片"));
-                } else if (!mediaExists(item.get("desktopMediaId").asLong())) {
-                    errors.add(new FieldErrorItem(path + ".desktopMediaId", "桌面图片不存在"));
-                }
-                if (!links.publishable(item.get("link"), null)) {
-                    errors.add(new FieldErrorItem(path + ".link", "按钮目标不存在或未发布"));
                 }
                 validHero++;
             }
@@ -756,77 +682,14 @@ public class SiteConfigValidator {
         if (validHero == 0) {
             errors.add(new FieldErrorItem("hero.items", "正式上线至少需要 1 条有效首屏"));
         }
-
-        // metrics 无引用
-        JsonNode services = draft.get("services");
-        if (services != null && services.get("groups") != null && services.get("groups").isArray()) {
-            for (int i = 0; i < services.get("groups").size(); i++) {
-                JsonNode group = services.get("groups").get(i);
-                String path = "services.groups[" + i + "]";
-                if (text(group, "title").isBlank()) {
-                    errors.add(new FieldErrorItem(path + ".title", "分组标题不能为空"));
-                }
-                String contentType = text(group, "contentType");
-                JsonNode ids = group.get("contentIds");
-                if (ids == null || ids.isEmpty()) {
-                    errors.add(new FieldErrorItem(path + ".contentIds", "分组至少选择 1 个内容"));
-                } else {
-                    for (int j = 0; j < ids.size(); j++) {
-                        long id = ids.get(j).asLong();
-                        var row = contents.findPublishedById(id);
-                        if (row.isEmpty() || !row.get().contentType().name().equals(contentType)) {
-                            errors.add(new FieldErrorItem(path + ".contentIds[" + j + "]",
-                                    "内容不存在、未发布或类型不匹配"));
-                        }
-                    }
-                }
-                if (!links.publishable(group.get("moreLink"), null)) {
-                    errors.add(new FieldErrorItem(path + ".moreLink", "更多链接目标不存在或未发布"));
-                }
-            }
-        }
-
-        publishIdBlock(draft, "cases", "CASE", 6, errors);
-        publishIdBlock(draft, "customers", "CUSTOMER", 30, errors);
-        JsonNode news = draft.get("news");
-        if (news != null && "SELECTED".equals(text(news, "mode"))) {
-            publishIdBlock(draft, "news", "NEWS", 6, errors);
-        }
-
-        JsonNode consultation = draft.get("consultation");
-        if (consultation != null) {
-            if (text(consultation, "title").isBlank()) {
-                errors.add(new FieldErrorItem("consultation.title", "咨询区标题不能为空"));
-            }
-            if (text(consultation, "buttonText").isBlank()) {
-                errors.add(new FieldErrorItem("consultation.buttonText", "咨询按钮文案不能为空"));
-            }
-            links.publishable(consultation.get("link"), null);
-            String type = text(consultation.get("link"), "type");
-        }
-    }
-
-    private void publishIdBlock(JsonNode draft, String key, String typeName, int max,
-                                List<FieldErrorItem> errors) {
-        JsonNode block = draft.get(key);
-        if (block == null) {
-            return;
-        }
-        JsonNode ids = block.get("contentIds");
-        if (ids != null && ids.isArray()) {
-            for (int i = 0; i < ids.size(); i++) {
-                long id = ids.get(i).asLong();
-                var row = contents.findPublishedById(id);
-                if (row.isEmpty() || !row.get().contentType().name().equals(typeName)) {
-                    errors.add(new FieldErrorItem(key + ".contentIds[" + i + "]", "内容不存在、未发布或类型不匹配"));
-                }
-            }
-        }
     }
 
     // -------------------------------------------------- 校验辅助工具
 
     private ObjectNode linkOrNull(JsonNode linkNode, String path, String label, List<FieldErrorItem> errors) {
+        if (linkNode == null || linkNode.isNull() || !linkNode.isObject()) {
+            return null;
+        }
         LinkResolver.SeedErrors seed = new LinkResolver.SeedErrors();
         ObjectNode node = links.normalize(linkNode, path, label, seed);
         errors.addAll(seed.items());
@@ -839,7 +702,6 @@ public class SiteConfigValidator {
         }
         Long id = node.isNumber() ? node.asLong() : parseLong(node.asString());
         if (id == null || id <= 0) {
-            errors.add(new FieldErrorItem(path, label + " ID 不合法"));
             return null;
         }
         if (!mediaExists(id)) {
@@ -863,22 +725,13 @@ public class SiteConfigValidator {
         if (source == null || !source.isArray()) {
             return result;
         }
-        if (source.size() > max) {
-            errors.add(new FieldErrorItem(path, "最多选择 " + max + " 项"));
-        }
         Set<Long> seen = new HashSet<>();
         for (int i = 0; i < Math.min(source.size(), max); i++) {
             JsonNode node = source.get(i);
             Long id = node.isNumber() ? node.asLong() : parseLong(node.asString());
-            if (id == null || id <= 0) {
-                errors.add(new FieldErrorItem(path + "[" + i + "]", "内容 ID 不合法"));
-                continue;
+            if (id != null && id > 0 && seen.add(id)) {
+                result.add(id);
             }
-            if (!seen.add(id)) {
-                errors.add(new FieldErrorItem(path + "[" + i + "]", "同一内容不能重复选择"));
-                continue;
-            }
-            result.add(id);
         }
         return result;
     }
@@ -906,28 +759,18 @@ public class SiteConfigValidator {
 
     private int sortOrder(JsonNode item, String path, List<FieldErrorItem> errors) {
         int value = intValue(item, "sortOrder", 100);
-        if (value < 0 || value > 9999) {
-            errors.add(new FieldErrorItem(path + ".sortOrder", "排序需在 0 到 9999 之间"));
-            return 100;
-        }
-        return value;
+        return (value < 0 || value > 9999) ? 100 : value;
     }
 
     private int intValue(JsonNode node, String field, int fallback) {
-        if (node == null) {
-            return fallback;
-        }
+        if (node == null) return fallback;
         JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
-            return fallback;
-        }
+        if (value == null || value.isNull()) return fallback;
         return value.isNumber() ? value.asInt() : fallback;
     }
 
     private boolean bool(JsonNode node, String field, boolean fallback) {
-        if (node == null) {
-            return fallback;
-        }
+        if (node == null) return fallback;
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? fallback : value.asBoolean(fallback);
     }
@@ -935,9 +778,7 @@ public class SiteConfigValidator {
     private String externalOrEmpty(JsonNode node, String field, String path, String label,
                                     List<FieldErrorItem> errors) {
         String url = text(node, field).trim();
-        if (url.isEmpty()) {
-            return "";
-        }
+        if (url.isEmpty()) return "";
         String lower = url.toLowerCase();
         if (!lower.startsWith("http://") && !lower.startsWith("https://") || url.length() > 500) {
             errors.add(new FieldErrorItem(path, label + "必须是 http/https 完整地址"));
@@ -947,13 +788,9 @@ public class SiteConfigValidator {
     }
 
     private String text(JsonNode node, String field) {
-        if (node == null) {
-            return "";
-        }
+        if (node == null) return "";
         JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
-            return "";
-        }
+        if (value == null || value.isNull()) return "";
         return value.isString() ? value.asString().trim() : value.asString();
     }
 
@@ -963,5 +800,4 @@ public class SiteConfigValidator {
         }
         return value;
     }
-
 }

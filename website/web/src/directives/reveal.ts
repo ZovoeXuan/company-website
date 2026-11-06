@@ -13,7 +13,7 @@ function getObserver(): IntersectionObserver | null {
           }
         }
       },
-      { threshold: 0.1, rootMargin: '0px 0px -6% 0px' },
+      { threshold: 0.08, rootMargin: '0px 0px -5% 0px' },
     )
   }
   return observer
@@ -22,7 +22,7 @@ function getObserver(): IntersectionObserver | null {
 /** v-reveal：滑到哪里缓慢浮现弹出，可选数字表示延迟毫秒。 */
 export const vReveal: Directive<HTMLElement, number | undefined> = {
   mounted(el, binding) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       el.classList.add('is-revealed')
       return
     }

@@ -22,10 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 首页公开聚合（文档 6.4 / 10.4）。
- *
- * 所有关联内容与图片一次性批量读取，避免按卡片逐条查库；
- * 失效引用在输出阶段过滤，不能生成死链接。
+ * 首页公开聚合（支持深浅色首屏主题、8指标与11条折线引线、三圆点纵向切换舞台）。
  */
 @Service
 public class HomeAggregateService {
@@ -52,10 +49,6 @@ public class HomeAggregateService {
         return build(row.published(), row.publishedVersion(), row.publishedAt());
     }
 
-    /**
-     * 草稿预览：首屏与各区块获取当前草稿，关联内容仍只取各自已发布版本（文档 5.4）。
-     * 与公开接口共用同一段聚合逻辑，避免预览和线上出现两套结构。
-     */
     public Map<String, Object> previewHome() {
         SiteConfigRow row = configs.find(SiteConfigKey.HOME)
                 .orElseThrow(() -> ApiException.notFound("首页尚未初始化"));
@@ -69,7 +62,6 @@ public class HomeAggregateService {
     private Map<String, Object> build(JsonNode cfg, Integer version, LocalDateTime publishedAt) {
         boolean formEnabled = formEnabled();
 
-        // ---- 第一批：关联内容（一次 IN 查询）
         Set<Long> contentIds = new LinkedHashSet<>();
         collectIds(cfg.get("services"), "groups", contentIds);
         collectIds(cfg.get("cases"), null, contentIds);
@@ -85,7 +77,6 @@ public class HomeAggregateService {
             }
         }
 
-        // ---- 第二批：媒体（首屏、分组配图、卡片封面）
         Set<Long> mediaIds = new LinkedHashSet<>();
         JsonNode heroItems = cfg.get("hero") == null ? null : cfg.get("hero").get("items");
         if (heroItems != null && heroItems.isArray()) {
@@ -115,7 +106,6 @@ public class HomeAggregateService {
         data.put("publishedAt", publishedAt == null ? null
                 : publishedAt.atOffset(ZoneOffset.UTC).toString());
 
-        // ---- 各区块先组装，再据此判断锚点是否可用
         Map<String, Object> hero = hero(cfg.get("hero"), mediaMap);
         Map<String, Object> metrics = metrics(cfg.get("metrics"));
         Map<String, Object> services = services(cfg.get("services"), contentMap, mediaMap, formEnabled);
@@ -124,24 +114,13 @@ public class HomeAggregateService {
         Map<String, Object> news = news(cfg.get("news"), contentMap, mediaMap);
 
         Set<String> anchors = new HashSet<>();
-        if (metrics != null) {
-            anchors.add("metrics");
-        }
-        if (services != null) {
-            anchors.add("services");
-        }
-        if (cases != null) {
-            anchors.add("cases");
-        }
-        if (customers != null) {
-            anchors.add("customers");
-        }
-        if (news != null) {
-            anchors.add("news");
-        }
+        if (metrics != null) anchors.add("metrics");
+        if (services != null) anchors.add("services");
+        if (cases != null) anchors.add("cases");
+        if (customers != null) anchors.add("customers");
+        if (news != null) anchors.add("news");
         anchors.add("consultation");
 
-        // 首屏与咨询动作依赖锚点集合，放在最后解析
         enrichHeroLinks(hero, formEnabled, anchors);
         List<String> order = new ArrayList<>();
         JsonNode orderNode = cfg.get("sectionOrder");
@@ -160,6 +139,9 @@ public class HomeAggregateService {
         data.put("sectionOrder", order);
         data.put("hero", hero);
         data.put("metrics", metrics);
+        if (cfg.get("showcaseStages") != null && cfg.get("showcaseStages").isArray()) {
+            data.put("showcaseStages", cfg.get("showcaseStages"));
+        }
         data.put("services", services);
         data.put("cases", cases);
         data.put("customers", customers);
@@ -169,9 +151,7 @@ public class HomeAggregateService {
     }
 
     private void collectIds(JsonNode block, String arrayField, Set<Long> target) {
-        if (block == null || !block.isObject()) {
-            return;
-        }
+        if (block == null || !block.isObject()) return;
         if (arrayField == null) {
             addIds(block.get("contentIds"), target);
             return;
@@ -185,9 +165,7 @@ public class HomeAggregateService {
     }
 
     private void addIds(JsonNode array, Set<Long> target) {
-        if (array == null || !array.isArray()) {
-            return;
-        }
+        if (array == null || !array.isArray()) return;
         for (JsonNode node : array) {
             if (node != null && node.isNumber()) {
                 target.add(node.asLong());
@@ -201,27 +179,25 @@ public class HomeAggregateService {
         }
     }
 
-    // -------------------------------------------------- hero
-
     private Map<String, Object> hero(JsonNode block, Map<Long, MediaRow> mediaMap) {
         List<Map<String, Object>> items = new ArrayList<>();
         JsonNode list = block == null ? null : block.get("items");
         if (list != null && list.isArray()) {
             for (JsonNode item : list) {
                 boolean enabled = item.get("enabled") == null || item.get("enabled").asBoolean(true);
-                if (!enabled) {
-                    continue;
-                }
+                if (!enabled) continue;
                 String title = text(item, "title");
+                if (title.isBlank()) continue;
                 Map<String, Object> desktop = media(item.get("desktopMediaId"), mediaMap,
                         text(item, "imageAlt").isBlank() ? title : text(item, "imageAlt"));
-                if (title.isBlank() || desktop == null) {
-                    continue;
-                }
                 Map<String, Object> view = new LinkedHashMap<>();
                 view.put("key", text(item, "key"));
                 view.put("title", title);
                 view.put("subtitle", text(item, "subtitle"));
+                view.put("theme", "light".equals(text(item, "theme")) ? "light" : "dark");
+                view.put("kicker", text(item, "kicker"));
+                view.put("badgeText", text(item, "badgeText"));
+                view.put("watermark", text(item, "watermark"));
                 view.put("desktopImage", desktop);
                 view.put("mobileImage", media(item.get("mobileMediaId"), mediaMap, text(item, "imageAlt")));
                 view.put("buttonText", text(item, "buttonText"));
@@ -235,11 +211,8 @@ public class HomeAggregateService {
         return result;
     }
 
-    /** 首屏排序按 sortOrder，再按 key 字典序稳定。 */
     private void sortByOrder(JsonNode source, List<Map<String, Object>> items) {
-        if (source == null || !source.isArray() || items.size() < 2) {
-            return;
-        }
+        if (source == null || !source.isArray() || items.size() < 2) return;
         Map<String, Integer> orders = new HashMap<>();
         for (JsonNode item : source) {
             orders.put(text(item, "key"), item.get("sortOrder") == null ? 100 : item.get("sortOrder").asInt());
@@ -247,9 +220,7 @@ public class HomeAggregateService {
         items.sort((a, b) -> {
             int left = orders.getOrDefault(String.valueOf(a.get("key")), 100);
             int right = orders.getOrDefault(String.valueOf(b.get("key")), 100);
-            if (left != right) {
-                return Integer.compare(left, right);
-            }
+            if (left != right) return Integer.compare(left, right);
             return String.valueOf(a.get("key")).compareTo(String.valueOf(b.get("key")));
         });
     }
@@ -261,29 +232,18 @@ public class HomeAggregateService {
             Object raw = item.remove("_link");
             Map<String, Object> action = links.resolve((JsonNode) raw, null, formEnabled, anchors);
             item.put("link", action);
-            if (action == null) {
-                item.put("buttonText", "");
-            }
-            // 稳定字段顺序：把 link 移到 buttonText 之后即可，Map 顺序不影响 JSON 语义
-            item.putIfAbsent("link", null);
         }
     }
 
-    // -------------------------------------------------- metrics
-
     private Map<String, Object> metrics(JsonNode block) {
-        if (!enabled(block)) {
-            return null;
-        }
+        if (!enabled(block)) return null;
         List<Map<String, Object>> items = new ArrayList<>();
         JsonNode list = block == null ? null : block.get("items");
         if (list != null && list.isArray()) {
             for (JsonNode item : list) {
                 String value = text(item, "displayValue");
                 String label = text(item, "label");
-                if (value.isBlank() || label.isBlank()) {
-                    continue;
-                }
+                if (value.isBlank() || label.isBlank()) continue;
                 Map<String, Object> view = new LinkedHashMap<>();
                 view.put("key", text(item, "key"));
                 view.put("displayValue", value);
@@ -293,22 +253,20 @@ public class HomeAggregateService {
                 items.add(view);
             }
         }
-        if (items.isEmpty()) {
-            return null;
-        }
+        if (items.isEmpty()) return null;
         sortByOrder(list, items);
         Map<String, Object> result = blockView(block);
+        result.put("brandPrefix", text(block, "brandPrefix").isEmpty() ? "G" : text(block, "brandPrefix"));
+        if (block != null && block.get("hotspots") != null && block.get("hotspots").isArray()) {
+            result.put("hotspots", block.get("hotspots"));
+        }
         result.put("items", items);
         return result;
     }
 
-    // -------------------------------------------------- services
-
     private Map<String, Object> services(JsonNode block, Map<Long, ContentRow> contentMap,
                                           Map<Long, MediaRow> mediaMap, boolean formEnabled) {
-        if (!enabled(block)) {
-            return null;
-        }
+        if (!enabled(block)) return null;
         List<Map<String, Object>> groups = new ArrayList<>();
         JsonNode list = block == null ? null : block.get("groups");
         if (list != null && list.isArray()) {
@@ -319,15 +277,11 @@ public class HomeAggregateService {
                 if (ids != null && ids.isArray()) {
                     for (JsonNode idNode : ids) {
                         ContentRow content = contentMap.get(idNode.asLong());
-                        if (content == null || !content.contentType().name().equals(contentType)) {
-                            continue;
-                        }
+                        if (content == null || !content.contentType().name().equals(contentType)) continue;
                         cards.add(card(content, mediaMap));
                     }
                 }
-                if (cards.isEmpty()) {
-                    continue;
-                }
+                if (cards.isEmpty()) continue;
                 Map<String, Object> view = new LinkedHashMap<>();
                 view.put("key", text(group, "key"));
                 view.put("title", text(group, "title"));
@@ -338,9 +292,7 @@ public class HomeAggregateService {
                 groups.add(view);
             }
         }
-        if (groups.isEmpty()) {
-            return null;
-        }
+        if (groups.isEmpty()) return null;
         sortByOrder(list, groups);
         Map<String, Object> result = blockView(block);
         result.put("groups", groups);
@@ -371,21 +323,15 @@ public class HomeAggregateService {
         return base == null ? null : base + content.id();
     }
 
-    // -------------------------------------------------- cases
-
     private Map<String, Object> cases(JsonNode block, Map<Long, ContentRow> contentMap,
                                       Map<Long, MediaRow> mediaMap) {
-        if (!enabled(block)) {
-            return null;
-        }
+        if (!enabled(block)) return null;
         List<Map<String, Object>> items = new ArrayList<>();
         JsonNode ids = block == null ? null : block.get("contentIds");
         if (ids != null && ids.isArray()) {
             for (JsonNode idNode : ids) {
                 ContentRow content = contentMap.get(idNode.asLong());
-                if (content == null || content.contentType() != com.company.cms.content.ContentType.CASE) {
-                    continue;
-                }
+                if (content == null || content.contentType() != com.company.cms.content.ContentType.CASE) continue;
                 JsonNode json = content.published();
                 Map<String, Object> view = card(content, mediaMap);
                 view.put("customerName", text(json, "customerName"));
@@ -395,36 +341,26 @@ public class HomeAggregateService {
                 items.add(view);
             }
         }
-        if (items.isEmpty()) {
-            return null;
-        }
+        if (items.isEmpty()) return null;
         Map<String, Object> result = blockView(block);
         result.put("items", items);
         result.put("moreUrl", "/cases");
         return result;
     }
 
-    // -------------------------------------------------- customers
-
     private Map<String, Object> customers(JsonNode block, Map<Long, ContentRow> contentMap,
                                           Map<Long, MediaRow> mediaMap) {
-        if (!enabled(block)) {
-            return null;
-        }
+        if (!enabled(block)) return null;
         List<Map<String, Object>> items = new ArrayList<>();
         JsonNode ids = block == null ? null : block.get("contentIds");
         if (ids != null && ids.isArray()) {
             for (JsonNode idNode : ids) {
                 ContentRow content = contentMap.get(idNode.asLong());
-                if (content == null || content.contentType() != com.company.cms.content.ContentType.CUSTOMER) {
-                    continue;
-                }
+                if (content == null || content.contentType() != com.company.cms.content.ContentType.CUSTOMER) continue;
                 JsonNode json = content.published();
                 Map<String, Object> logo = media(json == null ? null : json.get("logoMediaId"), mediaMap,
                         text(json, "logoAlt").isBlank() ? text(json, "title") : text(json, "logoAlt"));
-                if (logo == null) {
-                    continue;
-                }
+                if (logo == null) continue;
                 Map<String, Object> view = new LinkedHashMap<>();
                 view.put("id", String.valueOf(content.id()));
                 view.put("name", text(json, "title"));
@@ -434,20 +370,14 @@ public class HomeAggregateService {
                 items.add(view);
             }
         }
-        if (items.isEmpty()) {
-            return null;
-        }
+        if (items.isEmpty()) return null;
         Map<String, Object> result = blockView(block);
         result.put("items", items);
         return result;
     }
 
-    // -------------------------------------------------- news
-
     private Map<String, Object> news(JsonNode block, Map<Long, ContentRow> contentMap, Map<Long, MediaRow> mediaMap) {
-        if (!enabled(block)) {
-            return null;
-        }
+        if (!enabled(block)) return null;
         String mode = text(block, "mode").isEmpty() ? "SELECTED" : text(block, "mode");
         int limit = block != null && block.get("limit") != null ? Math.max(1, Math.min(6, block.get("limit").asInt())) : 3;
         List<Map<String, Object>> items = new ArrayList<>();
@@ -459,20 +389,14 @@ public class HomeAggregateService {
             JsonNode ids = block == null ? null : block.get("contentIds");
             if (ids != null && ids.isArray()) {
                 for (JsonNode idNode : ids) {
-                    if (items.size() >= limit) {
-                        break;
-                    }
+                    if (items.size() >= limit) break;
                     ContentRow content = contentMap.get(idNode.asLong());
-                    if (content == null || content.contentType() != com.company.cms.content.ContentType.NEWS) {
-                        continue;
-                    }
+                    if (content == null || content.contentType() != com.company.cms.content.ContentType.NEWS) continue;
                     items.add(newsItem(content, mediaMap));
                 }
             }
         }
-        if (items.isEmpty()) {
-            return null;
-        }
+        if (items.isEmpty()) return null;
         Map<String, Object> result = blockView(block);
         result.put("mode", mode);
         result.put("items", items);
@@ -492,8 +416,6 @@ public class HomeAggregateService {
         return item;
     }
 
-    // -------------------------------------------------- consultation
-
     private Map<String, Object> consultation(JsonNode block, boolean formEnabled, Set<String> anchors) {
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("title", text(block, "title"));
@@ -502,7 +424,6 @@ public class HomeAggregateService {
         Map<String, Object> action = links.resolve(block == null ? null : block.get("link"),
                 null, formEnabled, anchors);
         if (action == null) {
-            // 表单关闭或目标失效时退到联系页，不留空按钮
             Map<String, Object> fallback = new LinkedHashMap<>();
             fallback.put("type", "PAGE");
             fallback.put("url", "/contact");
@@ -515,8 +436,6 @@ public class HomeAggregateService {
         view.put("link", action);
         return view;
     }
-
-    // -------------------------------------------------- 工具
 
     private Map<String, Object> blockView(JsonNode block) {
         Map<String, Object> view = new LinkedHashMap<>();
@@ -532,20 +451,14 @@ public class HomeAggregateService {
     private Map<String, Object> cover(JsonNode json, Map<Long, MediaRow> mediaMap) {
         JsonNode idNode = json == null ? null : json.get("coverMediaId");
         String alt = text(json, "coverAlt");
-        if (alt.isBlank()) {
-            alt = text(json, "title");
-        }
+        if (alt.isBlank()) alt = text(json, "title");
         return media(idNode, mediaMap, alt);
     }
 
     private Map<String, Object> media(JsonNode idNode, Map<Long, MediaRow> mediaMap, String alt) {
-        if (idNode == null || !idNode.isNumber()) {
-            return null;
-        }
+        if (idNode == null || !idNode.isNumber()) return null;
         MediaRow media = mediaMap.get(idNode.asLong());
-        if (media == null) {
-            return null;
-        }
+        if (media == null) return null;
         Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", String.valueOf(media.id()));
         view.put("url", "/api/public/media/" + media.id());
@@ -560,16 +473,13 @@ public class HomeAggregateService {
     private boolean formEnabled() {
         return configs.find(SiteConfigKey.CONTACT)
                 .map(SiteConfigRow::published)
-                .map(json -> json.get("formEnabled") != null && json.get("formEnabled").asBoolean(false))
-                .orElse(false);
+                .map(json -> json.get("formEnabled") == null || json.get("formEnabled").asBoolean(true))
+                .orElse(true);
     }
 
     private String text(JsonNode node, String field) {
-        if (node == null) {
-            return "";
-        }
+        if (node == null) return "";
         JsonNode value = node.get(field);
         return value == null || value.isNull() ? "" : value.asString().trim();
     }
-
 }

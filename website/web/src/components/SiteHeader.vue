@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { openConsult } from '@/composables/consult'
+import { openConsult, openXiaoQi } from '@/composables/consult'
 import { openVideo } from '@/composables/videoModal'
-import type { MegaColumn, MegaSubItem, NavItem } from '@/data/types'
+import type { MegaColumn, MegaSubItem, NavItem, XiaoQiConfig } from '@/data/types'
 
 const props = defineProps<{
   siteName: string
@@ -12,6 +12,7 @@ const props = defineProps<{
   logoAlt?: string
   megaColumns?: MegaColumn[]
   megaCta?: { text: string; linkText: string } | null
+  xiaoqiConfig?: XiaoQiConfig | null
 }>()
 
 const route = useRoute()
@@ -21,12 +22,72 @@ const openMobile = ref<string | null>(null)
 const scrolled = ref(false)
 const lang = ref<'zh' | 'en'>('zh')
 
+// 小七头部两行文字循环打字机动效（1:1 还原视频右上角逐字打出与回退效果）
+const fullLine1 = computed(() => props.xiaoqiConfig?.headerLine1 || '您好，我是您的')
+const fullLine2 = computed(
+  () =>
+    props.xiaoqiConfig?.headerLine2 ||
+    `${props.xiaoqiConfig?.roleTitle || '数字物流专家'} ${props.xiaoqiConfig?.name || '小七'}`,
+)
+const typedLine1 = ref('')
+const typedLine2 = ref('')
+let typeTimer: number | null = null
+
+function startTypewriter() {
+  if (typeTimer) clearTimeout(typeTimer)
+  const l1 = fullLine1.value
+  const l2 = fullLine2.value
+  const totalLen = l1.length + l2.length
+  let pos = 0
+  let forward = true
+
+  const step = () => {
+    if (forward) {
+      pos++
+      if (pos <= l1.length) {
+        typedLine1.value = l1.slice(0, pos)
+        typedLine2.value = ''
+      } else {
+        typedLine1.value = l1
+        typedLine2.value = l2.slice(0, pos - l1.length)
+      }
+      if (pos >= totalLen) {
+        forward = false
+        typeTimer = window.setTimeout(step, 2600)
+        return
+      }
+      typeTimer = window.setTimeout(step, 110)
+    } else {
+      pos--
+      if (pos > l1.length) {
+        typedLine1.value = l1
+        typedLine2.value = l2.slice(0, pos - l1.length)
+      } else {
+        typedLine1.value = l1.slice(0, Math.max(1, pos))
+        typedLine2.value = ''
+      }
+      if (pos <= 1) {
+        forward = true
+        typeTimer = window.setTimeout(step, 450)
+        return
+      }
+      typeTimer = window.setTimeout(step, 45)
+    }
+  }
+  step()
+}
+
+watch([fullLine1, fullLine2], () => {
+  startTypewriter()
+})
+
 const enLabelMap: Record<string, string> = {
   首页: 'Home',
   产品: 'Products',
   产品中心: 'Products',
   产品与方案: 'Products & Solutions',
   产品与解决方案: 'Products & Solutions',
+  产品及解决方案: 'Products & Solutions',
   解决方案: 'Solutions',
   客户案例: 'Customer Cases',
   新闻: 'News',
@@ -53,7 +114,7 @@ function close() {
 }
 
 function onScroll() {
-  scrolled.value = window.scrollY > 24
+  scrolled.value = window.scrollY > 16
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -150,10 +211,16 @@ function handleMegaAction(subItem: MegaSubItem) {
   }
 }
 
-function consult(position = 'NAVIGATION') {
+function triggerTrialModal(position = 'NAVIGATION') {
   openMenu.value = null
   openMobile.value = null
-  openConsult({ sourcePosition: position })
+  openConsult({ sourcePosition: position, title: '预约产品展示' })
+}
+
+function triggerXiaoQi() {
+  openMenu.value = null
+  openMobile.value = null
+  openXiaoQi()
 }
 
 function isActive(item: NavItem): boolean {
@@ -166,10 +233,13 @@ onMounted(() => {
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
+  startTypewriter()
 })
+
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
+  if (typeTimer) clearTimeout(typeTimer)
 })
 </script>
 
@@ -180,7 +250,7 @@ onBeforeUnmount(() => {
         <img v-if="logoUrl" :src="logoUrl" :alt="logoAlt || siteName" class="brand__logo" />
         <template v-else>
           <span class="brand__g7" aria-hidden="true">G7</span>
-          <span class="brand__name">{{ siteName }}</span>
+          <span class="brand__name">{{ siteName.replace(/^G7/i, '') || '易流' }}</span>
         </template>
       </RouterLink>
 
@@ -205,7 +275,7 @@ onBeforeUnmount(() => {
                 <span class="caret" aria-hidden="true"></span>
               </button>
 
-              <!-- 1:1 还原截图 image_1249a6.png：全宽浅灰蓝通栏 5 列下拉大菜单 -->
+              <!-- 1:1 还原截图 产品与解决方案.jpg：全宽浅灰蓝通栏 5 列下拉大菜单 -->
               <Transition name="mega-band">
                 <div
                   v-if="openMenu === item.label"
@@ -246,7 +316,6 @@ onBeforeUnmount(() => {
                       </div>
                     </template>
 
-                    <!-- 常规多子项通栏 -->
                     <template v-else>
                       <ul class="mega-simple-list">
                         <li v-for="child in item.children" :key="child.label">
@@ -254,7 +323,7 @@ onBeforeUnmount(() => {
                             v-if="child.linkType === 'CONSULT'"
                             type="button"
                             class="mega-col__link"
-                            @click="consult()"
+                            @click="triggerTrialModal()"
                           >
                             {{ displayNavLabel(child.label) }}
                           </button>
@@ -283,7 +352,7 @@ onBeforeUnmount(() => {
               v-else-if="item.linkType === 'CONSULT'"
               type="button"
               class="nav__link"
-              @click="consult()"
+              @click="triggerTrialModal()"
             >
               {{ displayNavLabel(item.label) }}
             </button>
@@ -308,32 +377,36 @@ onBeforeUnmount(() => {
         </ul>
       </nav>
 
-      <!-- 右侧区域：1:1 对齐截图 image_1249a6.png -->
+      <!-- 右侧区域：1:1 对齐视频：English + 循环打字机小七助手（唤起右侧 AI 抽屉） + 产品试用（唤起居中预约弹窗） -->
       <div class="actions">
         <button type="button" class="lang" @click="toggleLang">
           {{ lang === 'zh' ? 'English' : '中文' }}
         </button>
 
         <button
+          v-if="xiaoqiConfig?.enabled !== false"
           type="button"
           class="actions__assistant"
-          title="点击在线交流"
-          @click="consult('NAVIGATION')"
+          title="点击唤醒小七 AI 智能助手"
+          @click="triggerXiaoQi"
         >
           <span class="assistant__meta">
-            <span class="assistant__sub">您好, 我是您的</span>
-            <span class="assistant__name">数字物流专家 小七</span>
+            <span class="assistant__sub">{{ typedLine1 }}</span>
+            <span class="assistant__name">{{ typedLine2 }}</span>
           </span>
           <span class="assistant__pin" aria-hidden="true">
             <span class="assistant__head">
-              <span class="assistant__eye"></span>
-              <span class="assistant__eye"></span>
+              <span class="assistant__face">
+                <span class="assistant__eye"></span>
+                <span class="assistant__eye"></span>
+              </span>
+              <span class="assistant__mark">G</span>
             </span>
             <span class="assistant__shadow"></span>
           </span>
         </button>
 
-        <button type="button" class="actions__cta" @click="consult('OTHER_CTA')">
+        <button type="button" class="actions__cta" @click="triggerTrialModal('OTHER_CTA')">
           {{ lang === 'en' ? 'Free Trial' : '产品试用' }}
         </button>
 
@@ -366,51 +439,15 @@ onBeforeUnmount(() => {
               </button>
               <ul v-if="openMobile === item.label" class="mobile__sub">
                 <li v-for="child in item.children" :key="child.label">
-                  <button
-                    v-if="child.linkType === 'CONSULT'"
-                    type="button"
-                    class="mobile__sublink mobile__sublink--button"
-                    @click="consult()"
-                  >
-                    {{ displayNavLabel(child.label) }}
-                  </button>
-                  <a
-                    v-else-if="child.url"
-                    :href="child.url"
-                    class="mobile__sublink"
-                    :target="child.newWindow ? '_blank' : undefined"
-                    :rel="child.newWindow ? 'noopener noreferrer' : undefined"
-                    @click="close"
-                  >
-                    {{ displayNavLabel(child.label) }}
-                  </a>
-                  <RouterLink v-else :to="child.path" class="mobile__sublink" @click="close">
+                  <RouterLink :to="child.path || '/'" class="mobile__sublink" @click="close">
                     {{ displayNavLabel(child.label) }}
                   </RouterLink>
                 </li>
               </ul>
             </template>
-            <button
-              v-else-if="item.linkType === 'CONSULT'"
-              type="button"
-              class="mobile__link"
-              @click="consult()"
-            >
-              {{ displayNavLabel(item.label) }}
-            </button>
-            <a
-              v-else-if="item.url"
-              :href="item.url"
-              class="mobile__link"
-              :target="item.newWindow ? '_blank' : undefined"
-              :rel="item.newWindow ? 'noopener noreferrer' : undefined"
-              @click="close"
-            >
-              {{ displayNavLabel(item.label) }}
-            </a>
             <RouterLink
               v-else
-              :to="item.path"
+              :to="item.path || '/'"
               class="mobile__link"
               :class="{ 'is-active': isActive(item) }"
               @click="close"
@@ -419,9 +456,14 @@ onBeforeUnmount(() => {
             </RouterLink>
           </li>
         </ul>
-        <button type="button" class="btn btn--primary mobile__cta" @click="consult('OTHER_CTA')">
-          产品试用
-        </button>
+        <div class="mobile__btns">
+          <button type="button" class="btn btn--outline mobile__cta" @click="triggerXiaoQi">
+            唤醒小七 AI
+          </button>
+          <button type="button" class="btn btn--primary mobile__cta" @click="triggerTrialModal('OTHER_CTA')">
+            产品试用
+          </button>
+        </div>
       </nav>
     </Transition>
   </header>
@@ -445,14 +487,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 44px;
-  height: var(--header-height, 76px);
+  height: var(--header-height, 74px);
 }
 
 .brand {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: 3px;
   flex: none;
+  text-decoration: none;
 }
 
 .brand__logo {
@@ -462,17 +505,17 @@ onBeforeUnmount(() => {
 }
 
 .brand__g7 {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   font-style: italic;
-  color: #4f2de2;
+  color: #4c2ce6;
   letter-spacing: -0.04em;
 }
 
 .brand__name {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
-  color: #4f2de2;
+  color: #4c2ce6;
   letter-spacing: -0.02em;
 }
 
@@ -500,15 +543,17 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   padding: 24px 0;
-  font-size: 15px;
+  font-size: 14.5px;
   color: #2b2f38;
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
+  text-decoration: none;
   transition: color 0.2s ease;
 }
 
+/* 1:1 对齐四段视频：一级导航激活态仅为品牌紫文字，无底部横线 */
 .nav__link:hover,
 .nav__link.is-active {
   color: #5b4be8;
@@ -527,7 +572,7 @@ onBeforeUnmount(() => {
   transform: rotate(225deg) translateY(-2px);
 }
 
-/* 全宽浅灰蓝通栏下拉大菜单（1:1 对齐 image_1249a6.png） */
+/* 全宽浅灰蓝通栏下拉大菜单（1:1 对齐 产品与解决方案.jpg） */
 .mega-band {
   position: absolute;
   top: 100%;
@@ -582,8 +627,9 @@ onBeforeUnmount(() => {
   font-size: 13.5px;
   color: #5f6470;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
-  transition: color 0.18s ease, transform 0.18s ease;
+  transition: color 0.18s ease;
 }
 
 .mega-col__link:hover {
@@ -602,20 +648,20 @@ onBeforeUnmount(() => {
 
 .mega-band-enter-active,
 .mega-band-leave-active {
-  transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .mega-band-enter-from,
 .mega-band-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-6px);
 }
 
-/* 右侧操作区（1:1 还原截图） */
+/* 右侧操作区 */
 .actions {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 22px;
   flex: none;
 }
 
@@ -638,51 +684,81 @@ onBeforeUnmount(() => {
   gap: 10px;
   background: none;
   border: none;
-  padding: 4px 6px;
+  padding: 2px 4px;
   cursor: pointer;
   font-family: inherit;
 }
 
 .assistant__meta {
+  min-width: 112px;
+  min-height: 30px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: center;
   text-align: right;
-  line-height: 1.3;
+  line-height: 1.32;
 }
 
 .assistant__sub {
   font-size: 11px;
-  color: #4f7cff;
+  color: #3b82f6;
   font-weight: 500;
+  min-height: 14px;
 }
 
 .assistant__name {
   font-size: 11.5px;
   font-weight: 600;
-  color: #5b4be8;
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  min-height: 15px;
 }
 
 .assistant__pin {
   position: relative;
   width: 36px;
-  height: 40px;
+  height: 42px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  animation: bot-float 3s ease-in-out infinite;
+}
+
+@keyframes bot-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .assistant__head {
+  position: relative;
   width: 32px;
   height: 32px;
-  border-radius: 50% 50% 50% 15%;
+  border-radius: 50% 50% 50% 14%;
   transform: rotate(-45deg);
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 55%, #3b82f6 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 55%, #38bdf8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.36);
+}
+
+.assistant__face {
+  transform: rotate(45deg);
+  width: 20px;
+  height: 13px;
+  border-radius: 8px;
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.38);
+  margin-top: -3px;
 }
 
 .assistant__eye {
@@ -690,21 +766,31 @@ onBeforeUnmount(() => {
   height: 6px;
   border-radius: 999px;
   background: #38bdf8;
-  transform: rotate(45deg);
   box-shadow: 0 0 6px #38bdf8;
 }
 
+.assistant__mark {
+  position: absolute;
+  bottom: 3px;
+  right: 5px;
+  transform: rotate(45deg);
+  font-size: 7px;
+  font-weight: 900;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .assistant__shadow {
-  margin-top: 3px;
+  margin-top: 4px;
   width: 22px;
-  height: 4px;
+  height: 5px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 70, 229, 0.45) 0%, transparent 75%);
+  background: radial-gradient(circle, rgba(79, 70, 229, 0.55) 0%, transparent 75%);
 }
 
 .actions__cta {
-  height: 40px;
-  padding: 0 24px;
+  height: 38px;
+  padding: 0 22px;
   border: none;
   border-radius: 2px;
   background: #0a0b0e;
@@ -739,7 +825,7 @@ onBeforeUnmount(() => {
   width: 18px;
   height: 1.5px;
   background: var(--c-text);
-  transition: transform 0.25s ease, opacity 0.2s ease;
+  transition: transform 0.25s ease;
 }
 
 .toggle__line {
@@ -793,13 +879,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 15px 4px;
-  font-size: 16px;
+  padding: 14px 4px;
+  font-size: 15px;
   color: var(--c-text);
   border: none;
   border-bottom: 1px solid var(--c-border);
   background: none;
   text-align: left;
+  text-decoration: none;
 }
 
 .mobile__sub {
@@ -813,10 +900,17 @@ onBeforeUnmount(() => {
   padding: 10px 4px;
   font-size: 14px;
   color: var(--c-text-muted);
+  text-decoration: none;
+}
+
+.mobile__btns {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .mobile__cta {
-  margin-top: 16px;
   width: 100%;
 }
 

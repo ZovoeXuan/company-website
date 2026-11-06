@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import SiteHeader from '@/components/SiteHeader.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import ConsultDialog from '@/components/ConsultDialog.vue'
-import FloatingActions from '@/components/FloatingActions.vue'
+import XiaoQiDrawer from '@/components/XiaoQiDrawer.vue'
 import VideoModal from '@/components/VideoModal.vue'
 import { ApiError } from '@/api/http'
 import { getSite } from '@/api/public'
@@ -41,6 +41,7 @@ onMounted(loadSite)
       :logo-alt="config.logoAlt"
       :mega-columns="config.megaColumns"
       :mega-cta="config.megaCta"
+      :xiaoqi-config="config.xiaoqiConfig"
     />
 
     <main id="main" class="site__main" tabindex="-1">
@@ -50,16 +51,16 @@ onMounted(loadSite)
       </div>
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
-          <component :is="Component" :key="route.fullPath" />
+          <component :is="Component" :key="route.path" />
         </Transition>
       </RouterView>
     </main>
 
     <SiteFooter v-if="config" :config="config" />
 
-    <FloatingActions :site="config" />
-
+    <!-- 居中预约产品展示弹窗 + 右侧小七 AI 智能助手抽屉 + 视频播放弹窗 -->
     <ConsultDialog />
+    <XiaoQiDrawer :site="config" />
     <VideoModal />
   </div>
 </template>

@@ -1,5 +1,5 @@
 /**
- * 与后端公开 DTO 对齐的展示类型。
+ * 与后端公开 DTO 对齐的展示类型（含全站视频复刻与全局 CMS 扩展字段）。
  */
 
 export interface MediaRef {
@@ -45,6 +45,39 @@ export interface MegaColumn {
 export interface QrCodeItem {
   label: string
   imageUrl?: string | null
+  mediaId?: string | number | null
+}
+
+export interface ContactEmailItem {
+  email: string
+  desc: string
+}
+
+export interface XiaoQiFaqPair {
+  q: string
+  a: string
+  thought?: string
+}
+
+export interface XiaoQiConfig {
+  enabled?: boolean
+  name?: string
+  roleTitle?: string
+  headerLine1?: string
+  headerLine2?: string
+  welcomeTitle?: string
+  welcomeSubtitle?: string
+  certBadge?: string
+  capabilities?: string[]
+  questions?: string[]
+  faqPairs?: XiaoQiFaqPair[]
+  deepThinkEnabled?: boolean
+  deepThinkModel?: string
+  disclaimer?: string
+  apiUrl?: string
+  apiKey?: string
+  modelName?: string
+  systemPrompt?: string
 }
 
 export interface SiteConfig {
@@ -57,6 +90,8 @@ export interface SiteConfig {
   nav: NavItem[]
   megaColumns?: MegaColumn[]
   megaCta?: { text: string; linkText: string } | null
+  xiaoqiConfig?: XiaoQiConfig | null
+  contactEmails?: ContactEmailItem[]
   contact: {
     phone: string
     email: string
@@ -94,6 +129,10 @@ export interface HomeHeroItem {
   key: string
   title: string
   subtitle: string
+  theme?: 'dark' | 'light'
+  kicker?: string
+  badgeText?: string
+  watermark?: string
   desktopImage: MediaRef | null
   mobileImage: MediaRef | null
   buttonText: string
@@ -106,6 +145,38 @@ export interface HomeMetric {
   unit: string
   label: string
   description: string
+}
+
+export interface HomeHotspotItem {
+  label: string
+  x: number
+  y: number
+  labelX: number
+  labelY: number
+  align?: 'left' | 'right'
+}
+
+export interface HomeShowcaseSubItem {
+  title: string
+  prefix?: string
+  path?: string
+  sceneImage?: string
+  callouts?: Array<{ label: string; x: number; y: number }>
+}
+
+export interface HomeShowcaseStage {
+  key: string
+  title: string
+  description: string
+  morePath?: string
+  mode: 'RADAR' | 'PAYMENT' | 'SOLUTIONS'
+  alertLabel?: string
+  alertBaseValue?: number
+  alertUnit?: string
+  paymentTitle?: string
+  paymentSubtitle?: string
+  paymentAmount?: string
+  subItems: HomeShowcaseSubItem[]
 }
 
 export interface HomeCard {
@@ -150,7 +221,13 @@ export interface HomeView {
   publishedAt: string | null
   sectionOrder?: string[]
   hero: { items: HomeHeroItem[] }
-  metrics: (HomeBlock & { items: HomeMetric[] }) | null
+  metrics: (HomeBlock & {
+    brandPrefix?: string
+    centerImageUrl?: string
+    hotspots?: HomeHotspotItem[]
+    items: HomeMetric[]
+  }) | null
+  showcaseStages?: HomeShowcaseStage[]
   services: (HomeBlock & { groups: HomeServiceGroup[] }) | null
   cases: (HomeBlock & { items: HomeCard[]; moreUrl: string }) | null
   customers: (HomeBlock & { items: HomeCustomer[] }) | null
@@ -252,11 +329,53 @@ export interface AboutOfficeItem {
   mapY?: number
 }
 
+export interface AboutCeoLetter {
+  leftQuote: string
+  title: string
+  excerpt: string[]
+  signature: string
+  buttonText?: string
+  fullParagraphs: string[]
+  bgImage?: string
+}
+
+export interface AboutTeamMember {
+  name: string
+  role: string
+  avatar?: string
+  bio: string[]
+}
+
+export interface AboutResourceItem {
+  category: '企业资料' | '客户视频' | '行业报告' | 'ESG' | string
+  title: string
+  cover?: string
+  logoText?: string
+  logoColor?: string
+  url?: string
+  isVideo?: boolean
+}
+
+export interface AboutStoryItem {
+  quote: string
+  author: string
+  company: string
+  logoText?: string
+  cover?: string
+  videoUrl?: string
+}
+
 export interface AboutPage {
   heroTitle?: string
   introTitle?: string
   intro: string
   introImage?: string
+  ceoLetter?: AboutCeoLetter | null
+  teamTitle?: string
+  teamMembers?: AboutTeamMember[]
+  resourcesTitle?: string
+  resources?: AboutResourceItem[]
+  customerStories?: AboutStoryItem[]
   mission: string
   vision?: string
   values?: AboutValueItem[]
@@ -264,6 +383,8 @@ export interface AboutPage {
   qualifications: Array<{ name: string; description: string }>
   joinTitle?: string
   joinButtonText?: string
+  joinUrl?: string
+  joinImage?: string
   offices?: AboutOfficeItem[]
 }
 
