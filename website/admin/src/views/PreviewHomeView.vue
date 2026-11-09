@@ -1580,18 +1580,18 @@ onBeforeUnmount(() => {
                   </span>
                 </template>
 
-                <!-- 底部轮播切换条 -->
-                <div class="canvas-hero__dots">
+                <!-- 底部轮播指示条（1:1 对齐前台左下角极简指示条） -->
+                <div v-if="drafts.HOME.hero.items.length > 1" class="canvas-hero__bars">
                   <button
                     v-for="(hItem, hIdx) in drafts.HOME.hero.items"
-                    :key="hItem.key ?? `dot-${hIdx}`"
+                    :key="hItem.key ?? `bar-${hIdx}`"
                     type="button"
-                    class="hero-dot"
-                    :class="{ 'is-active': hIdx === heroIndex, 'is-off': !hItem.enabled }"
+                    class="canvas-hero__bar"
+                    :class="{ 'is-active': hIdx === heroIndex }"
+                    :title="`切换到第 ${hIdx + 1} 屏：${hItem.title || '未命名'}`"
                     @click.stop="heroIndex = hIdx"
                   >
-                    <span class="hero-dot__num">0{{ hIdx + 1 }}</span>
-                    <span class="hero-dot__name">{{ hItem.title || '未命名首屏' }}</span>
+                    <span class="canvas-hero__bar-fill"></span>
                   </button>
                 </div>
               </div>
@@ -2772,31 +2772,37 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.canvas-hero__dots {
+.canvas-hero__bars {
+  position: absolute;
+  left: 36px;
+  bottom: 24px;
+  z-index: 5;
   display: flex;
-  gap: 10px;
-  margin-top: 28px;
-  flex-wrap: wrap;
-}
-
-.hero-dot {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
-  cursor: pointer;
+  gap: 10px;
 }
 
-.hero-dot.is-active {
-  background: #5b4be8;
-  border-color: #5b4be8;
-  color: #ffffff;
-  font-weight: 600;
+.canvas-hero__bar {
+  width: 44px;
+  height: 3px;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.canvas-hero__bar-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #ffffff;
+}
+
+.canvas-hero__bar.is-active .canvas-hero__bar-fill {
+  width: 100%;
 }
 
 /* 通用内联编辑输入框 */
