@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { openConsult, openXiaoQi } from '@/composables/consult'
+import { openConsult } from '@/composables/consult'
 import { openVideo } from '@/composables/videoModal'
-import type { MegaColumn, MegaSubItem, NavItem, XiaoQiConfig } from '@/data/types'
+import type { MegaColumn, MegaSubItem, NavItem } from '@/data/types'
 
 const props = defineProps<{
   siteName: string
@@ -12,7 +12,6 @@ const props = defineProps<{
   logoAlt?: string
   megaColumns?: MegaColumn[]
   megaCta?: { text: string; linkText: string } | null
-  xiaoqiConfig?: XiaoQiConfig | null
 }>()
 
 const route = useRoute()
@@ -21,65 +20,6 @@ const openMenu = ref<string | null>(null)
 const openMobile = ref<string | null>(null)
 const scrolled = ref(false)
 const lang = ref<'zh' | 'en'>('zh')
-
-// 小鑫头部两行文字循环打字机动效（1:1 还原视频右上角逐字打出与回退效果）
-const fullLine1 = computed(() => props.xiaoqiConfig?.headerLine1 || '您好，我是您的')
-const fullLine2 = computed(
-  () =>
-    props.xiaoqiConfig?.headerLine2 ||
-    `${props.xiaoqiConfig?.roleTitle || '数字物流专家'} ${props.xiaoqiConfig?.name || '小鑫'}`,
-)
-const typedLine1 = ref('')
-const typedLine2 = ref('')
-let typeTimer: number | null = null
-
-function startTypewriter() {
-  if (typeTimer) clearTimeout(typeTimer)
-  const l1 = fullLine1.value
-  const l2 = fullLine2.value
-  const totalLen = l1.length + l2.length
-  let pos = 0
-  let forward = true
-
-  const step = () => {
-    if (forward) {
-      pos++
-      if (pos <= l1.length) {
-        typedLine1.value = l1.slice(0, pos)
-        typedLine2.value = ''
-      } else {
-        typedLine1.value = l1
-        typedLine2.value = l2.slice(0, pos - l1.length)
-      }
-      if (pos >= totalLen) {
-        forward = false
-        typeTimer = window.setTimeout(step, 2600)
-        return
-      }
-      typeTimer = window.setTimeout(step, 110)
-    } else {
-      pos--
-      if (pos > l1.length) {
-        typedLine1.value = l1
-        typedLine2.value = l2.slice(0, pos - l1.length)
-      } else {
-        typedLine1.value = l1.slice(0, Math.max(1, pos))
-        typedLine2.value = ''
-      }
-      if (pos <= 1) {
-        forward = true
-        typeTimer = window.setTimeout(step, 450)
-        return
-      }
-      typeTimer = window.setTimeout(step, 45)
-    }
-  }
-  step()
-}
-
-watch([fullLine1, fullLine2], () => {
-  startTypewriter()
-})
 
 const enLabelMap: Record<string, string> = {
   首页: 'Home',
@@ -217,12 +157,6 @@ function triggerTrialModal(position = 'NAVIGATION') {
   openConsult({ sourcePosition: position, title: '预约产品展示' })
 }
 
-function triggerXiaoQi() {
-  openMenu.value = null
-  openMobile.value = null
-  openXiaoQi()
-}
-
 function isActive(item: NavItem): boolean {
   if (!item.path) return false
   if (item.path === '/') return route.path === '/'
@@ -233,13 +167,11 @@ onMounted(() => {
   document.addEventListener('keydown', onKeydown)
   window.addEventListener('scroll', onScroll, { passive: true })
   onScroll()
-  startTypewriter()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
-  if (typeTimer) clearTimeout(typeTimer)
 })
 </script>
 
@@ -383,29 +315,6 @@ onBeforeUnmount(() => {
           {{ lang === 'zh' ? 'English' : '中文' }}
         </button>
 
-        <button
-          v-if="xiaoqiConfig?.enabled !== false"
-          type="button"
-          class="actions__assistant"
-          title="点击唤醒小鑫 AI 智能助手"
-          @click="triggerXiaoQi"
-        >
-          <span class="assistant__meta">
-            <span class="assistant__sub">{{ typedLine1 }}</span>
-            <span class="assistant__name">{{ typedLine2 }}</span>
-          </span>
-          <span class="assistant__pin" aria-hidden="true">
-            <span class="assistant__head">
-              <span class="assistant__face">
-                <span class="assistant__eye"></span>
-                <span class="assistant__eye"></span>
-              </span>
-              <span class="assistant__mark">G</span>
-            </span>
-            <span class="assistant__shadow"></span>
-          </span>
-        </button>
-
         <button type="button" class="actions__cta" @click="triggerTrialModal('OTHER_CTA')">
           {{ lang === 'en' ? 'Free Trial' : '产品试用' }}
         </button>
@@ -457,9 +366,6 @@ onBeforeUnmount(() => {
           </li>
         </ul>
         <div class="mobile__btns">
-          <button type="button" class="btn btn--outline mobile__cta" @click="triggerXiaoQi">
-            唤醒小鑫 AI
-          </button>
           <button type="button" class="btn btn--primary mobile__cta" @click="triggerTrialModal('OTHER_CTA')">
             产品试用
           </button>
@@ -678,116 +584,6 @@ onBeforeUnmount(() => {
   color: #5b4be8;
 }
 
-.actions__assistant {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: none;
-  border: none;
-  padding: 2px 4px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.assistant__meta {
-  min-width: 112px;
-  min-height: 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  text-align: right;
-  line-height: 1.32;
-}
-
-.assistant__sub {
-  font-size: 11px;
-  color: #3b82f6;
-  font-weight: 500;
-  min-height: 14px;
-}
-
-.assistant__name {
-  font-size: 11.5px;
-  font-weight: 600;
-  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  min-height: 15px;
-}
-
-.assistant__pin {
-  position: relative;
-  width: 36px;
-  height: 42px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: bot-float 3s ease-in-out infinite;
-}
-
-@keyframes bot-float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-.assistant__head {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 50% 50% 50% 14%;
-  transform: rotate(-45deg);
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 55%, #38bdf8 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.36);
-}
-
-.assistant__face {
-  transform: rotate(45deg);
-  width: 20px;
-  height: 13px;
-  border-radius: 8px;
-  background: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: -3px;
-}
-
-.assistant__eye {
-  width: 4px;
-  height: 6px;
-  border-radius: 999px;
-  background: #38bdf8;
-  box-shadow: 0 0 6px #38bdf8;
-}
-
-.assistant__mark {
-  position: absolute;
-  bottom: 3px;
-  right: 5px;
-  transform: rotate(45deg);
-  font-size: 7px;
-  font-weight: 900;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.assistant__shadow {
-  margin-top: 4px;
-  width: 22px;
-  height: 5px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(79, 70, 229, 0.55) 0%, transparent 75%);
-}
-
 .actions__cta {
   height: 38px;
   padding: 0 22px;
@@ -915,8 +711,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 980px) {
-  .nav,
-  .actions__assistant {
+  .nav {
     display: none;
   }
   .toggle {

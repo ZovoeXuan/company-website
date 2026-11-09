@@ -8,9 +8,7 @@ import { usePageMeta } from '@/composables/usePageMeta'
 import { vReveal } from '@/directives/reveal'
 import type {
   HomeHeroItem,
-  HomeHotspotItem,
   HomeLink,
-  HomeMetric,
   HomeView,
 } from '@/data/types'
 
@@ -18,10 +16,8 @@ const router = useRouter()
 const data = ref<HomeView | null>(null)
 const siteName = ref('公司官网')
 const heroIndex = ref(0)
-const activeMetricIdx = ref(6)
 
 let heroTimer: number | null = null
-let metricTimer: number | null = null
 
 usePageMeta(() => ({
   title: '首页',
@@ -101,96 +97,6 @@ function startHeroRotation() {
     heroIndex.value = (heroIndex.value + 1) % heroes.value.length
   }, 6000)
 }
-
-// 默认 8 项 G 大数据指标（1:1 对齐 首页.mp4 00:09-00:18）
-const DEFAULT_METRICS: HomeMetric[] = [
-  { key: 'm1', displayValue: '800W', unit: '+', label: 'IoT设备连接', description: '' },
-  { key: 'm2', displayValue: '12000', unit: '+', label: '油站连接', description: '' },
-  { key: 'm3', displayValue: '18W', unit: '+', label: '安全设备', description: '' },
-  { key: 'm4', displayValue: '14000', unit: '+', label: '数字货舱', description: '' },
-  { key: 'm5', displayValue: '35000', unit: '+', label: '货运经营者', description: '' },
-  { key: 'm6', displayValue: '1.44亿公里', unit: '+', label: '日均跟踪里程', description: '' },
-  { key: 'm7', displayValue: '1亿', unit: '+', label: '日均车辆事件', description: '' },
-  { key: 'm8', displayValue: '12T', unit: '+', label: '日均上传数据', description: '' },
-]
-
-const metricsList = computed<HomeMetric[]>(() => {
-  const raw = data.value?.metrics?.items ?? []
-  if (raw.length >= 8) return raw.slice(0, 8)
-  if (raw.length > 0) {
-    const out = [...raw]
-    for (let i = out.length; i < 8; i++) {
-      out.push(DEFAULT_METRICS[i])
-    }
-    return out
-  }
-  return DEFAULT_METRICS
-})
-
-// 11 个车身/产品 90度折线引线热点（点击可直达产品详情界面）
-const DEFAULT_HOTSPOTS: HomeHotspotItem[] = [
-  { label: '安全驾驶系统', path: '/products/1', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
-  { label: 'AI 车挂匹配', path: '/products?category=IoT', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
-  { label: '数字加注', path: '/solutions?category=交易', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
-  { label: '油耗管理', path: '/products?category=IoT', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
-  { label: 'AI 量方', path: '/products/1', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
-  { label: '实时温控', path: '/products?category=冷链', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
-  { label: '胎温胎压', path: '/products?category=安全', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
-  { label: '轴称重', path: '/products?category=IoT', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
-  { label: '货舱摄像头', path: '/products?category=安全', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
-  { label: '挂车电子制动系统', path: '/products?category=安全', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
-  { label: '倒车盲点检测', path: '/products/1', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
-]
-
-const hotspotsList = computed<HomeHotspotItem[]>(() => {
-  if (data.value?.metrics?.hotspots && data.value.metrics.hotspots.length > 0) {
-    return data.value.metrics.hotspots.map((hs, idx) => ({
-      ...(DEFAULT_HOTSPOTS[idx] || {}),
-      ...hs,
-      path: hs.path || DEFAULT_HOTSPOTS[idx]?.path || '/products',
-    }))
-  }
-  return DEFAULT_HOTSPOTS
-})
-
-function goToProduct(path?: string) {
-  if (!path) {
-    router.push('/products')
-    return
-  }
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    window.open(path, '_blank', 'noopener,noreferrer')
-  } else {
-    router.push(path)
-  }
-}
-
-const featuredProductShortcuts = [
-  {
-    tag: '首款核心硬件',
-    title: '紫宝盒',
-    desc: '全场景智能视觉与感知车载终端，毫秒级声光预警',
-    path: '/products/1',
-  },
-  {
-    tag: '安全管车',
-    title: '安全管家',
-    desc: '三晒两抓主动安全管理闭环，百公里高危事故率大幅下降',
-    path: '/products?category=安全',
-  },
-  {
-    tag: '全程冷链',
-    title: '冷链管家',
-    desc: '厢内多温区多点实时温湿度监测，异常秒级告警',
-    path: '/products?category=冷链',
-  },
-  {
-    tag: '数字化在途',
-    title: '追货管家',
-    desc: '高频在途位置追踪与电子围栏，货物全程可视化透明交付',
-    path: '/products?category=追货',
-  },
-]
 
 // ==================== 3. 核心产品与行业方案分组（老版本左右交替灵动排布） ====================
 export interface HomeServiceGroupItem {
@@ -394,10 +300,6 @@ const filteredCases = computed(() => {
 // ==================== 5. 客户标识与跑马灯 ====================
 const logoViewMode = ref<'marquee' | 'grid'>('marquee')
 
-// ==================== 6. 底部 ROI 快速精算 ====================
-const quickUnits = ref(150)
-const quickSavingWan = computed(() => Math.round(quickUnits.value * 1.65 * 10) / 10)
-
 function handleAction(link: HomeLink | null | undefined, sourcePosition = 'HOME_HERO') {
   if (!link) return
   if (link.type === 'CONSULT') {
@@ -433,14 +335,10 @@ async function load() {
 
 onMounted(() => {
   load()
-  metricTimer = window.setInterval(() => {
-    activeMetricIdx.value = (activeMetricIdx.value + 1) % 8
-  }, 2800)
 })
 
 onBeforeUnmount(() => {
   if (heroTimer) clearInterval(heroTimer)
-  if (metricTimer) clearInterval(metricTimer)
 })
 </script>
 
@@ -568,157 +466,6 @@ onBeforeUnmount(() => {
           >
             <span class="g7-hero__bar-fill"></span>
           </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ==================== 2. 产品展示：8 项核心指标 + 声波圆环与 11 大产品节点跳转 + 核心产品快捷矩阵 ==================== -->
-    <section id="metrics" class="g7-bigdata">
-      <div class="container container--wide">
-        <h2 v-reveal class="g7-bigdata__title">
-          <em v-if="data?.metrics?.brandPrefix" class="g7-bigdata__g">{{ data.metrics.brandPrefix }}</em>
-          <span>{{ data?.metrics?.title || '产品展示' }}</span>
-        </h2>
-        <p v-if="data?.metrics?.subtitle" class="g7-bigdata__sub-lead">{{ data.metrics.subtitle }}</p>
-
-        <!-- 2 行 × 4 列 = 8 项核心指标，右上角上标 +，轮流/悬停紫色高亮 -->
-        <ul class="g7-metrics-grid">
-          <li
-            v-for="(item, mIdx) in metricsList"
-            :key="item.key || mIdx"
-            v-reveal="mIdx * 60"
-            class="g7-metric-cell"
-            :class="{ 'is-highlighted': activeMetricIdx === mIdx }"
-            @mouseenter="activeMetricIdx = mIdx"
-          >
-            <div class="g7-metric-cell__num">
-              <span>{{ item.displayValue }}</span>
-              <sup v-if="item.unit">{{ item.unit }}</sup>
-            </div>
-            <p class="g7-metric-cell__label">{{ item.label }}</p>
-          </li>
-        </ul>
-
-        <!-- 底部声波雷达同心圆环 + 透视车体/产品图 + 11 条 90 度折线引线标签（点击直达对应产品详细界面） -->
-        <div v-reveal="180" class="g7-diagram-stage">
-          <!-- 地面扩散点阵声波环 -->
-          <div class="g7-soundwaves" aria-hidden="true">
-            <span class="wave-ring wave-ring--1"></span>
-            <span class="wave-ring wave-ring--2"></span>
-            <span class="wave-ring wave-ring--3"></span>
-            <span class="wave-ring wave-ring--4"></span>
-          </div>
-
-          <!-- 居中可交互 SVG 透视车体与 90度折线引线标注（点击跳转到详细产品界面） -->
-          <svg
-            viewBox="0 0 1120 340"
-            class="g7-diagram-svg"
-            role="img"
-            aria-label="全场景智能感知硬件与产品数据节点示意图"
-          >
-            <defs>
-              <linearGradient id="truckBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#f8fafc" />
-                <stop offset="100%" stop-color="#e2e8f0" />
-              </linearGradient>
-              <linearGradient id="cabGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ffffff" />
-                <stop offset="100%" stop-color="#cbd5e1" />
-              </linearGradient>
-            </defs>
-
-            <!-- 地面椭圆波纹线 -->
-            <ellipse cx="640" cy="292" rx="440" ry="34" fill="none" stroke="#c7d2fe" stroke-width="1" stroke-dasharray="3 4" />
-            <ellipse cx="640" cy="292" rx="340" ry="24" fill="none" stroke="#a5b4fc" stroke-width="1" stroke-dasharray="2 3" />
-            <ellipse cx="640" cy="292" rx="230" ry="15" fill="none" stroke="#818cf8" stroke-width="1" stroke-dasharray="2 2" />
-
-            <!-- 车头与挂车高精矢量建模 -->
-            <g class="truck-model">
-              <!-- 货厢主体 -->
-              <rect x="615" y="140" width="245" height="106" rx="3" fill="url(#truckBodyGrad)" stroke="#cbd5e1" stroke-width="1.5" />
-              <text x="735" y="205" text-anchor="middle" fill="#4c2ce6" font-size="32" font-weight="900" font-style="italic">G</text>
-              <!-- 车头驾驶室 -->
-              <path d="M510 246 L522 162 Q530 142 560 140 L608 140 L608 246 Z" fill="url(#cabGrad)" stroke="#94a3b8" stroke-width="1.5" />
-              <!-- 挡风玻璃 -->
-              <path d="M518 196 L527 166 Q532 158 548 158 L565 158 L565 196 Z" fill="#1e293b" />
-              <!-- 底盘与护栏 -->
-              <rect x="515" y="246" width="340" height="14" rx="2" fill="#334155" />
-              <!-- 车轮组 -->
-              <g v-for="wx in [548, 608, 748, 784, 820]" :key="wx">
-                <circle :cx="wx" cy="264" r="17" fill="#1e293b" />
-                <circle :cx="wx" cy="264" r="9" fill="#cbd5e1" />
-                <circle :cx="wx" cy="264" r="4" fill="#475569" />
-              </g>
-              <!-- 前方智能加注机立柱 -->
-              <rect x="642" y="182" width="38" height="92" rx="2" fill="#e2e8f0" stroke="#94a3b8" />
-              <rect x="642" y="182" width="38" height="16" fill="#4c2ce6" />
-              <text x="654" y="194" fill="#fff" font-size="10" font-weight="900" font-style="italic">G</text>
-            </g>
-
-            <!-- 11 条 90 度折线引线 + 机身菱形闪烁节点 ◈ + 文本标签（支持点击跳转到对应产品详情界面） -->
-            <g
-              v-for="(hs, hIdx) in hotspotsList"
-              :key="hs.label + hIdx"
-              class="hotspot-node"
-              role="button"
-              tabindex="0"
-              :aria-label="`查看产品详情：${hs.label}`"
-              @click="goToProduct(hs.path || '/products')"
-              @keydown.enter="goToProduct(hs.path || '/products')"
-            >
-              <!-- 90度折线：从机身 (x, y) 垂直/水平折向 (labelX, labelY) -->
-              <polyline
-                :points="
-                  hs.labelY < 130
-                    ? `${hs.x},${hs.y} ${hs.x},${hs.labelY} ${hs.labelX + (hs.align === 'right' ? -10 : 18)},${hs.labelY}`
-                    : `${hs.x},${hs.y} ${hs.labelX},${hs.y} ${hs.labelX},${hs.labelY}`
-                "
-                class="hotspot-line"
-                fill="none"
-              />
-              <!-- 机身菱形锚点 ◈ -->
-              <polygon
-                :points="`${hs.x},${hs.y - 5} ${hs.x + 5},${hs.y} ${hs.x},${hs.y + 5} ${hs.x - 5},${hs.y}`"
-                class="hotspot-diamond"
-              />
-              <!-- 标签文字与跳转箭头 -->
-              <text
-                :x="hs.align === 'right' ? hs.labelX - 6 : hs.labelX"
-                :y="hs.labelY - 6"
-                :text-anchor="hs.align === 'right' ? 'end' : 'start'"
-                class="hotspot-label-text"
-              >
-                {{ hs.label }}
-                <tspan class="hotspot-arrow"> →</tspan>
-              </text>
-            </g>
-          </svg>
-        </div>
-
-        <!-- 核心产品展示快捷矩阵：支持直接点击跳转详细界面 -->
-        <div v-reveal="240" class="g7-products-quick-grid">
-          <div
-            v-for="p in featuredProductShortcuts"
-            :key="p.title"
-            class="product-shortcut-card"
-            @click="goToProduct(p.path)"
-          >
-            <div class="product-shortcut-card__tag">{{ p.tag }}</div>
-            <h3 class="product-shortcut-card__title">{{ p.title }}</h3>
-            <p class="product-shortcut-card__desc">{{ p.desc }}</p>
-            <div class="product-shortcut-card__footer">
-              <span class="product-shortcut-card__link">查看产品详情 →</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-reveal="280" class="g7-products-more-action">
-          <RouterLink to="/products" class="g7-products-more-btn">
-            浏览全部产品与解决方案
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </RouterLink>
         </div>
       </div>
     </section>
@@ -1038,63 +785,6 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- ==================== 7. 底部咨询行动区 (Consultation) ==================== -->
-    <section
-      id="consultation"
-      v-reveal="120"
-      class="section section--dark consult-cta-section"
-    >
-      <div class="container container--wide">
-        <!-- 互动式 ROI 快速测算卡 -->
-        <div class="roi-inline-card">
-          <div class="roi-inline-card__left">
-            <span class="roi-eyebrow">ROI QUICK ESTIMATOR · 降本增效快速精算</span>
-            <h3 class="roi-inline-card__title">滑动评估您的车队/设备规模，即刻查看预计年化收益</h3>
-            <div class="roi-inline-card__slider-row">
-              <span>当前运营规模：<strong>{{ quickUnits }} 台/节点</strong></span>
-              <input
-                v-model.number="quickUnits"
-                type="range"
-                min="20"
-                max="1500"
-                step="10"
-                class="roi-inline-slider"
-              />
-            </div>
-          </div>
-          <div class="roi-inline-card__right">
-            <span class="roi-inline-card__lbl">预计年化综合节降</span>
-            <strong class="roi-inline-card__val">¥ {{ quickSavingWan }} 万元</strong>
-            <button
-              type="button"
-              class="roi-btn"
-              @click="openConsult({ sourcePosition: 'HOME_ROI', title: '预约产品与ROI测算演示' })"
-            >
-              获取详细降本方案报告 →
-            </button>
-          </div>
-        </div>
-
-        <!-- 底部主咨询区 -->
-        <div class="consult-cta-box">
-          <div>
-            <h2 class="consult-cta-box__title">{{ data?.consultation?.title || '开启企业数字化生产力跃升' }}</h2>
-            <p class="consult-cta-box__sub">
-              {{ data?.consultation?.subtitle || '留下您的业务痛点，我们的行业架构师将在 1 个工作日内为您提供定制方案与演示。' }}
-            </p>
-          </div>
-          <div class="consult-cta-box__actions">
-            <button
-              type="button"
-              class="consult-cta-box__btn"
-              @click="openConsult({ sourcePosition: 'HOME_BOTTOM', title: '预约行业专家演示' })"
-            >
-              {{ data?.consultation?.buttonText || '立即预约咨询' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -1447,255 +1137,6 @@ onBeforeUnmount(() => {
 .hero-fade-leave-to {
   opacity: 0;
   transform: translateY(14px);
-}
-
-/* ==================== 2. G 大数据 ==================== */
-.g7-bigdata {
-  padding: 96px 0 64px;
-  background: #ffffff;
-  overflow: hidden;
-}
-
-.g7-bigdata__title {
-  text-align: center;
-  font-size: 36px;
-  font-weight: 800;
-  color: #1f2329;
-  margin: 0 0 56px;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-}
-
-.g7-bigdata__g {
-  font-style: italic;
-  font-weight: 900;
-  font-size: 40px;
-}
-
-.g7-metrics-grid {
-  max-width: 980px;
-  margin: 0 auto 36px;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 44px 32px;
-}
-
-.g7-metric-cell {
-  cursor: pointer;
-  transition: color 0.25s ease;
-}
-
-.g7-metric-cell__num {
-  font-size: 32px;
-  font-weight: 700;
-  color: #2b2f38;
-  line-height: 1.1;
-  transition: color 0.25s ease;
-}
-
-.g7-metric-cell__num sup {
-  font-size: 16px;
-  font-weight: 700;
-  margin-left: 2px;
-  top: -0.6em;
-}
-
-.g7-metric-cell__label {
-  margin: 10px 0 0;
-  font-size: 13.5px;
-  color: #6e7380;
-  transition: color 0.25s ease;
-}
-
-.g7-metric-cell.is-highlighted .g7-metric-cell__num,
-.g7-metric-cell.is-highlighted .g7-metric-cell__label {
-  color: #5b4be8;
-}
-
-.g7-diagram-stage {
-  position: relative;
-  max-width: 1120px;
-  margin: 0 auto;
-}
-
-.g7-diagram-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* 11 个车身硬件/产品节点交互样式 */
-.hotspot-node {
-  cursor: pointer;
-  transition: all 0.25s ease;
-  outline: none;
-}
-
-.hotspot-line {
-  stroke: #94a3b8;
-  stroke-width: 1;
-  transition: stroke 0.25s ease, stroke-width 0.25s ease;
-}
-
-.hotspot-diamond {
-  fill: #ffffff;
-  stroke: #4c2ce6;
-  stroke-width: 1.8;
-  transition: all 0.25s ease;
-}
-
-.hotspot-label-text {
-  fill: #334155;
-  font-size: 12.5px;
-  font-weight: 500;
-  transition: all 0.25s ease;
-  user-select: none;
-}
-
-.hotspot-arrow {
-  fill: #4c2ce6;
-  opacity: 0;
-  transition: all 0.25s ease;
-  font-weight: 700;
-}
-
-.hotspot-node:hover .hotspot-line,
-.hotspot-node:focus-visible .hotspot-line {
-  stroke: #4c2ce6;
-  stroke-width: 1.8;
-}
-
-.hotspot-node:hover .hotspot-diamond,
-.hotspot-node:focus-visible .hotspot-diamond {
-  fill: #4c2ce6;
-  stroke: #7c3aed;
-  filter: drop-shadow(0 0 6px rgba(76, 44, 230, 0.6));
-}
-
-.hotspot-node:hover .hotspot-label-text,
-.hotspot-node:focus-visible .hotspot-label-text {
-  fill: #4c2ce6;
-  font-weight: 700;
-}
-
-.hotspot-node:hover .hotspot-arrow,
-.hotspot-node:focus-visible .hotspot-arrow {
-  opacity: 1;
-}
-
-/* 核心产品展示快捷矩阵 */
-.g7-products-quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-top: 48px;
-}
-
-.product-shortcut-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 24px 20px;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-}
-
-.product-shortcut-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(76, 44, 230, 0.12);
-  border-color: rgba(91, 75, 232, 0.3);
-}
-
-.product-shortcut-card__tag {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 600;
-  color: #4c2ce6;
-  background: #f0edff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-bottom: 12px;
-}
-
-.product-shortcut-card__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 8px;
-}
-
-.product-shortcut-card__desc {
-  font-size: 13px;
-  color: #64748b;
-  line-height: 1.5;
-  margin: 0 0 16px;
-  flex: 1;
-}
-
-.product-shortcut-card__footer {
-  margin-top: auto;
-}
-
-.product-shortcut-card__link {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4c2ce6;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: gap 0.2s ease;
-}
-
-.product-shortcut-card:hover .product-shortcut-card__link {
-  gap: 8px;
-}
-
-.g7-products-more-action {
-  text-align: center;
-  margin-top: 36px;
-}
-
-.g7-products-more-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #4c2ce6;
-  font-weight: 600;
-  font-size: 14px;
-  border: 1.5px solid #4c2ce6;
-  text-decoration: none;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 8px rgba(76, 44, 230, 0.08);
-}
-
-.g7-products-more-btn:hover {
-  background: #4c2ce6;
-  color: #ffffff;
-  box-shadow: 0 6px 20px rgba(76, 44, 230, 0.25);
-  transform: translateY(-2px);
-}
-
-@media (max-width: 900px) {
-  .g7-products-quick-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 580px) {
-  .g7-products-quick-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ==================== 3. 核心产品与方案分组 (一个在左一个在右灵动排布) ==================== */
@@ -2464,149 +1905,8 @@ onBeforeUnmount(() => {
   color: #4c2ce6;
 }
 
-/* ==================== 7. 咨询与 ROI (Consultation) ==================== */
-.consult-cta-section {
-  padding: 80px 0 100px;
-  background: #0b0f19;
-  color: #ffffff;
-}
-
-.roi-inline-card {
-  background: linear-gradient(135deg, rgba(76, 44, 230, 0.16) 0%, rgba(30, 27, 75, 0.4) 100%);
-  border: 1px solid rgba(147, 197, 253, 0.2);
-  border-radius: 20px;
-  padding: 40px;
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 40px;
-  align-items: center;
-  margin-bottom: 60px;
-}
-
-.roi-eyebrow {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #93c5fd;
-  margin-bottom: 12px;
-}
-
-.roi-inline-card__title {
-  font-size: clamp(20px, 2vw, 26px);
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 24px;
-  line-height: 1.35;
-}
-
-.roi-inline-card__slider-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14.5px;
-}
-
-.roi-inline-card__slider-row strong {
-  color: #60a5fa;
-  font-size: 17px;
-}
-
-.roi-inline-slider {
-  width: 100%;
-  height: 6px;
-  accent-color: #60a5fa;
-  cursor: pointer;
-}
-
-.roi-inline-card__right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding-left: 24px;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.roi-inline-card__lbl {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.roi-inline-card__val {
-  font-size: clamp(32px, 3.6vw, 44px);
-  font-weight: 900;
-  color: #38bdf8;
-  margin: 8px 0 20px;
-  letter-spacing: -0.02em;
-}
-
-.roi-btn {
-  padding: 12px 24px;
-  border-radius: 8px;
-  border: none;
-  background: #38bdf8;
-  color: #0b0f19;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.roi-btn:hover {
-  background: #7dd3fc;
-  box-shadow: 0 8px 20px rgba(56, 189, 248, 0.35);
-}
-
-.consult-cta-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 48px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-}
-
-.consult-cta-box__title {
-  font-size: clamp(24px, 2.5vw, 32px);
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 10px;
-}
-
-.consult-cta-box__sub {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0;
-  max-width: 620px;
-  line-height: 1.6;
-}
-
-.consult-cta-box__btn {
-  padding: 14px 32px;
-  border-radius: 8px;
-  border: none;
-  background: #4c2ce6;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-.consult-cta-box__btn:hover {
-  background: #5b3bf0;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(76, 44, 230, 0.4);
-}
-
 /* 响应式适配 */
 @media (max-width: 960px) {
-  .g7-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .service-group__lead {
     grid-template-columns: 1fr;
     gap: 36px;
@@ -2625,21 +1925,6 @@ onBeforeUnmount(() => {
   .logo-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .roi-inline-card {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
-  .roi-inline-card__right {
-    padding-left: 0;
-    border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    padding-top: 24px;
-  }
-  .consult-cta-box {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 24px;
-  }
 }
 
 @media (max-width: 640px) {
@@ -2657,12 +1942,6 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
-  }
-  .roi-inline-card {
-    padding: 24px;
-  }
-  .consult-cta-box {
-    padding: 24px;
   }
 }
 

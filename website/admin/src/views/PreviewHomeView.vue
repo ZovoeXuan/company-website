@@ -144,12 +144,10 @@ interface ContactDraft {
 }
 
 const DEFAULT_SECTION_ORDER: HomeSectionKey[] = [
-  'metrics',
   'services',
   'cases',
   'customers',
   'news',
-  'consultation',
 ]
 
 const SECTION_META: Record<HomeSectionKey, { label: string; icon: string; formPath: string }> = {
@@ -1364,7 +1362,6 @@ onBeforeUnmount(() => {
               </nav>
 
               <div class="canvas-header__cta">
-                <span class="assistant-pill">🤖 数字物流专家 小鑫</span>
                 <span class="cta-pill">产品试用</span>
               </div>
             </div>
