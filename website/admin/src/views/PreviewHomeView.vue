@@ -109,6 +109,7 @@ interface ServiceGroup {
   sortOrder: number
   title: string
   description: string
+  layout?: 'auto' | 'left' | 'right'
   imageMediaId?: number
   contentType: string
   contentIds: number[]
@@ -524,6 +525,7 @@ function applySourceData(usePublished = false) {
           contentType: g.contentType ?? 'PRODUCT',
           contentIds: (g.contentIds ?? []).map(Number),
           moreLink: g.moreLink ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
+          layout: (g.layout as any) || 'auto',
         })),
       },
       cases: {
@@ -779,15 +781,17 @@ function addMetricItem() {
 }
 
 function addServiceGroup() {
-  if (drafts.HOME.services.groups.length >= 3) {
-    ElMessage.warning('产品服务分组最多 3 组')
+  if (drafts.HOME.services.groups.length >= 8) {
+    ElMessage.warning('产品服务分组最多 8 组')
     return
   }
+  const nextIdx = drafts.HOME.services.groups.length
   const firstProduct = Object.values(contentCatalog).find((c) => c.contentType === 'PRODUCT')
   drafts.HOME.services.groups.push({
-    sortOrder: (drafts.HOME.services.groups.length + 1) * 10,
-    title: '新业务服务分组',
+    sortOrder: (nextIdx + 1) * 10,
+    title: `新业务服务分组 0${nextIdx + 1}`,
     description: '在此输入该业务分组的核心能力描述与适用场景说明。',
+    layout: nextIdx % 2 === 0 ? 'left' : 'right',
     contentType: 'PRODUCT',
     contentIds: firstProduct ? [Number(firstProduct.id)] : [],
     moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
@@ -1775,6 +1779,7 @@ onBeforeUnmount(() => {
                     v-for="(grp, gIdx) in drafts.HOME.services.groups"
                     :key="grp.key ?? `grp-${gIdx}`"
                     class="service-group-stage"
+                    :class="{ 'is-reversed': grp.layout === 'right' || (grp.layout !== 'left' && gIdx % 2 === 1) }"
                   >
                     <div class="service-group-stage__info">
                       <template v-if="studioMode === 'edit'">
@@ -1788,6 +1793,17 @@ onBeforeUnmount(() => {
                           >
                             <el-option label="关联产品" value="PRODUCT" />
                             <el-option label="关联方案" value="SOLUTION" />
+                          </el-select>
+                          <el-select
+                            v-model="grp.layout"
+                            size="small"
+                            style="width: 130px"
+                            placeholder="排版布局"
+                            @change="recordSnapshot('切换分组对齐布局')"
+                          >
+                            <el-option label="左右交替(灵动)" value="auto" />
+                            <el-option label="左文右卡" value="left" />
+                            <el-option label="左卡右文" value="right" />
                           </el-select>
                           <button type="button" class="mini-btn" :disabled="gIdx === 0" @click.stop="moveItem(drafts.HOME.services.groups, gIdx, -1)">↑</button>
                           <button type="button" class="mini-btn" :disabled="gIdx === drafts.HOME.services.groups.length - 1" @click.stop="moveItem(drafts.HOME.services.groups, gIdx, 1)">↓</button>

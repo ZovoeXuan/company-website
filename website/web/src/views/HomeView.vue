@@ -11,7 +11,6 @@ import type {
   HomeHotspotItem,
   HomeLink,
   HomeMetric,
-  HomeShowcaseStage,
   HomeView,
 } from '@/data/types'
 
@@ -20,15 +19,9 @@ const data = ref<HomeView | null>(null)
 const siteName = ref('公司官网')
 const heroIndex = ref(0)
 const activeMetricIdx = ref(6)
-const activeStageIdx = ref(0)
-const activeSolutionTab = ref(0)
-const radarDistance = ref(153)
-const paymentStep = ref<'qr' | 'receipt'>('receipt')
 
 let heroTimer: number | null = null
 let metricTimer: number | null = null
-let radarTimer: number | null = null
-let paymentTimer: number | null = null
 
 usePageMeta(() => ({
   title: '首页',
@@ -199,109 +192,211 @@ const featuredProductShortcuts = [
   },
 ]
 
-// 第 3 大板块：左侧三圆点纵向切换舞台（IoT服务 / 交易服务 / 产业物流数字化，1:1 对齐 00:19-00:34）
-const DEFAULT_STAGES: HomeShowcaseStage[] = [
+// ==================== 3. 核心产品与行业方案分组（老版本左右交替灵动排布） ====================
+export interface HomeServiceGroupItem {
+  key: string
+  title: string
+  description: string
+  tag?: string
+  layout?: 'auto' | 'left' | 'right'
+  image?: any
+  moreLink?: HomeLink | null
+  highlights?: string[]
+  items: Array<{
+    id?: string | number
+    title: string
+    summary: string
+    url?: string
+    cover?: { url: string; alt?: string } | null
+    categoryName?: string
+  }>
+}
+
+const DEFAULT_SERVICES: HomeServiceGroupItem[] = [
   {
-    key: 'iot',
-    title: 'IoT服务',
-    description:
-      '基于物联网感知技术，打造软硬一体化的智能管车服务，全面打通车辆、司机、货物的全链路数字化管理，助力车队安全降本、高效履约。',
-    morePath: '/products',
-    mode: 'RADAR',
-    alertLabel: '车距过近',
-    alertBaseValue: 153,
-    alertUnit: 'm',
-    subItems: [
-      { prefix: 'G', title: '安全管家', path: '/products?category=安全' },
-      { prefix: 'G', title: '冷链管家', path: '/products?category=冷链' },
-      { prefix: 'G', title: '流向管家', path: '/products?category=流向' },
-      { prefix: 'G', title: '追货管家', path: '/products?category=追货' },
+    key: 'srv-1',
+    title: '设备接入',
+    description: '从协议解析到边缘缓存，把不同厂商的设备统一接进来。',
+    layout: 'left', // 左边文案，右边卡片
+    tag: 'IoT硬件与边缘网关',
+    highlights: ['工业协议全栈解析', '毫秒级边缘缓存', '多厂商设备即插即用'],
+    moreLink: { type: 'PAGE', url: '/products' },
+    items: [
+      {
+        id: '1',
+        title: '设备数据采集网关',
+        summary: '工业级边缘智能网关，支持 Modbus、OPC-UA、CAN 总线等多协议互通与实时边缘处理。',
+        url: '/products/1',
+        categoryName: 'IoT服务',
+      },
     ],
   },
   {
-    key: 'trade',
-    title: '交易服务',
-    description:
-      '以物联网与大数据技术重构物流交易环节，围绕能源补给、运力结算、数字货舱与物联保险，让每一笔车队交易透明、合规、省心。',
-    morePath: '/solutions',
-    mode: 'PAYMENT',
-    paymentTitle: '扫码加油',
-    paymentSubtitle: '订单支付',
-    paymentAmount: '¥202',
-    subItems: [
-      { prefix: 'G', title: '财运通', path: '/solutions?category=交易' },
-      { prefix: 'G', title: '数字货舱', path: '/products' },
-      { prefix: 'G', title: '物联保险', path: '/solutions' },
-      { prefix: 'G', title: '数字能源', path: '/solutions?category=能源' },
+    key: 'srv-2',
+    title: '健康与能源',
+    description: '用振动、温度与能耗基线，提前发现设备劣化与能源浪费。',
+    layout: 'right', // 右边文案，左边卡片（一个在左一个在右，灵动错落！）
+    tag: 'AI能耗与预测性维护',
+    highlights: ['振动能耗双基线', '故障劣化提前预警', '综合能效提升 18%+'],
+    moreLink: { type: 'PAGE', url: '/products?category=IoT' },
+    items: [
+      {
+        id: '2',
+        title: '设备健康管理平台',
+        summary: '基于 AI 时序机理模型的设备全生命周期健康预测，杜绝意外停机与高能耗隐患。',
+        url: '/products?category=IoT',
+        categoryName: '交易与能源',
+      },
     ],
   },
   {
-    key: 'industry',
-    title: '产业物流数字化',
-    description:
-      '基于物联网与大数据技术，重塑传统行业物流运输模式，打造贯穿全链条端到端的数字化解决方案，助力行业伙伴获得持续增长。',
-    morePath: '/solutions',
-    mode: 'SOLUTIONS',
-    subItems: [
+    key: 'srv-3',
+    title: '智能安全运营',
+    description: 'AI 驾驶安全干预与全天候盲区防碰撞，护航每一趟在途运输。',
+    layout: 'left', // 左边文案，右边卡片
+    tag: '数字安全大脑',
+    highlights: ['50+ 高危场景主动干预', '盲区声光防碰撞', '风险事故率降低 90%'],
+    moreLink: { type: 'PAGE', url: '/products?category=安全' },
+    items: [
       {
-        title: '履约可视',
-        path: '/solutions/1',
-        callouts: [
-          { label: 'RFID读头', x: 24, y: 18 },
-          { label: 'RFID标签', x: 74, y: 31 },
-          { label: 'RFID标签', x: 64, y: 46 },
-          { label: '挂车专用主机', x: 26, y: 74 },
-        ],
+        id: '3',
+        title: '安全驾驶智能系统',
+        summary: '软硬件一体的主动安全防控体系，实时防疲劳防分神，全流程护航在途安全。',
+        url: '/products?category=安全',
+        categoryName: '安全服务',
       },
+    ],
+  },
+  {
+    key: 'srv-4',
+    title: '全链路冷链追溯',
+    description: '高精度双温区感知与断链秒级告警，保障温控敏感货物全流程品质可溯。',
+    layout: 'right', // 右边文案，左边卡片
+    tag: '数智冷链温控',
+    highlights: ['±0.5℃ 高精温感探头', '开门与断温秒级上报', '医药食品合规认证'],
+    moreLink: { type: 'PAGE', url: '/products?category=冷链' },
+    items: [
       {
-        title: '货运安全',
-        path: '/solutions/2',
-        callouts: [
-          { label: 'AI双目防碰撞', x: 26, y: 22 },
-          { label: 'DMS疲劳监测', x: 72, y: 28 },
-          { label: '盲区生命探测', x: 66, y: 54 },
-          { label: '7×24安全托管', x: 28, y: 72 },
-        ],
-      },
-      {
-        title: '运力降本',
-        path: '/solutions/3',
-        callouts: [
-          { label: '智能配载算法', x: 25, y: 20 },
-          { label: '数字加注防滴漏', x: 72, y: 32 },
-          { label: 'ETC路径寻优', x: 65, y: 52 },
-          { label: '自动对账结算', x: 28, y: 74 },
-        ],
-      },
-      {
-        title: '新能源减碳',
-        path: '/solutions/1',
-        callouts: [
-          { label: '智能充换电调度', x: 24, y: 20 },
-          { label: '电池SOH热管理', x: 73, y: 30 },
-          { label: '单车碳足迹台账', x: 66, y: 52 },
-          { label: '绿电干线组网', x: 27, y: 74 },
-        ],
+        id: '4',
+        title: '智能冷链温控管家',
+        summary: '覆盖冷库、冷藏车、冷柜端到端温度全程透明可视与智能溯源闭环。',
+        url: '/products?category=冷链',
+        categoryName: '冷链服务',
       },
     ],
   },
 ]
 
-const showcaseStages = computed<HomeShowcaseStage[]>(() => {
-  if (data.value?.showcaseStages && data.value.showcaseStages.length > 0) {
-    return data.value.showcaseStages
+const servicesList = computed<HomeServiceGroupItem[]>(() => {
+  const customGroups = (data.value?.services?.groups ?? []) as unknown as HomeServiceGroupItem[]
+  if (customGroups.length > 0) {
+    return customGroups.map((g, idx) => {
+      const fallback = DEFAULT_SERVICES[idx % DEFAULT_SERVICES.length]
+      return {
+        ...fallback,
+        ...g,
+        layout: g.layout || (idx % 2 === 1 ? 'right' : 'left'),
+        tag: (g as any).contentType === 'SOLUTION' ? '行业解决方案' : (fallback.tag || '核心产品系列'),
+        items: g.items && g.items.length > 0 ? g.items : fallback.items,
+        highlights: fallback.highlights,
+      }
+    })
   }
-  return DEFAULT_STAGES
+  return DEFAULT_SERVICES
 })
 
-const currentStage = computed(
-  () => showcaseStages.value[activeStageIdx.value] ?? showcaseStages.value[0],
-)
+function isGroupReversed(group: HomeServiceGroupItem, gIdx: number): boolean {
+  if (group.layout === 'right') return true
+  if (group.layout === 'left') return false
+  // 默认 auto 奇偶交替：偶数 0 在左(left)，奇数 1 在右(right)，一个在左一个在右
+  return gIdx % 2 === 1
+}
 
-const currentSolutionSub = computed(() => {
-  const subs = currentStage.value?.subItems ?? []
-  return subs[activeSolutionTab.value] ?? subs[0]
+function handleGroupAction(group: HomeServiceGroupItem) {
+  if (group.moreLink) {
+    handleAction(group.moreLink, 'SERVICES_GROUP')
+  } else {
+    router.push('/products')
+  }
+}
+
+function goToCard(card: any) {
+  if (card.url) {
+    if (card.url.startsWith('http://') || card.url.startsWith('https://')) {
+      window.open(card.url, '_blank', 'noopener,noreferrer')
+    } else {
+      router.push(card.url)
+    }
+  } else if (card.id) {
+    router.push(`/products/${card.id}`)
+  } else {
+    router.push('/products')
+  }
+}
+
+// ==================== 4. 案例与客户筛选 ====================
+const activeCaseIndustry = ref('ALL')
+const caseIndustries = computed(() => {
+  const items = data.value?.cases?.items ?? []
+  const set = new Set<string>()
+  for (const item of items) {
+    if (item.industry) set.add(item.industry)
+  }
+  return ['ALL', ...Array.from(set)]
 })
+
+const filteredCases = computed(() => {
+  const items = data.value?.cases?.items ?? []
+  if (items.length === 0) {
+    return [
+      {
+        id: '1',
+        title: '某头部零担快运千万级车队安全数字化转型',
+        summary: '接入主动安全预警系统后，重大交通事故发生率同比下降 92%，年化保费节约超 800 万元。',
+        industry: '智慧物流',
+        cover: null,
+        url: '/cases/1',
+        outcomes: [
+          { displayValue: '92%', label: '高危事故率下降' },
+          { displayValue: '800万+', label: '年化保费综合节约' },
+        ],
+      },
+      {
+        id: '2',
+        title: '大型连锁餐饮集团冷链全温区数智监管实践',
+        summary: '全流程冷链断链秒级告警与在途可视化，货物货损率由 1.8% 降至 0.08%，实现全程透明合规。',
+        industry: '食品冷链',
+        cover: null,
+        url: '/cases/2',
+        outcomes: [
+          { displayValue: '0.08%', label: '在途货损率降至' },
+          { displayValue: '100%', label: '食安合规追溯率' },
+        ],
+      },
+      {
+        id: '3',
+        title: '大宗能源化工运力智慧调度与数字加注结算',
+        summary: '数字化油气加注与智能调度无缝联动，单车百公里综合油耗降低 2.3L，结算对账效率提升 10 倍。',
+        industry: '大宗能源',
+        cover: null,
+        url: '/cases/3',
+        outcomes: [
+          { displayValue: '2.3L', label: '百公里油耗下降' },
+          { displayValue: '10倍', label: '财税对账效率提升' },
+        ],
+      },
+    ]
+  }
+  if (activeCaseIndustry.value === 'ALL') return items
+  return items.filter((item) => item.industry === activeCaseIndustry.value)
+})
+
+// ==================== 5. 客户标识与跑马灯 ====================
+const logoViewMode = ref<'marquee' | 'grid'>('marquee')
+
+// ==================== 6. 底部 ROI 快速精算 ====================
+const quickUnits = ref(150)
+const quickSavingWan = computed(() => Math.round(quickUnits.value * 1.65 * 10) / 10)
 
 function handleAction(link: HomeLink | null | undefined, sourcePosition = 'HOME_HERO') {
   if (!link) return
@@ -323,27 +418,6 @@ function handleAction(link: HomeLink | null | undefined, sourcePosition = 'HOME_
   }
 }
 
-let wheelCooldown = false
-function onStageWheel(e: WheelEvent) {
-  if (wheelCooldown) return
-  if (Math.abs(e.deltaY) < 28) return
-  if (e.deltaY > 0 && activeStageIdx.value < showcaseStages.value.length - 1) {
-    e.preventDefault()
-    activeStageIdx.value += 1
-    wheelCooldown = true
-    window.setTimeout(() => {
-      wheelCooldown = false
-    }, 650)
-  } else if (e.deltaY < 0 && activeStageIdx.value > 0) {
-    e.preventDefault()
-    activeStageIdx.value -= 1
-    wheelCooldown = true
-    window.setTimeout(() => {
-      wheelCooldown = false
-    }, 650)
-  }
-}
-
 async function load() {
   try {
     const [homeRes, siteRes] = await Promise.all([
@@ -362,22 +436,11 @@ onMounted(() => {
   metricTimer = window.setInterval(() => {
     activeMetricIdx.value = (activeMetricIdx.value + 1) % 8
   }, 2800)
-  const distances = [113, 119, 138, 153, 160]
-  let dIdx = 3
-  radarTimer = window.setInterval(() => {
-    dIdx = (dIdx + 1) % distances.length
-    radarDistance.value = distances[dIdx]
-  }, 1100)
-  paymentTimer = window.setInterval(() => {
-    paymentStep.value = paymentStep.value === 'qr' ? 'receipt' : 'qr'
-  }, 2600)
 })
 
 onBeforeUnmount(() => {
   if (heroTimer) clearInterval(heroTimer)
   if (metricTimer) clearInterval(metricTimer)
-  if (radarTimer) clearInterval(radarTimer)
-  if (paymentTimer) clearInterval(paymentTimer)
 })
 </script>
 
@@ -660,163 +723,376 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- ==================== 3. 左侧三圆点纵向切换舞台：IoT服务 / 交易服务 / 产业物流数字化（1:1 还原 00:19-00:34） ==================== -->
+    <!-- ==================== 3. 核心产品与行业方案分组 (Services - 一个在左一个在右灵动排布) ==================== -->
     <section
+      v-if="servicesList.length > 0"
       id="services"
-      class="g7-showcase"
-      @wheel="onStageWheel"
+      v-reveal="100"
+      class="section services-section"
     >
-      <div class="container container--wide g7-showcase__inner">
-        <!-- 最左侧 3 个纵向圆点指示器 -->
-        <div class="g7-showcase__dots" role="tablist" aria-label="核心业务板块切换">
-          <button
-            v-for="(st, sIdx) in showcaseStages"
-            :key="st.key"
-            type="button"
-            role="tab"
-            class="stage-dot"
-            :class="{ 'is-active': sIdx === activeStageIdx }"
-            :aria-selected="sIdx === activeStageIdx"
-            :title="st.title"
-            @click="activeStageIdx = sIdx"
+      <div class="container container--wide">
+        <!-- 模块顶栏 -->
+        <div class="services-header">
+          <div class="services-header__left">
+            <span class="services-kicker">PRODUCTS & SOLUTIONS</span>
+            <h2 class="services-title">{{ data?.services?.title || '核心产品与行业方案' }}</h2>
+            <p class="services-sub">
+              {{ data?.services?.subtitle || '从设备接入到运维决策，覆盖全流程的数字生产力工具。' }}
+            </p>
+          </div>
+          <RouterLink to="/products" class="services-more-link">
+            浏览全部产品与方案
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </RouterLink>
+        </div>
+
+        <!-- 左右交错服务分组列表 (一个在左一个在右，灵动错落) -->
+        <div class="service-groups">
+          <div
+            v-for="(group, gIdx) in servicesList"
+            :key="group.key || gIdx"
+            v-reveal="140 + gIdx * 40"
+            class="service-group"
+            :class="{ 'is-reversed': isGroupReversed(group, gIdx) }"
           >
-            <span class="stage-dot__core"></span>
+            <!-- 灵动背景微光 -->
+            <div class="service-group__glow" aria-hidden="true"></div>
+
+            <div class="service-group__lead">
+              <!-- 文案与介绍列 (奇数右/偶数左，错落交替) -->
+              <div class="service-group__meta">
+                <div class="service-group__badge-row">
+                  <span class="service-group__index">0{{ gIdx + 1 }}</span>
+                  <span class="service-group__pill">{{ group.tag || '核心产品系列' }}</span>
+                </div>
+                <h3 class="service-group__title">{{ group.title }}</h3>
+                <p class="service-group__desc">{{ group.description }}</p>
+
+                <!-- 灵动亮点标签 -->
+                <div v-if="group.highlights && group.highlights.length" class="service-group__chips">
+                  <span
+                    v-for="(chip, cIdx) in group.highlights"
+                    :key="cIdx"
+                    class="service-chip"
+                  >
+                    <span class="service-chip__dot"></span>
+                    {{ chip }}
+                  </span>
+                </div>
+
+                <div class="service-group__actions">
+                  <button
+                    type="button"
+                    class="service-group__cta"
+                    @click="handleGroupAction(group)"
+                  >
+                    <span>了解该领域详情</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 卡片展示与多媒体列 (奇数左/偶数右，错落交替) -->
+              <div class="service-group__visual">
+                <!-- 关联的产品卡片 -->
+                <div v-if="group.items && group.items.length > 0" class="service-cards-wrap">
+                  <div
+                    v-for="card in group.items"
+                    :key="card.id || card.title"
+                    class="service-card"
+                    @click="goToCard(card)"
+                  >
+                    <div class="service-card__media">
+                      <img
+                        v-if="card.cover?.url"
+                        :src="card.cover.url"
+                        :alt="card.cover.alt || card.title"
+                        loading="lazy"
+                        class="service-card__img"
+                      />
+                      <div v-else class="service-card__placeholder">
+                        <div class="device-graphic-box">
+                          <span class="device-graphic-box__cube"></span>
+                        </div>
+                      </div>
+                      <span class="service-card__category">{{ card.categoryName || group.title }}</span>
+                    </div>
+
+                    <div class="service-card__body">
+                      <h4 class="service-card__title">
+                        {{ card.title }}
+                        <span class="service-card__arrow">→</span>
+                      </h4>
+                      <p class="service-card__summary">{{ card.summary }}</p>
+                      <div class="service-card__footer">
+                        <span class="service-card__link">查看详情 →</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 独立配图展示 -->
+                <div v-else-if="group.image" class="service-banner-wrap">
+                  <video
+                    v-if="group.image.type === 'VIDEO'"
+                    :src="group.image.url"
+                    class="service-banner-media"
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                  ></video>
+                  <img
+                    v-else
+                    :src="group.image.url"
+                    :alt="group.image.alt || group.title"
+                    class="service-banner-media"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 4. 标杆客户案例 (Cases) ==================== -->
+    <section
+      v-if="filteredCases.length > 0"
+      id="cases"
+      v-reveal="120"
+      class="section section--surface cases-section"
+    >
+      <div class="container container--wide">
+        <div class="section-head">
+          <div>
+            <span class="kicker">CUSTOMER SUCCESS</span>
+            <h2 class="section-title">{{ data?.cases?.title || '行业领军企业的共同选择' }}</h2>
+            <p v-if="data?.cases?.subtitle" class="section-sub">{{ data.cases.subtitle }}</p>
+          </div>
+          <RouterLink to="/cases" class="link-more section-head__link">
+            查看全部标杆案例 →
+          </RouterLink>
+        </div>
+
+        <!-- 行业快速筛选胶囊 -->
+        <div v-if="caseIndustries.length > 2" class="industry-pills">
+          <button
+            v-for="ind in caseIndustries"
+            :key="ind"
+            type="button"
+            class="industry-pill"
+            :class="{ 'is-active': activeCaseIndustry === ind }"
+            @click="activeCaseIndustry = ind"
+          >
+            {{ ind === 'ALL' ? '全部行业' : ind }}
           </button>
         </div>
 
-        <!-- 左侧文案与子项切换区 -->
-        <Transition name="stage-fade" mode="out-in">
-          <div :key="currentStage.key" class="g7-showcase__left">
-            <h2 class="g7-showcase__title">{{ currentStage.title }}</h2>
-            <p class="g7-showcase__desc">{{ currentStage.description }}</p>
-
-            <div v-if="currentStage.mode !== 'SOLUTIONS'" class="g7-showcase__more-wrap">
-              <RouterLink :to="currentStage.morePath || '/products'" class="g7-outline-btn">
-                了解更多
-              </RouterLink>
+        <div class="grid grid--3">
+          <RouterLink
+            v-for="item in filteredCases"
+            :key="item.id"
+            :to="item.url || `/cases/${item.id}`"
+            class="case-card"
+          >
+            <div class="case-card__media">
+              <img
+                v-if="item.cover"
+                :src="item.cover.url"
+                :alt="item.cover.alt || item.title"
+                loading="lazy"
+              />
+              <div v-else class="case-card__placeholder">
+                <span class="case-card__placeholder-tag">{{ item.industry || '标杆客户' }}</span>
+              </div>
             </div>
+            <div class="case-card__body">
+              <span v-if="item.industry" class="case-card__industry">{{ item.industry }}</span>
+              <h3 class="case-card__title">{{ item.title }}</h3>
+              <p v-if="item.summary" class="case-card__summary">{{ item.summary }}</p>
+              <div v-if="item.outcomes?.length" class="case-outcomes">
+                <div v-for="(out, oIdx) in item.outcomes.slice(0, 2)" :key="oIdx" class="case-outcomes__item">
+                  <p class="case-outcomes__val">{{ out.displayValue }}</p>
+                  <span class="case-outcomes__lbl">{{ out.label }}</span>
+                </div>
+              </div>
+            </div>
+          </RouterLink>
+        </div>
+      </div>
+    </section>
 
-            <!-- 模式 A/B (IoT服务 / 交易服务)：底部 2×2 带斜体 G 前缀产品矩阵 -->
-            <div
-              v-if="currentStage.mode !== 'SOLUTIONS'"
-              class="g7-sub-matrix"
+    <!-- ==================== 5. 合作客户标识 (Customers) ==================== -->
+    <section
+      v-if="data?.customers?.items?.length"
+      id="customers"
+      v-reveal="120"
+      class="section section--tight customers-section"
+    >
+      <div class="container container--wide">
+        <div class="section-head">
+          <div>
+            <span class="kicker">TRUSTED BY INDUSTRY LEADERS</span>
+            <h2 class="section-title">{{ data?.customers?.title || '生态伙伴与标杆客户' }}</h2>
+            <p v-if="data?.customers?.subtitle" class="section-sub">{{ data.customers.subtitle }}</p>
+          </div>
+          <div class="logo-mode-switch">
+            <button
+              type="button"
+              class="mode-btn"
+              :class="{ 'is-active': logoViewMode === 'marquee' }"
+              @click="logoViewMode = 'marquee'"
             >
-              <RouterLink
-                v-for="sub in currentStage.subItems"
-                :key="sub.title"
-                :to="sub.path || '/products'"
-                class="g7-sub-matrix__item"
-              >
-                <em class="g7-sub-matrix__prefix">{{ sub.prefix || 'G' }}</em>
-                <span>{{ sub.title }}</span>
-              </RouterLink>
-            </div>
+              动态流展示
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              :class="{ 'is-active': logoViewMode === 'grid' }"
+              @click="logoViewMode = 'grid'"
+            >
+              矩阵展示
+            </button>
+          </div>
+        </div>
 
-            <!-- 模式 C (产业物流数字化)：底部 4 个纵向可点击切换条（履约可视 / 货运安全 / 运力降本 / 新能源减碳） -->
-            <div v-else class="g7-sol-tabs">
-              <button
-                v-for="(sub, tIdx) in currentStage.subItems"
-                :key="sub.title"
-                type="button"
-                class="g7-sol-tab"
-                :class="{ 'is-active': activeSolutionTab === tIdx }"
-                @mouseenter="activeSolutionTab = tIdx"
-                @click="activeSolutionTab = tIdx"
+        <!-- 跑马灯模式 -->
+        <div v-if="logoViewMode === 'marquee' && data.customers.items.length >= 4" class="logo-marquee">
+          <div class="logo-marquee__track">
+            <template v-for="loop in 2" :key="loop">
+              <component
+                :is="cust.url ? 'a' : 'div'"
+                v-for="cust in data.customers.items"
+                :key="`${loop}-${cust.id}`"
+                :href="cust.url || undefined"
+                :target="cust.url ? '_blank' : undefined"
+                :rel="cust.url ? 'noopener noreferrer' : undefined"
+                class="logo-tile"
               >
-                {{ sub.title }}
-              </button>
+                <img :src="cust.logo.url" :alt="cust.logo.alt || cust.name" loading="lazy" />
+                <span class="logo-tile__name">{{ cust.name }}</span>
+              </component>
+            </template>
+          </div>
+        </div>
+
+        <!-- 网格模式 -->
+        <ul v-else class="logo-grid">
+          <li v-for="cust in data.customers.items" :key="cust.id" class="logo-grid__item">
+            <component
+              :is="cust.url ? 'a' : 'div'"
+              :href="cust.url || undefined"
+              :target="cust.url ? '_blank' : undefined"
+              class="logo-grid__link"
+            >
+              <img :src="cust.logo.url" :alt="cust.logo.alt || cust.name" loading="lazy" />
+            </component>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ==================== 6. 最新动态 (News) ==================== -->
+    <section
+      v-if="data?.news?.items?.length"
+      id="news"
+      v-reveal="120"
+      class="section section--surface news-section"
+    >
+      <div class="container container--wide">
+        <div class="section-head">
+          <div>
+            <span class="kicker">NEWS & INSIGHTS</span>
+            <h2 class="section-title">{{ data?.news?.title || '最新动态与前沿洞察' }}</h2>
+            <p v-if="data?.news?.subtitle" class="section-sub">{{ data.news.subtitle }}</p>
+          </div>
+          <RouterLink to="/news" class="link-more section-head__link">
+            浏览全部新闻动态 →
+          </RouterLink>
+        </div>
+
+        <div class="grid grid--3">
+          <RouterLink
+            v-for="item in data.news.items"
+            :key="item.id"
+            :to="item.url || `/news/${item.id}`"
+            class="news-card"
+          >
+            <div v-if="item.cover" class="news-card__media">
+              <img :src="item.cover.url" :alt="item.cover.alt || item.title" loading="lazy" />
+            </div>
+            <div class="news-card__body">
+              <time class="news-card__date">{{ item.displayTime }}</time>
+              <h3 class="news-card__title">{{ item.title }}</h3>
+              <p v-if="item.summary" class="news-card__summary">{{ item.summary }}</p>
+              <span class="link-more news-card__more">阅读全文 →</span>
+            </div>
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 7. 底部咨询行动区 (Consultation) ==================== -->
+    <section
+      id="consultation"
+      v-reveal="120"
+      class="section section--dark consult-cta-section"
+    >
+      <div class="container container--wide">
+        <!-- 互动式 ROI 快速测算卡 -->
+        <div class="roi-inline-card">
+          <div class="roi-inline-card__left">
+            <span class="roi-eyebrow">ROI QUICK ESTIMATOR · 降本增效快速精算</span>
+            <h3 class="roi-inline-card__title">滑动评估您的车队/设备规模，即刻查看预计年化收益</h3>
+            <div class="roi-inline-card__slider-row">
+              <span>当前运营规模：<strong>{{ quickUnits }} 台/节点</strong></span>
+              <input
+                v-model.number="quickUnits"
+                type="range"
+                min="20"
+                max="1500"
+                step="10"
+                class="roi-inline-slider"
+              />
             </div>
           </div>
-        </Transition>
-
-        <!-- 右侧动态交互立体场景区（1:1 还原雷达测距跳数、扫码加油小票、集装箱正面吊 RFID 标签弹出） -->
-        <Transition name="stage-fade" mode="out-in">
-          <div :key="`${currentStage.key}-${activeSolutionTab}`" class="g7-showcase__right">
-            <!-- 场景 1：IoT服务（俯视车辆 + 紫蓝雷达扇面 + 车距过近动态跳字预警卡） -->
-            <div v-if="currentStage.mode === 'RADAR'" class="scene-radar">
-              <div class="scene-radar__beam scene-radar__beam--front"></div>
-              <div class="scene-radar__beam scene-radar__beam--side-l"></div>
-              <div class="scene-radar__beam scene-radar__beam--side-r"></div>
-
-              <!-- 悬浮实时跳字预警气泡（1:1 对齐 home_21.png：车距过近 153m ⚠️） -->
-              <div class="radar-alert-card">
-                <div class="radar-alert-card__text">
-                  <span class="radar-alert-card__lbl">{{ currentStage.alertLabel || '车距过近' }}</span>
-                  <strong class="radar-alert-card__val">
-                    {{ radarDistance }}{{ currentStage.alertUnit || 'm' }}
-                  </strong>
-                </div>
-                <span class="radar-alert-card__icon" aria-hidden="true">⚠️</span>
-              </div>
-
-              <!-- 俯视重卡建模 -->
-              <div class="topdown-truck">
-                <div class="topdown-truck__cab"></div>
-                <div class="topdown-truck__trailer">
-                  <span>G</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 场景 2：交易服务（加油/充电桩场景 + 扫码加油 ¥202 账单小票动态弹出，1:1 对齐 home_25.png） -->
-            <div v-else-if="currentStage.mode === 'PAYMENT'" class="scene-payment">
-              <div class="payment-popup" :class="`is-${paymentStep}`">
-                <div class="payment-popup__head">
-                  <span class="payment-popup__dot"></span>
-                  <span>{{ currentStage.paymentTitle || '扫码加油' }}</span>
-                </div>
-                <div class="payment-popup__body">
-                  <span class="payment-popup__sub">{{ currentStage.paymentSubtitle || '订单支付' }}</span>
-                  <strong class="payment-popup__amt">{{ currentStage.paymentAmount || '¥202' }}</strong>
-                </div>
-              </div>
-
-              <div class="station-isotruck">
-                <div class="station-isotruck__pumps">
-                  <span class="pump-box">G</span>
-                  <span class="pump-box">G</span>
-                </div>
-                <div class="station-isotruck__vehicle">
-                  <span class="iso-trailer">G</span>
-                  <span class="iso-cab"></span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 场景 3：产业物流数字化（等轴测集装箱正面吊装 + 4 个带引线胶囊标签弹出，1:1 对齐 home_32.png） -->
-            <div v-else class="scene-solutions">
-              <div class="iso-road-lines" aria-hidden="true"></div>
-
-              <!-- 集装箱堆场与正面吊装机 -->
-              <div class="iso-yard">
-                <div class="iso-containers">
-                  <div class="iso-box">G</div>
-                  <div class="iso-box">G</div>
-                  <div class="iso-box">G</div>
-                </div>
-                <div class="iso-crane">
-                  <div class="iso-crane__arm"></div>
-                  <div class="iso-crane__body"></div>
-                </div>
-                <div class="iso-truck-load">
-                  <div class="iso-truck-load__box">G</div>
-                  <div class="iso-truck-load__cab"></div>
-                </div>
-              </div>
-
-              <!-- 4 个动态弹出的引线胶囊标签（RFID读头 / RFID标签 / 挂车专用主机） -->
-              <div
-                v-for="(cItem, cIdx) in currentSolutionSub?.callouts"
-                :key="`${cItem.label}-${cIdx}`"
-                class="iso-callout"
-                :style="{ left: `${cItem.x}%`, top: `${cItem.y}%`, animationDelay: `${cIdx * 90}ms` }"
-              >
-                <span class="iso-callout__pill">{{ cItem.label }}</span>
-                <span class="iso-callout__line"></span>
-              </div>
-            </div>
+          <div class="roi-inline-card__right">
+            <span class="roi-inline-card__lbl">预计年化综合节降</span>
+            <strong class="roi-inline-card__val">¥ {{ quickSavingWan }} 万元</strong>
+            <button
+              type="button"
+              class="roi-btn"
+              @click="openConsult({ sourcePosition: 'HOME_ROI', title: '预约产品与ROI测算演示' })"
+            >
+              获取详细降本方案报告 →
+            </button>
           </div>
-        </Transition>
+        </div>
+
+        <!-- 底部主咨询区 -->
+        <div class="consult-cta-box">
+          <div>
+            <h2 class="consult-cta-box__title">{{ data?.consultation?.title || '开启企业数字化生产力跃升' }}</h2>
+            <p class="consult-cta-box__sub">
+              {{ data?.consultation?.subtitle || '留下您的业务痛点，我们的行业架构师将在 1 个工作日内为您提供定制方案与演示。' }}
+            </p>
+          </div>
+          <div class="consult-cta-box__actions">
+            <button
+              type="button"
+              class="consult-cta-box__btn"
+              @click="openConsult({ sourcePosition: 'HOME_BOTTOM', title: '预约行业专家演示' })"
+            >
+              {{ data?.consultation?.buttonText || '立即预约咨询' }}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -1422,509 +1698,972 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ==================== 3. 左侧三圆点纵向切换舞台 ==================== */
-.g7-showcase {
-  padding: 96px 0 110px;
-  background: linear-gradient(180deg, #f5f7fb 0%, #eef1f7 100%);
-  min-height: 640px;
+/* ==================== 3. 核心产品与方案分组 (一个在左一个在右灵动排布) ==================== */
+.services-section {
+  padding: 100px 0 110px;
+  background: #f8fafc;
+  position: relative;
+  overflow: hidden;
+}
+
+.services-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 56px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.g7-showcase__inner {
-  max-width: 1160px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 36px 400px 1fr;
-  gap: 36px;
-  align-items: center;
+.services-kicker {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #4c2ce6;
+  margin-bottom: 8px;
 }
 
-.g7-showcase__dots {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 22px;
+.services-title {
+  font-size: clamp(28px, 3.2vw, 38px);
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
-.stage-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  background: none;
-  padding: 0;
+.services-sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #64748b;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.services-more-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4c2ce6;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.stage-dot__core {
+.services-more-link:hover {
+  color: #3b1fc4;
+  transform: translateX(4px);
+}
+
+.service-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 72px;
+}
+
+/* 核心交错排布卡片容器：默认左文右卡，is-reversed 时左卡右文 (一个在左一个在右) */
+.service-group {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 48px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  overflow: hidden;
+}
+
+.service-group:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px rgba(76, 44, 230, 0.08);
+  border-color: #cbd5e1;
+}
+
+.service-group__glow {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(76, 44, 230, 0.07) 0%, rgba(76, 44, 230, 0) 70%);
+  pointer-events: none;
+  border-radius: 50%;
+  transition: transform 0.5s ease;
+}
+
+.service-group:hover .service-group__glow {
+  transform: scale(1.3);
+}
+
+.service-group__lead {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 56px;
+  align-items: center;
+}
+
+/* 左右灵动交错排布核心样式 */
+/* 默认模式：左文右卡 (order: 1 / 2) */
+.service-group .service-group__meta {
+  order: 1;
+}
+.service-group .service-group__visual {
+  order: 2;
+}
+
+/* 反转模式：左卡右文 (order: 2 / 1) */
+.service-group.is-reversed .service-group__meta {
+  order: 2;
+}
+.service-group.is-reversed .service-group__visual {
+  order: 1;
+}
+
+.service-group__badge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.service-group__index {
+  font-size: 20px;
+  font-weight: 800;
+  color: #4c2ce6;
+  opacity: 0.85;
+  letter-spacing: -0.02em;
+}
+
+.service-group__pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4c2ce6;
+  background: rgba(76, 44, 230, 0.08);
+}
+
+.service-group__title {
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 14px;
+  letter-spacing: -0.01em;
+}
+
+.service-group__desc {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #475569;
+  margin: 0 0 24px;
+}
+
+.service-group__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.service-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  font-size: 12.5px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.service-chip__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: #4c2ce6;
+}
+
+.service-group__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.service-group__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.stage-dot.is-active {
-  border-color: rgba(91, 75, 232, 0.35);
-  background: rgba(91, 75, 232, 0.1);
+.service-group__cta:hover {
+  background: #4c2ce6;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(76, 44, 230, 0.25);
 }
 
-.stage-dot.is-active .stage-dot__core {
-  width: 8px;
-  height: 8px;
-  background: #5b4be8;
+/* 视觉区卡片展示 */
+.service-cards-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
 }
 
-.g7-showcase__title {
-  font-size: 38px;
-  font-weight: 700;
-  color: #1f2329;
-  margin: 0 0 20px;
+.service-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.g7-showcase__desc {
-  font-size: 14px;
-  line-height: 1.9;
-  color: #6e7380;
-  margin: 0 0 28px;
+.service-card:hover {
+  transform: translateY(-4px);
+  border-color: #93c5fd;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
-.g7-outline-btn {
-  display: inline-flex;
+.service-card__media {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  background: #0b0f19;
+  overflow: hidden;
+}
+
+.service-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.service-card:hover .service-card__img {
+  transform: scale(1.04);
+}
+
+.service-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
-  padding: 0 32px;
-  border: 1px solid #1f2329;
-  color: #1f2329;
-  font-size: 13.5px;
+  background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
+}
+
+.device-graphic-box {
+  width: 64px;
+  height: 64px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-graphic-box__cube {
+  width: 24px;
+  height: 24px;
+  background: #4c2ce6;
+  border-radius: 4px;
+  box-shadow: 0 0 16px rgba(76, 44, 230, 0.6);
+}
+
+.service-card__category {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.service-card__body {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.service-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.service-card__arrow {
+  color: #94a3b8;
+  font-weight: 400;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.service-card:hover .service-card__arrow {
+  color: #4c2ce6;
+  transform: translateX(4px);
+}
+
+.service-card__summary {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.service-card__footer {
+  margin-top: auto;
+}
+
+.service-card__link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4c2ce6;
+}
+
+.service-banner-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.service-banner-media {
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==================== 4. 标杆案例 (Cases) ==================== */
+.cases-section {
+  padding: 100px 0 110px;
+  background: #ffffff;
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+
+.kicker {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #4c2ce6;
+  margin-bottom: 8px;
+}
+
+.section-title {
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.section-sub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #64748b;
+}
+
+.link-more {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4c2ce6;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
-.g7-outline-btn:hover {
-  background: #1f2329;
+.link-more:hover {
+  transform: translateX(4px);
+  color: #3b1fc4;
+}
+
+.industry-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.industry-pill {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.industry-pill.is-active,
+.industry-pill:hover {
+  background: #4c2ce6;
+  color: #ffffff;
+  border-color: #4c2ce6;
+}
+
+.grid--3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.case-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+}
+
+.case-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
+}
+
+.case-card__media {
+  height: 200px;
+  position: relative;
+  background: #0f172a;
+  overflow: hidden;
+}
+
+.case-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.case-card:hover .case-card__media img {
+  transform: scale(1.05);
+}
+
+.case-card__placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.case-card__placeholder-tag {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.case-card__body {
+  padding: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.case-card__industry {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4c2ce6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.case-card__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.case-card__summary {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.case-outcomes {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  gap: 20px;
+}
+
+.case-outcomes__item {
+  flex: 1;
+}
+
+.case-outcomes__val {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.case-outcomes__lbl {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+/* ==================== 5. 生态伙伴 (Customers) ==================== */
+.customers-section {
+  padding: 80px 0;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.logo-mode-switch {
+  display: flex;
+  gap: 4px;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.mode-btn {
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+}
+
+.logo-marquee {
+  overflow: hidden;
+  width: 100%;
+  margin-top: 32px;
+  mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+
+.logo-marquee__track {
+  display: flex;
+  gap: 32px;
+  width: max-content;
+  animation: marquee-roll 28s linear infinite;
+}
+
+@keyframes marquee-roll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.logo-marquee__track:hover {
+  animation-play-state: paused;
+}
+
+.logo-tile {
+  width: 180px;
+  height: 80px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.logo-tile:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+.logo-tile img {
+  max-width: 110px;
+  max-height: 38px;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.75;
+  transition: all 0.2s ease;
+}
+
+.logo-tile:hover img {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
+.logo-tile__name {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.logo-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+  margin: 32px 0 0;
+}
+
+.logo-grid__item {
+  height: 76px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.logo-grid__link {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.logo-grid__link img {
+  max-width: 100px;
+  max-height: 36px;
+  object-fit: contain;
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+
+.logo-grid__link:hover img {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
+/* ==================== 6. 最新动态 (News) ==================== */
+.news-section {
+  padding: 100px 0 110px;
+  background: #ffffff;
+}
+
+.news-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+}
+
+.news-card:hover {
+  transform: translateY(-4px);
+  border-color: #cbd5e1;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.news-card__media {
+  height: 180px;
+  background: #0f172a;
+}
+
+.news-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-card__body {
+  padding: 22px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.news-card__date {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.news-card__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.news-card__summary {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-card__more {
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4c2ce6;
+}
+
+/* ==================== 7. 咨询与 ROI (Consultation) ==================== */
+.consult-cta-section {
+  padding: 80px 0 100px;
+  background: #0b0f19;
   color: #ffffff;
 }
 
-.g7-sub-matrix {
-  margin-top: 56px;
+.roi-inline-card {
+  background: linear-gradient(135deg, rgba(76, 44, 230, 0.16) 0%, rgba(30, 27, 75, 0.4) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.2);
+  border-radius: 20px;
+  padding: 40px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px 32px;
-}
-
-.g7-sub-matrix__item {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #2b2f38;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.g7-sub-matrix__item:hover {
-  color: #5b4be8;
-}
-
-.g7-sub-matrix__prefix {
-  font-style: italic;
-  font-weight: 900;
-  color: #4c2ce6;
-}
-
-/* 产业物流数字化 4 个纵向切换条 */
-.g7-sol-tabs {
-  margin-top: 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  border-left: 1px solid #d0d5dd;
-  padding-left: 20px;
-}
-
-.g7-sol-tab {
-  position: relative;
-  border: none;
-  background: none;
-  padding: 4px 0;
-  text-align: left;
-  font-size: 15px;
-  color: #6e7380;
-  font-family: inherit;
-  cursor: pointer;
-  transition: color 0.2s ease, font-weight 0.2s ease;
-}
-
-.g7-sol-tab.is-active {
-  color: #1f2329;
-  font-weight: 700;
-}
-
-.g7-sol-tab.is-active::before {
-  content: '';
-  position: absolute;
-  left: -21px;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  background: #5b4be8;
-}
-
-/* 右侧立体舞台 */
-.g7-showcase__right {
-  position: relative;
-  height: 420px;
-  display: flex;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 40px;
   align-items: center;
-  justify-content: center;
+  margin-bottom: 60px;
 }
 
-/* 场景1：IoT雷达 */
-.scene-radar {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.scene-radar__beam {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.scene-radar__beam--front {
-  width: 340px;
-  height: 220px;
-  left: 12%;
-  background: radial-gradient(ellipse at right center, rgba(99, 102, 241, 0.35) 0%, rgba(56, 189, 248, 0.12) 55%, transparent 75%);
-  clip-path: polygon(100% 50%, 0 0, 0 100%);
-}
-
-.radar-alert-card {
-  position: absolute;
-  top: 22%;
-  right: 16%;
-  z-index: 4;
-  padding: 12px 18px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.radar-alert-card__text {
-  display: flex;
-  flex-direction: column;
-}
-
-.radar-alert-card__lbl {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.radar-alert-card__val {
-  font-size: 20px;
-  font-weight: 800;
-  color: #1e293b;
-  font-variant-numeric: tabular-nums;
-}
-
-.radar-alert-card__icon {
-  font-size: 22px;
-}
-
-.topdown-truck {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transform: rotate(-16deg);
-  filter: drop-shadow(0 24px 32px rgba(15, 23, 42, 0.16));
-}
-
-.topdown-truck__cab {
-  width: 58px;
-  height: 70px;
-  border-radius: 14px 6px 6px 14px;
-  background: #ffffff;
-  border: 2px solid #cbd5e1;
-}
-
-.topdown-truck__trailer {
-  width: 220px;
-  height: 76px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #ffffff 0%, #f1f5f9 100%);
-  border: 2px solid #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-}
-
-/* 场景2：交易服务扫码加油 */
-.scene-payment {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.payment-popup {
-  position: absolute;
-  top: 16%;
-  right: 24%;
-  z-index: 4;
-  min-width: 170px;
-  padding: 14px 18px;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 18px 40px rgba(79, 70, 229, 0.14);
-  border: 1px solid #e0e7ff;
-  transition: transform 0.3s ease;
-}
-
-.payment-popup__head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #4f46e5;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.payment-popup__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4f46e5;
-}
-
-.payment-popup__body {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.payment-popup__sub {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.payment-popup__amt {
-  font-size: 22px;
-  font-weight: 800;
-  color: #1e293b;
-}
-
-.station-isotruck {
-  display: flex;
-  align-items: flex-end;
-  gap: 24px;
-  transform: rotate(-10deg);
-}
-
-.station-isotruck__pumps {
-  display: flex;
-  gap: 10px;
-}
-
-.pump-box {
-  width: 44px;
-  height: 76px;
-  border-radius: 6px;
-  background: #ffffff;
-  border: 2px solid #94a3b8;
-  border-top: 12px solid #4c2ce6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-}
-
-.station-isotruck__vehicle {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.iso-trailer {
-  width: 190px;
-  height: 86px;
-  background: #ffffff;
-  border: 2px solid #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
-}
-
-.iso-cab {
-  width: 54px;
-  height: 68px;
-  background: #e2e8f0;
-  border: 2px solid #94a3b8;
-  border-radius: 4px 12px 4px 4px;
-}
-
-/* 场景3：产业物流数字化正面吊与 RFID 标签弹出 */
-.scene-solutions {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.iso-yard {
-  position: relative;
-  width: 420px;
-  height: 260px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.iso-containers {
-  position: absolute;
-  right: 24px;
-  top: 28px;
-  display: flex;
-   gap: 8px;
-  transform: skewY(18deg);
-}
-
-.iso-box {
-  width: 68px;
-  height: 54px;
-  background: #e2e8f0;
-  border: 1.5px solid #cbd5e1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-}
-
-.iso-crane__arm {
-  width: 140px;
-  height: 14px;
-  background: #1e293b;
-  transform: rotate(-28deg);
-  border-radius: 3px;
-}
-
-.iso-truck-load {
-  position: absolute;
-  bottom: 28px;
-  right: 48px;
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  transform: skewY(18deg);
-}
-
-.iso-truck-load__box {
-  width: 120px;
-  height: 62px;
-  background: #ffffff;
-  border: 2px solid #94a3b8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
-}
-
-.iso-truck-load__cab {
-  width: 44px;
-  height: 52px;
-  background: #334155;
-  border-radius: 4px;
-}
-
-.iso-callout {
-  position: absolute;
-  z-index: 5;
-  animation: callout-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes callout-pop {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.iso-callout__pill {
+.roi-eyebrow {
   display: inline-block;
-  padding: 6px 16px;
-  border-radius: 4px;
-  border: 1px solid #93c5fd;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(6px);
-  color: #1e293b;
-  font-size: 12.5px;
-  font-weight: 500;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #93c5fd;
+  margin-bottom: 12px;
 }
 
-.stage-fade-enter-active,
-.stage-fade-leave-active {
-  transition: opacity 0.26s ease, transform 0.26s ease;
+.roi-inline-card__title {
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 24px;
+  line-height: 1.35;
 }
 
-.stage-fade-enter-from,
-.stage-fade-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
+.roi-inline-card__slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14.5px;
 }
 
+.roi-inline-card__slider-row strong {
+  color: #60a5fa;
+  font-size: 17px;
+}
+
+.roi-inline-slider {
+  width: 100%;
+  height: 6px;
+  accent-color: #60a5fa;
+  cursor: pointer;
+}
+
+.roi-inline-card__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.roi-inline-card__lbl {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.roi-inline-card__val {
+  font-size: clamp(32px, 3.6vw, 44px);
+  font-weight: 900;
+  color: #38bdf8;
+  margin: 8px 0 20px;
+  letter-spacing: -0.02em;
+}
+
+.roi-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  background: #38bdf8;
+  color: #0b0f19;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.roi-btn:hover {
+  background: #7dd3fc;
+  box-shadow: 0 8px 20px rgba(56, 189, 248, 0.35);
+}
+
+.consult-cta-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 48px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.consult-cta-box__title {
+  font-size: clamp(24px, 2.5vw, 32px);
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 10px;
+}
+
+.consult-cta-box__sub {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  max-width: 620px;
+  line-height: 1.6;
+}
+
+.consult-cta-box__btn {
+  padding: 14px 32px;
+  border-radius: 8px;
+  border: none;
+  background: #4c2ce6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.consult-cta-box__btn:hover {
+  background: #5b3bf0;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(76, 44, 230, 0.4);
+}
+
+/* 响应式适配 */
 @media (max-width: 960px) {
   .g7-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .g7-showcase__inner {
+  .service-group__lead {
     grid-template-columns: 1fr;
+    gap: 36px;
   }
-  .g7-showcase__dots {
-    flex-direction: row;
+  .service-group .service-group__meta,
+  .service-group.is-reversed .service-group__meta {
+    order: 1 !important;
+  }
+  .service-group .service-group__visual,
+  .service-group.is-reversed .service-group__visual {
+    order: 2 !important;
+  }
+  .grid--3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .logo-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .roi-inline-card {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .roi-inline-card__right {
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 24px;
+  }
+  .consult-cta-box {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
   }
 }
+
+@media (max-width: 640px) {
+  .service-group {
+    padding: 24px;
+  }
+  .grid--3 {
+    grid-template-columns: 1fr;
+  }
+  .logo-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .services-header,
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .roi-inline-card {
+    padding: 24px;
+  }
+  .consult-cta-box {
+    padding: 24px;
+  }
+}
+
 </style>

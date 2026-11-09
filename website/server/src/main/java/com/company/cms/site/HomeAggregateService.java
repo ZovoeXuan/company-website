@@ -286,11 +286,13 @@ public class HomeAggregateService {
                         cards.add(card(content, mediaMap));
                     }
                 }
-                if (cards.isEmpty()) continue;
+                String title = text(group, "title");
+                if (title.isBlank() && cards.isEmpty() && group.get("imageMediaId") == null) continue;
                 Map<String, Object> view = new LinkedHashMap<>();
                 view.put("key", text(group, "key"));
-                view.put("title", text(group, "title"));
+                view.put("title", title);
                 view.put("description", text(group, "description"));
+                view.put("layout", text(group, "layout").isBlank() ? "auto" : text(group, "layout"));
                 view.put("image", media(group.get("imageMediaId"), mediaMap, text(group, "title")));
                 view.put("moreLink", links.resolve(group.get("moreLink"), null, formEnabled, Set.of()));
                 view.put("items", cards);

@@ -213,6 +213,7 @@ export interface HomeServiceGroup {
   image: MediaRef | null
   moreLink: HomeLink | null
   items: HomeCard[]
+  layout?: 'auto' | 'left' | 'right'
 }
 
 export interface HomeCustomer {

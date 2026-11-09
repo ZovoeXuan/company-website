@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
+import ContentPicker from '@/components/ContentPicker.vue'
 import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
@@ -76,6 +77,7 @@ interface ServiceGroup {
   sortOrder: number
   title: string
   description: string
+  layout?: 'auto' | 'left' | 'right'
   imageMediaId: number | null
   contentType: 'PRODUCT' | 'SOLUTION'
   contentIds: number[]
@@ -322,11 +324,39 @@ function fill() {
       sortOrder: g.sortOrder ?? (idx + 1) * 10,
       title: g.title ?? '',
       description: g.description ?? '',
+      layout: (g.layout as 'auto' | 'left' | 'right') || 'auto',
       imageMediaId: g.imageMediaId != null ? Number(g.imageMediaId) : null,
       contentType: g.contentType === 'SOLUTION' ? 'SOLUTION' : 'PRODUCT',
       contentIds: (g.contentIds ?? []).map((id: any) => Number(id)),
       moreLink: (g.moreLink as LinkValue | null) ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
     })),
+  }
+
+  if (form.services.groups.length === 0) {
+    form.services.groups = [
+      {
+        key: 'key-g0',
+        sortOrder: 10,
+        title: '设备接入',
+        description: '从协议解析到边缘缓存，把不同厂商的设备统一接进来。',
+        layout: 'left',
+        imageMediaId: null,
+        contentType: 'PRODUCT',
+        contentIds: [1],
+        moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
+      },
+      {
+        key: 'key-g1',
+        sortOrder: 20,
+        title: '健康与能源',
+        description: '用振动、温度与能耗基线，提前发现设备劣化与能源浪费。',
+        layout: 'right',
+        imageMediaId: null,
+        contentType: 'PRODUCT',
+        contentIds: [2],
+        moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
+      },
+    ]
   }
 
   form.cases = {
@@ -398,6 +428,32 @@ function addHero() {
     imageAlt: '',
     buttonText: '了解详情',
     link: { type: 'CONSULT' },
+  })
+}
+
+function move<T>(list: T[], idx: number, delta: number) {
+  const target = idx + delta
+  if (target < 0 || target >= list.length) return
+  const item = list.splice(idx, 1)[0]
+  list.splice(target, 0, item)
+}
+
+function addServiceGroup() {
+  if (form.services.groups.length >= 8) {
+    ElMessage.warning('服务分组最多支持 8 项')
+    return
+  }
+  const nextIdx = form.services.groups.length
+  form.services.groups.push({
+    key: `key-g${Date.now()}`,
+    sortOrder: (nextIdx + 1) * 10,
+    title: `新业务分组 0${nextIdx + 1}`,
+    description: '',
+    layout: nextIdx % 2 === 0 ? 'left' : 'right',
+    imageMediaId: null,
+    contentType: 'PRODUCT',
+    contentIds: [],
+    moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
   })
 }
 
@@ -601,45 +657,152 @@ onMounted(async () => {
         </div>
       </el-tab-pane>
 
-      <!-- Tab 3: 三圆点纵向切换舞台 -->
-      <el-tab-pane label="3. 三圆点纵向切换舞台 (IoT/交易/产业数字化)" name="showcase">
-        <div v-for="(st, sIdx) in form.showcaseStages" :key="st.key" class="block-card">
+      <!-- Tab 3: 核心产品与方案分组 (Services - 一个在左一个在右灵动排布) -->
+      <el-tab-pane label="3. 核心产品与方案分组 (Services - 左右交错灵动排布)" name="services">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.services.enabled" active-text="在前台启用该模块" />
+          <el-button type="primary" size="small" @click="addServiceGroup">+ 添加服务分组</el-button>
+        </div>
+        <el-form label-width="120px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.services.title" maxlength="40" show-word-limit placeholder="核心产品与行业方案" />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.services.subtitle" maxlength="200" show-word-limit placeholder="从设备接入到运维决策，覆盖全流程的数字生产力工具" />
+          </el-form-item>
+        </el-form>
+
+        <div v-for="(grp, gIdx) in form.services.groups" :key="grp.key ?? `grp-${gIdx}`" class="block-card">
           <div class="block-card__head">
-            <strong>第 {{ sIdx + 1 }} 屏舞台：{{ st.title }}</strong>
-            <el-tag size="small">{{ st.mode }}</el-tag>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <el-tag effect="dark" size="small">分组 0{{ gIdx + 1 }}</el-tag>
+              <strong style="font-size: 15px;">{{ grp.title || `分组 0${gIdx + 1}` }}</strong>
+            </div>
+            <div>
+              <el-button size="small" :disabled="gIdx === 0" @click="move(form.services.groups, gIdx, -1)">↑ 上移</el-button>
+              <el-button size="small" :disabled="gIdx === form.services.groups.length - 1" @click="move(form.services.groups, gIdx, 1)">↓ 下移</el-button>
+              <el-button size="small" type="danger" text @click="form.services.groups.splice(gIdx, 1)">删除分组</el-button>
+            </div>
           </div>
-          <el-form label-width="130px">
-            <el-form-item label="舞台大标题">
-              <el-input v-model="st.title" maxlength="30" style="width: 260px" />
+
+          <el-form label-width="120px">
+            <el-form-item label="分组标题" required>
+              <el-input v-model="grp.title" maxlength="30" show-word-limit placeholder="如：设备接入 / 健康与能源" />
             </el-form-item>
-            <el-form-item label="舞台描述文案">
-              <el-input v-model="st.description" type="textarea" :rows="2" maxlength="200" />
+            <el-form-item label="分组场景描述">
+              <el-input v-model="grp.description" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="从协议解析到边缘缓存，把不同厂商的设备统一接进来。" />
             </el-form-item>
-            <el-form-item v-if="st.mode === 'RADAR'" label="右侧雷达预警文案">
-              <el-input v-model="st.alertLabel" style="width: 160px" placeholder="车距过近" />
+            <el-form-item label="排版对齐灵动性">
+              <el-radio-group v-model="grp.layout">
+                <el-radio value="auto">自动交替（一个在左一个在右，灵动错落）</el-radio>
+                <el-radio value="left">左文右图 / 卡片（文在左）</el-radio>
+                <el-radio value="right">左图 / 卡片右文（文在右）</el-radio>
+              </el-radio-group>
             </el-form-item>
-            <el-form-item v-if="st.mode === 'PAYMENT'" label="右侧支付卡片文案">
-              <div class="metric-row" style="margin-bottom: 0">
-                <el-input v-model="st.paymentTitle" style="width: 140px" placeholder="扫码加油" />
-                <el-input v-model="st.paymentSubtitle" style="width: 140px" placeholder="订单支付" />
-                <el-input v-model="st.paymentAmount" style="width: 120px" placeholder="¥202" />
+            <el-form-item label="关联内容类型">
+              <el-radio-group v-model="grp.contentType" @change="grp.contentIds = []">
+                <el-radio value="PRODUCT">产品 (PRODUCT)</el-radio>
+                <el-radio value="SOLUTION">解决方案 (SOLUTION)</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="已关联线上卡片">
+              <ContentPicker v-model="grp.contentIds" :content-type="grp.contentType" :max="6" />
+            </el-form-item>
+            <el-form-item label="右侧配图/视频">
+              <div class="media-pick-row">
+                <el-tag v-if="grp.imageMediaId" type="success">已关联媒体 #{{ grp.imageMediaId }}</el-tag>
+                <span v-else class="muted">可选配图/MP4视频</span>
+                <el-button size="small" @click="openMedia('ALL', (m) => (grp.imageMediaId = Number(m.id)))">
+                  选择媒体
+                </el-button>
+                <el-button v-if="grp.imageMediaId" size="small" link type="danger" @click="grp.imageMediaId = null">
+                  清除
+                </el-button>
               </div>
             </el-form-item>
+            <el-form-item label="更多跳转链接">
+              <LinkEditor v-model="grp.moreLink" :allow-consult="true" :allow-none="true" />
+            </el-form-item>
           </el-form>
-
-          <h4 style="margin: 8px 0; font-size: 13px">左下角 4 个子项 / 方案切换条：</h4>
-          <div v-for="(sub, subIdx) in st.subItems" :key="subIdx" class="metric-row">
-            <el-input v-if="st.mode !== 'SOLUTIONS'" v-model="sub.prefix" style="width: 70px" placeholder="G" />
-            <el-input v-model="sub.title" style="width: 160px" placeholder="子项名称" />
-            <el-input v-model="sub.path" style="width: 200px" placeholder="跳转路径 /products" />
-            <el-input
-              v-if="st.mode === 'SOLUTIONS'"
-              v-model="sub.calloutsText"
-              style="flex: 1"
-              placeholder="右侧弹出的4个标签，用 / 分隔（如：RFID读头 / RFID标签 / RFID标签 / 挂车专用主机）"
-            />
-          </div>
         </div>
+      </el-tab-pane>
+
+      <!-- Tab 4: 客户案例 -->
+      <el-tab-pane label="4. 客户成功案例 (Cases)" name="cases">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.cases.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="120px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.cases.title" maxlength="40" show-word-limit placeholder="行业领军企业的共同选择" />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.cases.subtitle" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="精选案例卡片">
+            <ContentPicker v-model="form.cases.contentIds" content-type="CASE" :max="6" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <!-- Tab 5: 合作客户 -->
+      <el-tab-pane label="5. 合作客户标识 (Customers)" name="customers">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.customers.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="120px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.customers.title" maxlength="40" show-word-limit placeholder="生态伙伴与标杆客户" />
+          </el-form-item>
+          <el-form-item label="模块副标题">
+            <el-input v-model="form.customers.subtitle" maxlength="200" show-word-limit />
+          </el-form-item>
+          <el-form-item label="选择客户标识">
+            <ContentPicker v-model="form.customers.contentIds" content-type="CUSTOMER" :max="30" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <!-- Tab 6: 新闻动态 -->
+      <el-tab-pane label="6. 新闻动态 (News)" name="news">
+        <div class="tab-toolbar">
+          <el-switch v-model="form.news.enabled" active-text="在前台启用该模块" />
+        </div>
+        <el-form label-width="120px">
+          <el-form-item label="模块标题">
+            <el-input v-model="form.news.title" maxlength="40" show-word-limit placeholder="最新动态与前沿洞察" />
+          </el-form-item>
+          <el-form-item label="展示模式">
+            <el-radio-group v-model="form.news.mode">
+              <el-radio value="LATEST">按最新发布日期自动取前 N 条 (LATEST)</el-radio>
+              <el-radio value="SELECTED">人工手选指定新闻 (SELECTED)</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="展示条数">
+            <el-input-number v-model="form.news.limit" :min="1" :max="6" />
+          </el-form-item>
+          <el-form-item v-if="form.news.mode === 'SELECTED'" label="手选新闻">
+            <ContentPicker v-model="form.news.contentIds" content-type="NEWS" :max="6" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <!-- Tab 7: 底部咨询区 -->
+      <el-tab-pane label="7. 底部咨询区 (CTA)" name="consultation">
+        <el-form label-width="120px">
+          <el-form-item label="主标题" required>
+            <el-input v-model="form.consultation.title" maxlength="40" show-word-limit placeholder="开启企业数字化生产力跃升" />
+          </el-form-item>
+          <el-form-item label="副标题说明">
+            <el-input v-model="form.consultation.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="留下您的业务痛点，我们的行业架构师将在 1 个工作日内为您提供定制方案与演示。" />
+          </el-form-item>
+          <el-form-item label="按钮文字" required>
+            <el-input v-model="form.consultation.buttonText" maxlength="12" style="width: 220px" placeholder="立即预约咨询" />
+          </el-form-item>
+          <el-form-item label="按钮动作">
+            <LinkEditor v-model="form.consultation.link" :allow-consult="true" :allow-none="false" />
+          </el-form-item>
+        </el-form>
       </el-tab-pane>
     </el-tabs>
 

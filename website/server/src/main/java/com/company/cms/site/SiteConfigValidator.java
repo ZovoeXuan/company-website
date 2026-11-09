@@ -559,7 +559,7 @@ public class SiteConfigValidator {
         JsonNode list = source == null ? null : source.get("groups");
         if (list != null && list.isArray()) {
             Set<String> keys = new HashSet<>();
-            for (int i = 0; i < Math.min(list.size(), 3); i++) {
+            for (int i = 0; i < Math.min(list.size(), 8); i++) {
                 JsonNode group = list.get(i);
                 String path = "services.groups[" + i + "]";
                 if (group == null || !group.isObject()) continue;
@@ -569,6 +569,8 @@ public class SiteConfigValidator {
                 item.put("title", limit(text(group, "title"), 30, path + ".title", "分组标题", errors));
                 item.put("description",
                         limit(text(group, "description"), 200, path + ".description", "分组说明", errors));
+                String layout = text(group, "layout");
+                item.put("layout", layout.isBlank() ? "auto" : layout);
                 Long image = mediaId(group.get("imageMediaId"), path + ".imageMediaId", "分组配图", errors);
                 if (image != null) {
                     item.put("imageMediaId", image);
