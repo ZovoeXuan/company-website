@@ -86,10 +86,10 @@ const values = ref({
   ] as ContactEmailConfig[],
   xiaoqi: {
     enabled: true,
-    name: '小七',
+    name: '小鑫',
     roleTitle: '数字物流专家',
     headerLine1: '您好，我是您的',
-    headerLine2: '数字物流专家 小七',
+    headerLine2: '数字物流专家 小鑫',
     welcomeSubtitle: 'G7易流 物流数字化专家',
     certBadge: '专业认证',
     capabilitiesText: '数字化解决方案\n新能源场景分析\n运价查询\n线路智能推荐\n物流实时数据',
@@ -113,7 +113,7 @@ const values = ref({
     apiUrl: '',
     apiKey: '',
     modelName: 'deepseek-reasoner',
-    systemPrompt: '你是公司官网的智能专家助手小七，请专业、清晰、热情地解答客户关于产品、解决方案与合作试用的问题。',
+    systemPrompt: '你是公司官网的智能专家助手小鑫，请专业、清晰、热情地解答客户关于产品、解决方案与合作试用的问题。',
   } as XiaoQiConfigForm,
 })
 
@@ -169,10 +169,10 @@ function fill() {
   if (draft.xiaoqiConfig && typeof draft.xiaoqiConfig === 'object') {
     const xq = draft.xiaoqiConfig
     values.value.xiaoqi.enabled = xq.enabled ?? true
-    values.value.xiaoqi.name = xq.name ?? '小七'
+    values.value.xiaoqi.name = xq.name ?? '小鑫'
     values.value.xiaoqi.roleTitle = xq.roleTitle ?? '数字物流专家'
     values.value.xiaoqi.headerLine1 = xq.headerLine1 ?? '您好，我是您的'
-    values.value.xiaoqi.headerLine2 = xq.headerLine2 ?? '数字物流专家 小七'
+    values.value.xiaoqi.headerLine2 = xq.headerLine2 ?? '数字物流专家 小鑫'
     values.value.xiaoqi.welcomeSubtitle = xq.welcomeSubtitle ?? 'G7易流 物流数字化专家'
     values.value.xiaoqi.certBadge = xq.certBadge ?? '专业认证'
     if (Array.isArray(xq.capabilities) && xq.capabilities.length > 0) {
@@ -289,7 +289,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="全站设置与小七 AI 助手配置"
+    title="全站设置与小鑫 AI 助手配置"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -396,8 +396,8 @@ onMounted(async () => {
         <el-button @click="addGroup">+ 添加页脚分组（最多 4 组）</el-button>
       </el-tab-pane>
 
-      <!-- Tab 3: 小七 AI 助手自定义配置与大模型 API 接入 -->
-      <el-tab-pane label="3. 🤖 小七 AI 助手与大模型接入" name="xiaoqi">
+      <!-- Tab 3: 小鑫 AI 助手自定义配置与大模型 API 接入 -->
+      <el-tab-pane label="3. 🤖 小鑫 AI 助手与大模型接入" name="xiaoqi">
         <el-alert
           type="info"
           :closable="false"
@@ -409,7 +409,7 @@ onMounted(async () => {
             <el-switch v-model="values.xiaoqi.enabled" active-text="启用" inactive-text="隐藏" />
           </el-form-item>
           <el-form-item label="AI 助手名字">
-            <el-input v-model="values.xiaoqi.name" maxlength="20" style="width: 220px" placeholder="例如：小七" />
+            <el-input v-model="values.xiaoqi.name" maxlength="20" style="width: 220px" placeholder="例如：小鑫" />
           </el-form-item>
           <el-form-item label="专家头衔">
             <el-input v-model="values.xiaoqi.roleTitle" maxlength="30" style="width: 260px" placeholder="例如：数字物流专家" />

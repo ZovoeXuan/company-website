@@ -1,5 +1,7 @@
+<!-- 对应源码路径: website/web/src/views/NewsView.vue -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getNews } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
 import { vReveal } from '@/directives/reveal'
@@ -10,9 +12,13 @@ usePageMeta(() => ({
   description: '了解企业最新动态、行业前沿洞察、最佳实践、品牌活动与大数据报告。',
 }))
 
-const activeCategory = ref('全部新闻')
-const currentPage = ref(1)
+const route = useRoute()
+const router = useRouter()
+const activeCategory = ref(String(route.query.category || '全部新闻'))
+const keyword = ref(String(route.query.keyword || ''))
+const currentPage = ref(Math.max(1, Number(route.query.page) || 1))
 const showMoreDropdown = ref(false)
+let requestSeq = 0
 const remoteNews = ref<NewsSummary[]>([])
 
 const MAIN_CATEGORIES = [
@@ -141,13 +147,24 @@ const allNews = computed<EnrichedNews[]>(() => {
 })
 
 const filteredNews = computed(() => {
-  if (activeCategory.value === '全部新闻') return allNews.value
-  const matched = allNews.value.filter(
-    (n) =>
-      n.category.includes(activeCategory.value) ||
-      n.title.includes(activeCategory.value),
-  )
-  return matched.length > 0 ? matched : allNews.value
+  let list = allNews.value
+  if (activeCategory.value !== '全部新闻') {
+    const matched = list.filter(
+      (n) =>
+        n.category.includes(activeCategory.value) ||
+        n.title.includes(activeCategory.value),
+    )
+    list = matched.length > 0 ? matched : list
+  }
+  const kw = keyword.value.trim().toLowerCase()
+  if (kw) {
+    list = list.filter(
+      (n) =>
+        n.title.toLowerCase().includes(kw) ||
+        n.summary.toLowerCase().includes(kw),
+    )
+  }
+  return list
 })
 
 const featuredItem = computed(() => filteredNews.value[0] ?? DEFAULT_NEWS_POOL[0])
@@ -163,10 +180,35 @@ const gridNews = computed(() => {
   return out
 })
 
+function syncNewsUrl() {
+  const q: Record<string, string> = {}
+  if (activeCategory.value && activeCategory.value !== '全部新闻') q.category = activeCategory.value
+  if (keyword.value.trim()) q.keyword = keyword.value.trim().slice(0, 50)
+  if (currentPage.value > 1) q.page = String(currentPage.value)
+  router.replace({ path: '/news', query: q }).catch(() => {})
+}
+
+watch(
+  () => route.query,
+  (q) => {
+    activeCategory.value = String(q.category || '全部新闻')
+    keyword.value = String(q.keyword || '')
+    currentPage.value = Math.max(1, Number(q.page) || 1)
+  },
+)
+
 function selectCat(cat: string) {
+  requestSeq++
   activeCategory.value = cat
   currentPage.value = 1
   showMoreDropdown.value = false
+  syncNewsUrl()
+}
+
+function onSearchSubmit() {
+  requestSeq++
+  currentPage.value = 1
+  syncNewsUrl()
 }
 
 onMounted(async () => {
@@ -207,7 +249,18 @@ onMounted(async () => {
           </button>
         </nav>
 
-        <div class="news-more-wrap">
+        <div class="news-right-tools">
+          <form class="news-search-form" @submit.prevent="onSearchSubmit">
+            <input
+              v-model="keyword"
+              type="search"
+              class="news-search-input"
+              maxlength="50"
+              placeholder="搜索新闻关键字..."
+              aria-label="搜索新闻关键字"
+            />
+          </form>
+          <div class="news-more-wrap">
           <button
             type="button"
             class="news-more-btn"
@@ -221,6 +274,7 @@ onMounted(async () => {
               <button type="button" @click="selectCat(tag)">{{ tag }}</button>
             </li>
           </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -443,6 +497,26 @@ onMounted(async () => {
   height: 3px;
   background: #5b4be8;
   border-radius: 2px;
+}
+
+.news-right-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.news-search-input {
+  height: 34px;
+  width: 168px;
+  padding: 0 12px;
+  border: 1px solid #d0d5dd;
+  font-size: 12.5px;
+  color: #2b2f38;
+  outline: none;
+}
+
+.news-search-input:focus {
+  border-color: #5b4be8;
 }
 
 .news-more-wrap {

@@ -1,3 +1,4 @@
+<!-- 对应源码路径: website/web/src/views/HomeView.vue -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -16,7 +17,7 @@ import type {
 
 const router = useRouter()
 const data = ref<HomeView | null>(null)
-const siteName = ref('G7易流')
+const siteName = ref('公司官网')
 const heroIndex = ref(0)
 const activeMetricIdx = ref(6)
 const activeStageIdx = ref(0)
@@ -133,27 +134,70 @@ const metricsList = computed<HomeMetric[]>(() => {
   return DEFAULT_METRICS
 })
 
-// 11 个车身/产品 90度折线引线热点（1:1 对齐 home_13.png）
+// 11 个车身/产品 90度折线引线热点（点击可直达产品详情界面）
 const DEFAULT_HOTSPOTS: HomeHotspotItem[] = [
-  { label: '安全驾驶系统', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
-  { label: 'AI 车挂匹配', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
-  { label: '数字加注', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
-  { label: '油耗管理', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
-  { label: 'AI 量方', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
-  { label: '实时温控', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
-  { label: '胎温胎压', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
-  { label: '轴称重', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
-  { label: '货舱摄像头', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
-  { label: '挂车电子制动系统', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
-  { label: '倒车盲点检测', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
+  { label: '安全驾驶系统', path: '/products/1', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
+  { label: 'AI 车挂匹配', path: '/products?category=IoT', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
+  { label: '数字加注', path: '/solutions?category=交易', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
+  { label: '油耗管理', path: '/products?category=IoT', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
+  { label: 'AI 量方', path: '/products/1', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
+  { label: '实时温控', path: '/products?category=冷链', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
+  { label: '胎温胎压', path: '/products?category=安全', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
+  { label: '轴称重', path: '/products?category=IoT', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
+  { label: '货舱摄像头', path: '/products?category=安全', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
+  { label: '挂车电子制动系统', path: '/products?category=安全', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
+  { label: '倒车盲点检测', path: '/products/1', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
 ]
 
 const hotspotsList = computed<HomeHotspotItem[]>(() => {
   if (data.value?.metrics?.hotspots && data.value.metrics.hotspots.length > 0) {
-    return data.value.metrics.hotspots
+    return data.value.metrics.hotspots.map((hs, idx) => ({
+      ...(DEFAULT_HOTSPOTS[idx] || {}),
+      ...hs,
+      path: hs.path || DEFAULT_HOTSPOTS[idx]?.path || '/products',
+    }))
   }
   return DEFAULT_HOTSPOTS
 })
+
+function goToProduct(path?: string) {
+  if (!path) {
+    router.push('/products')
+    return
+  }
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    window.open(path, '_blank', 'noopener,noreferrer')
+  } else {
+    router.push(path)
+  }
+}
+
+const featuredProductShortcuts = [
+  {
+    tag: '首款核心硬件',
+    title: '紫宝盒',
+    desc: '全场景智能视觉与感知车载终端，毫秒级声光预警',
+    path: '/products/1',
+  },
+  {
+    tag: '安全管车',
+    title: '安全管家',
+    desc: '三晒两抓主动安全管理闭环，百公里高危事故率大幅下降',
+    path: '/products?category=安全',
+  },
+  {
+    tag: '全程冷链',
+    title: '冷链管家',
+    desc: '厢内多温区多点实时温湿度监测，异常秒级告警',
+    path: '/products?category=冷链',
+  },
+  {
+    tag: '数字化在途',
+    title: '追货管家',
+    desc: '高频在途位置追踪与电子围栏，货物全程可视化透明交付',
+    path: '/products?category=追货',
+  },
+]
 
 // 第 3 大板块：左侧三圆点纵向切换舞台（IoT服务 / 交易服务 / 产业物流数字化，1:1 对齐 00:19-00:34）
 const DEFAULT_STAGES: HomeShowcaseStage[] = [
@@ -408,15 +452,36 @@ onBeforeUnmount(() => {
       <div class="container container--wide g7-hero__inner">
         <Transition name="hero-fade" mode="out-in">
           <div :key="currentHero.key || heroIndex" class="g7-hero__text-box">
-            <h1 class="g7-hero__title">{{ currentHero.title }}</h1>
-            <p v-if="currentHero.subtitle" class="g7-hero__sub">{{ currentHero.subtitle }}</p>
-            <p v-if="currentHero.kicker" class="g7-hero__kicker">{{ currentHero.kicker }}</p>
+            <h1
+              class="g7-hero__title"
+              :style="{ color: currentHero.titleColor || (currentHero.theme === 'light' ? undefined : '#ffffff') }"
+            >
+              {{ currentHero.title }}
+            </h1>
+            <p
+              v-if="currentHero.subtitle"
+              class="g7-hero__sub"
+              :style="{ color: currentHero.subtitleColor || (currentHero.theme === 'light' ? '#334155' : 'rgba(255, 255, 255, 0.92)') }"
+            >
+              {{ currentHero.subtitle }}
+            </p>
+            <p
+              v-if="currentHero.kicker"
+              class="g7-hero__kicker"
+              :style="{ color: currentHero.kickerColor }"
+            >
+              {{ currentHero.kicker }}
+            </p>
             <div v-if="currentHero.badgeText" class="g7-hero__badge">{{ currentHero.badgeText }}</div>
 
             <div v-if="currentHero.buttonText" class="g7-hero__actions">
               <button
                 type="button"
                 class="g7-hero__btn"
+                :style="{
+                  backgroundColor: currentHero.buttonBgColor,
+                  color: currentHero.buttonTextColor
+                }"
                 @click="handleAction(currentHero.link, 'HOME_HERO')"
               >
                 {{ currentHero.buttonText }}
@@ -425,8 +490,8 @@ onBeforeUnmount(() => {
           </div>
         </Transition>
 
-        <!-- 左下角 3 根横向进度指示条（1:1 对齐 home_01.png / home_03.png / home_06.png） -->
-        <div class="g7-hero__bars" role="tablist" aria-label="首屏轮播切换">
+        <!-- 左下角横向进度指示条（已按需求去除播放暂停按钮） -->
+        <div v-if="heroes.length > 1" class="g7-hero__bars" role="tablist" aria-label="首屏轮播切换">
           <button
             v-for="(h, idx) in heroes"
             :key="h.key || idx"
@@ -444,15 +509,16 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- ==================== 2. G 大数据：8 项核心指标 + 声波圆环与 90度折线引线车体图（1:1 还原 00:09-00:18） ==================== -->
+    <!-- ==================== 2. 产品展示：8 项核心指标 + 声波圆环与 11 大产品节点跳转 + 核心产品快捷矩阵 ==================== -->
     <section id="metrics" class="g7-bigdata">
       <div class="container container--wide">
         <h2 v-reveal class="g7-bigdata__title">
-          <em class="g7-bigdata__g">{{ data?.metrics?.brandPrefix || 'G' }}</em>
-          <span>{{ data?.metrics?.title || '大数据' }}</span>
+          <em v-if="data?.metrics?.brandPrefix" class="g7-bigdata__g">{{ data.metrics.brandPrefix }}</em>
+          <span>{{ data?.metrics?.title || '产品展示' }}</span>
         </h2>
+        <p v-if="data?.metrics?.subtitle" class="g7-bigdata__sub-lead">{{ data.metrics.subtitle }}</p>
 
-        <!-- 2 行 × 4 列 = 8 项指标，右上角上标 +，轮流/悬停紫色高亮 -->
+        <!-- 2 行 × 4 列 = 8 项核心指标，右上角上标 +，轮流/悬停紫色高亮 -->
         <ul class="g7-metrics-grid">
           <li
             v-for="(item, mIdx) in metricsList"
@@ -470,7 +536,7 @@ onBeforeUnmount(() => {
           </li>
         </ul>
 
-        <!-- 底部声波雷达同心圆环 + 透视车体/产品图 + 11 条 90 度折线引线标签 -->
+        <!-- 底部声波雷达同心圆环 + 透视车体/产品图 + 11 条 90 度折线引线标签（点击直达对应产品详细界面） -->
         <div v-reveal="180" class="g7-diagram-stage">
           <!-- 地面扩散点阵声波环 -->
           <div class="g7-soundwaves" aria-hidden="true">
@@ -480,12 +546,12 @@ onBeforeUnmount(() => {
             <span class="wave-ring wave-ring--4"></span>
           </div>
 
-          <!-- 居中可交互 SVG 透视车体与 90度折线引线标注（完全支持后台自定义修改标签名） -->
+          <!-- 居中可交互 SVG 透视车体与 90度折线引线标注（点击跳转到详细产品界面） -->
           <svg
             viewBox="0 0 1120 340"
             class="g7-diagram-svg"
             role="img"
-            aria-label="全场景智能感知硬件与数据节点示意图"
+            aria-label="全场景智能感知硬件与产品数据节点示意图"
           >
             <defs>
               <linearGradient id="truckBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -526,11 +592,16 @@ onBeforeUnmount(() => {
               <text x="654" y="194" fill="#fff" font-size="10" font-weight="900" font-style="italic">G</text>
             </g>
 
-            <!-- 11 条 90 度折线引线 + 机身菱形闪烁节点 ◈ + 文本标签 -->
+            <!-- 11 条 90 度折线引线 + 机身菱形闪烁节点 ◈ + 文本标签（支持点击跳转到对应产品详情界面） -->
             <g
               v-for="(hs, hIdx) in hotspotsList"
               :key="hs.label + hIdx"
               class="hotspot-node"
+              role="button"
+              tabindex="0"
+              :aria-label="`查看产品详情：${hs.label}`"
+              @click="goToProduct(hs.path || '/products')"
+              @keydown.enter="goToProduct(hs.path || '/products')"
             >
               <!-- 90度折线：从机身 (x, y) 垂直/水平折向 (labelX, labelY) -->
               <polyline
@@ -539,30 +610,52 @@ onBeforeUnmount(() => {
                     ? `${hs.x},${hs.y} ${hs.x},${hs.labelY} ${hs.labelX + (hs.align === 'right' ? -10 : 18)},${hs.labelY}`
                     : `${hs.x},${hs.y} ${hs.labelX},${hs.y} ${hs.labelX},${hs.labelY}`
                 "
+                class="hotspot-line"
                 fill="none"
-                stroke="#94a3b8"
-                stroke-width="1"
               />
               <!-- 机身菱形锚点 ◈ -->
               <polygon
                 :points="`${hs.x},${hs.y - 5} ${hs.x + 5},${hs.y} ${hs.x},${hs.y + 5} ${hs.x - 5},${hs.y}`"
-                fill="#ffffff"
-                stroke="#4c2ce6"
-                stroke-width="1.8"
+                class="hotspot-diamond"
               />
-              <!-- 标签文字 -->
+              <!-- 标签文字与跳转箭头 -->
               <text
                 :x="hs.align === 'right' ? hs.labelX - 6 : hs.labelX"
                 :y="hs.labelY - 6"
                 :text-anchor="hs.align === 'right' ? 'end' : 'start'"
-                fill="#334155"
-                font-size="12.5"
-                font-weight="500"
+                class="hotspot-label-text"
               >
                 {{ hs.label }}
+                <tspan class="hotspot-arrow"> →</tspan>
               </text>
             </g>
           </svg>
+        </div>
+
+        <!-- 核心产品展示快捷矩阵：支持直接点击跳转详细界面 -->
+        <div v-reveal="240" class="g7-products-quick-grid">
+          <div
+            v-for="p in featuredProductShortcuts"
+            :key="p.title"
+            class="product-shortcut-card"
+            @click="goToProduct(p.path)"
+          >
+            <div class="product-shortcut-card__tag">{{ p.tag }}</div>
+            <h3 class="product-shortcut-card__title">{{ p.title }}</h3>
+            <p class="product-shortcut-card__desc">{{ p.desc }}</p>
+            <div class="product-shortcut-card__footer">
+              <span class="product-shortcut-card__link">查看产品详情 →</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-reveal="280" class="g7-products-more-action">
+          <RouterLink to="/products" class="g7-products-more-btn">
+            浏览全部产品与解决方案
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </RouterLink>
         </div>
       </div>
     </section>
@@ -960,6 +1053,10 @@ onBeforeUnmount(() => {
   letter-spacing: -0.02em;
 }
 
+.g7-hero--dark .g7-hero__title {
+  color: #ffffff;
+}
+
 .g7-hero--light .g7-hero__title {
   background: linear-gradient(90deg, #0284c7 0%, #2563eb 55%, #0d9488 100%);
   -webkit-background-clip: text;
@@ -1153,6 +1250,176 @@ onBeforeUnmount(() => {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* 11 个车身硬件/产品节点交互样式 */
+.hotspot-node {
+  cursor: pointer;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.hotspot-line {
+  stroke: #94a3b8;
+  stroke-width: 1;
+  transition: stroke 0.25s ease, stroke-width 0.25s ease;
+}
+
+.hotspot-diamond {
+  fill: #ffffff;
+  stroke: #4c2ce6;
+  stroke-width: 1.8;
+  transition: all 0.25s ease;
+}
+
+.hotspot-label-text {
+  fill: #334155;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.hotspot-arrow {
+  fill: #4c2ce6;
+  opacity: 0;
+  transition: all 0.25s ease;
+  font-weight: 700;
+}
+
+.hotspot-node:hover .hotspot-line,
+.hotspot-node:focus-visible .hotspot-line {
+  stroke: #4c2ce6;
+  stroke-width: 1.8;
+}
+
+.hotspot-node:hover .hotspot-diamond,
+.hotspot-node:focus-visible .hotspot-diamond {
+  fill: #4c2ce6;
+  stroke: #7c3aed;
+  filter: drop-shadow(0 0 6px rgba(76, 44, 230, 0.6));
+}
+
+.hotspot-node:hover .hotspot-label-text,
+.hotspot-node:focus-visible .hotspot-label-text {
+  fill: #4c2ce6;
+  font-weight: 700;
+}
+
+.hotspot-node:hover .hotspot-arrow,
+.hotspot-node:focus-visible .hotspot-arrow {
+  opacity: 1;
+}
+
+/* 核心产品展示快捷矩阵 */
+.g7-products-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+
+.product-shortcut-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 20px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.product-shortcut-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(76, 44, 230, 0.12);
+  border-color: rgba(91, 75, 232, 0.3);
+}
+
+.product-shortcut-card__tag {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4c2ce6;
+  background: #f0edff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.product-shortcut-card__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px;
+}
+
+.product-shortcut-card__desc {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  flex: 1;
+}
+
+.product-shortcut-card__footer {
+  margin-top: auto;
+}
+
+.product-shortcut-card__link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4c2ce6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: gap 0.2s ease;
+}
+
+.product-shortcut-card:hover .product-shortcut-card__link {
+  gap: 8px;
+}
+
+.g7-products-more-action {
+  text-align: center;
+  margin-top: 36px;
+}
+
+.g7-products-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4c2ce6;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1.5px solid #4c2ce6;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(76, 44, 230, 0.08);
+}
+
+.g7-products-more-btn:hover {
+  background: #4c2ce6;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(76, 44, 230, 0.25);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 900px) {
+  .g7-products-quick-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .g7-products-quick-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==================== 3. 左侧三圆点纵向切换舞台 ==================== */

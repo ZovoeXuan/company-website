@@ -1,3 +1,4 @@
+// 对应源码路径: website/server/src/main/java/com/company/cms/site/SiteConfigValidator.java
 package com.company.cms.site;
 
 import com.company.cms.common.ApiException;
@@ -371,6 +372,13 @@ public class SiteConfigValidator {
                 qual.put("name", limit(text(item, "name"), 60, path + ".name", "名称", errors));
                 qual.put("description",
                         limit(text(item, "description"), 300, path + ".description", "说明", errors));
+                Long qMedia = mediaId(item.get("mediaId"), path + ".mediaId", "资质图片", errors);
+                if (qMedia != null) {
+                    qual.put("mediaId", qMedia);
+                    qual.put("imageUrl", "/api/public/media/" + qMedia);
+                } else if (!text(item, "imageUrl").isEmpty()) {
+                    qual.put("imageUrl", limit(text(item, "imageUrl"), 500, path + ".imageUrl", "资质图片链接", errors));
+                }
                 qualifications.add(qual);
             }
         }
@@ -481,6 +489,11 @@ public class SiteConfigValidator {
                 heroItem.put("subtitle",
                         limit(text(item, "subtitle"), 100, path + ".subtitle", "首屏副标题", errors));
                 heroItem.put("theme", "light".equals(text(item, "theme")) ? "light" : "dark");
+                heroItem.put("titleColor", limit(text(item, "titleColor"), 30, path + ".titleColor", "标题颜色", errors));
+                heroItem.put("subtitleColor", limit(text(item, "subtitleColor"), 30, path + ".subtitleColor", "副标题颜色", errors));
+                heroItem.put("kickerColor", limit(text(item, "kickerColor"), 30, path + ".kickerColor", "眉题颜色", errors));
+                heroItem.put("buttonBgColor", limit(text(item, "buttonBgColor"), 30, path + ".buttonBgColor", "按钮背景色", errors));
+                heroItem.put("buttonTextColor", limit(text(item, "buttonTextColor"), 30, path + ".buttonTextColor", "按钮文字色", errors));
                 heroItem.put("kicker", limit(text(item, "kicker"), 60, path + ".kicker", "署名文案", errors));
                 heroItem.put("badgeText", limit(text(item, "badgeText"), 20, path + ".badgeText", "提示文案", errors));
                 heroItem.put("watermark", limit(text(item, "watermark"), 20, path + ".watermark", "背景水印", errors));

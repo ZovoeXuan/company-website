@@ -1,5 +1,7 @@
+<!-- 对应源码路径: website/web/src/views/CasesView.vue -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getAbout, getSite } from '@/api/public'
 import { openVideo } from '@/composables/videoModal'
 import { usePageMeta } from '@/composables/usePageMeta'
@@ -11,9 +13,12 @@ usePageMeta(() => ({
   description: '携手大宗、食品生鲜医药、快消零售、大物流与危化行业领军企业，共建数字化生产力。',
 }))
 
-const siteName = ref('G7易流')
-const activeCategory = ref('全部案例')
-const currentPage = ref(1)
+const route = useRoute()
+const router = useRouter()
+const siteName = ref('公司官网')
+const activeCategory = ref(String(route.query.category || '全部案例'))
+const currentPage = ref(Math.max(1, Number(route.query.page) || 1))
+let requestSeq = 0
 const remoteCases = ref<CaseSummary[]>([])
 const customStories = ref<AboutStoryItem[]>([])
 
@@ -153,14 +158,37 @@ const pagedCases = computed(() => {
   return out
 })
 
+function syncQueryToUrl() {
+  const q: Record<string, string> = {}
+  if (activeCategory.value && activeCategory.value !== '全部案例') {
+    q.category = activeCategory.value
+  }
+  if (currentPage.value > 1) {
+    q.page = String(currentPage.value)
+  }
+  router.replace({ path: '/cases', query: q }).catch(() => {})
+}
+
+watch(
+  () => route.query,
+  (q) => {
+    activeCategory.value = String(q.category || '全部案例')
+    currentPage.value = Math.max(1, Number(q.page) || 1)
+  },
+)
+
 function selectCategory(cat: string) {
+  requestSeq++
   activeCategory.value = cat
   currentPage.value = 1
+  syncQueryToUrl()
 }
 
 function goPage(p: number) {
   if (p < 1 || p > totalPages.value) return
+  requestSeq++
   currentPage.value = p
+  syncQueryToUrl()
 }
 
 // 底部 2×2 客户成功故事视频证言卡（1:1 还原 case_24.png / case_32.png）

@@ -22,12 +22,12 @@ const openMobile = ref<string | null>(null)
 const scrolled = ref(false)
 const lang = ref<'zh' | 'en'>('zh')
 
-// 小七头部两行文字循环打字机动效（1:1 还原视频右上角逐字打出与回退效果）
+// 小鑫头部两行文字循环打字机动效（1:1 还原视频右上角逐字打出与回退效果）
 const fullLine1 = computed(() => props.xiaoqiConfig?.headerLine1 || '您好，我是您的')
 const fullLine2 = computed(
   () =>
     props.xiaoqiConfig?.headerLine2 ||
-    `${props.xiaoqiConfig?.roleTitle || '数字物流专家'} ${props.xiaoqiConfig?.name || '小七'}`,
+    `${props.xiaoqiConfig?.roleTitle || '数字物流专家'} ${props.xiaoqiConfig?.name || '小鑫'}`,
 )
 const typedLine1 = ref('')
 const typedLine2 = ref('')
@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
         </ul>
       </nav>
 
-      <!-- 右侧区域：1:1 对齐视频：English + 循环打字机小七助手（唤起右侧 AI 抽屉） + 产品试用（唤起居中预约弹窗） -->
+      <!-- 右侧区域：1:1 对齐视频：English + 循环打字机小鑫助手（唤起右侧 AI 抽屉） + 产品试用（唤起居中预约弹窗） -->
       <div class="actions">
         <button type="button" class="lang" @click="toggleLang">
           {{ lang === 'zh' ? 'English' : '中文' }}
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
           v-if="xiaoqiConfig?.enabled !== false"
           type="button"
           class="actions__assistant"
-          title="点击唤醒小七 AI 智能助手"
+          title="点击唤醒小鑫 AI 智能助手"
           @click="triggerXiaoQi"
         >
           <span class="assistant__meta">
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
         </ul>
         <div class="mobile__btns">
           <button type="button" class="btn btn--outline mobile__cta" @click="triggerXiaoQi">
-            唤醒小七 AI
+            唤醒小鑫 AI
           </button>
           <button type="button" class="btn btn--primary mobile__cta" @click="triggerTrialModal('OTHER_CTA')">
             产品试用

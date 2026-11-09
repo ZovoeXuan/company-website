@@ -15,6 +15,11 @@ interface HeroItem {
   title: string
   subtitle: string
   theme?: 'dark' | 'light'
+  titleColor?: string
+  subtitleColor?: string
+  kickerColor?: string
+  buttonBgColor?: string
+  buttonTextColor?: string
   kicker?: string
   badgeText?: string
   watermark?: string
@@ -36,6 +41,7 @@ interface MetricItem {
 
 interface HotspotItem {
   label: string
+  path?: string
   x: number
   y: number
   labelX: number
@@ -93,7 +99,7 @@ const form = reactive({
   metrics: {
     enabled: true,
     brandPrefix: 'G',
-    title: '大数据',
+    title: '产品展示',
     subtitle: '',
     items: [] as MetricItem[],
     hotspots: [] as HotspotItem[],
@@ -112,17 +118,17 @@ const form = reactive({
 })
 
 const DEFAULT_HOTSPOTS: HotspotItem[] = [
-  { label: '安全驾驶系统', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
-  { label: 'AI 车挂匹配', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
-  { label: '数字加注', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
-  { label: '油耗管理', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
-  { label: 'AI 量方', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
-  { label: '实时温控', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
-  { label: '胎温胎压', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
-  { label: '轴称重', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
-  { label: '货舱摄像头', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
-  { label: '挂车电子制动系统', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
-  { label: '倒车盲点检测', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
+  { label: '安全驾驶系统', path: '/products/1', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
+  { label: 'AI 车挂匹配', path: '/products?category=IoT', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
+  { label: '数字加注', path: '/solutions?category=交易', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
+  { label: '油耗管理', path: '/products?category=IoT', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
+  { label: 'AI 量方', path: '/products/1', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
+  { label: '实时温控', path: '/products?category=冷链', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
+  { label: '胎温胎压', path: '/products?category=安全', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
+  { label: '轴称重', path: '/products?category=IoT', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
+  { label: '货舱摄像头', path: '/products?category=安全', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
+  { label: '挂车电子制动系统', path: '/products?category=安全', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
+  { label: '倒车盲点检测', path: '/products/1', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
 ]
 
 function fill() {
@@ -136,6 +142,11 @@ function fill() {
     title: item.title ?? '',
     subtitle: item.subtitle ?? '',
     theme: item.theme === 'light' ? 'light' : 'dark',
+    titleColor: item.titleColor ?? '',
+    subtitleColor: item.subtitleColor ?? '',
+    kickerColor: item.kickerColor ?? '',
+    buttonBgColor: item.buttonBgColor ?? '',
+    buttonTextColor: item.buttonTextColor ?? '',
     kicker: item.kicker ?? '',
     badgeText: item.badgeText ?? '',
     watermark: item.watermark ?? '',
@@ -198,7 +209,7 @@ function fill() {
 
   form.metrics.enabled = draft.metrics?.enabled ?? true
   form.metrics.brandPrefix = draft.metrics?.brandPrefix ?? 'G'
-  form.metrics.title = draft.metrics?.title ?? '大数据'
+  form.metrics.title = draft.metrics?.title || '产品展示'
   form.metrics.subtitle = draft.metrics?.subtitle ?? ''
   form.metrics.items = (draft.metrics?.items ?? []).map((m: any, idx: number) => ({
     key: m.key,
@@ -223,7 +234,11 @@ function fill() {
 
   form.metrics.hotspots =
     Array.isArray(draft.metrics?.hotspots) && draft.metrics.hotspots.length > 0
-      ? draft.metrics.hotspots.map((h: any) => ({ ...h }))
+      ? draft.metrics.hotspots.map((h: any, idx: number) => ({
+          ...(DEFAULT_HOTSPOTS[idx] || {}),
+          ...h,
+          path: h.path || DEFAULT_HOTSPOTS[idx]?.path || '/products',
+        }))
       : DEFAULT_HOTSPOTS.map((h) => ({ ...h }))
 
   if (Array.isArray(draft.showcaseStages) && draft.showcaseStages.length > 0) {
@@ -370,6 +385,11 @@ function addHero() {
     title: '新首屏标题',
     subtitle: '首屏副标题说明',
     theme: 'dark',
+    titleColor: '#FFFFFF',
+    subtitleColor: 'rgba(255, 255, 255, 0.92)',
+    kickerColor: '',
+    buttonBgColor: '#FFFFFF',
+    buttonTextColor: '#101014',
     kicker: '',
     badgeText: '',
     watermark: '',
@@ -482,6 +502,30 @@ onMounted(async () => {
                 <el-radio value="light">浅色背景（蓝青渐变大标题 + 讲师署名）</el-radio>
               </el-radio-group>
             </el-form-item>
+            <el-form-item label="文字颜色与样式">
+              <div class="color-pickers-row">
+                <div class="color-picker-item">
+                  <span class="color-label">标题颜色</span>
+                  <el-color-picker v-model="slide.titleColor" />
+                  <el-input v-model="slide.titleColor" size="small" style="width: 110px" placeholder="#FFFFFF" />
+                </div>
+                <div class="color-picker-item">
+                  <span class="color-label">副标题颜色</span>
+                  <el-color-picker v-model="slide.subtitleColor" />
+                  <el-input v-model="slide.subtitleColor" size="small" style="width: 130px" placeholder="#E2E8F0" />
+                </div>
+                <div class="color-picker-item">
+                  <span class="color-label">按钮背景</span>
+                  <el-color-picker v-model="slide.buttonBgColor" />
+                  <el-input v-model="slide.buttonBgColor" size="small" style="width: 110px" placeholder="#FFFFFF" />
+                </div>
+                <div class="color-picker-item">
+                  <span class="color-label">按钮文字</span>
+                  <el-color-picker v-model="slide.buttonTextColor" />
+                  <el-input v-model="slide.buttonTextColor" size="small" style="width: 110px" placeholder="#101014" />
+                </div>
+              </div>
+            </el-form-item>
             <el-form-item label="主标题" required>
               <el-input v-model="slide.title" maxlength="40" show-word-limit />
             </el-form-item>
@@ -520,14 +564,17 @@ onMounted(async () => {
         <el-button @click="addHero">+ 添加首屏轮播项</el-button>
       </el-tab-pane>
 
-      <!-- Tab 2: G 大数据 8 项指标与 11 条折线引线标签 -->
-      <el-tab-pane label="2. G 大数据 (8项指标 + 11条折线引线)" name="metrics">
+      <!-- Tab 2: 产品展示与核心节点 (产品展示 + 11大产品跳转链接) -->
+      <el-tab-pane label="2. 产品展示与核心节点 (产品展示 + 11大产品跳转链接)" name="metrics">
         <el-form label-width="120px">
           <el-form-item label="品牌前缀斜体字">
-            <el-input v-model="form.metrics.brandPrefix" maxlength="10" style="width: 120px" placeholder="G" />
+            <el-input v-model="form.metrics.brandPrefix" maxlength="10" style="width: 120px" placeholder="可留空，如 G" />
           </el-form-item>
           <el-form-item label="模块主标题">
-            <el-input v-model="form.metrics.title" maxlength="40" style="width: 260px" placeholder="大数据" />
+            <el-input v-model="form.metrics.title" maxlength="40" style="width: 260px" placeholder="产品展示" />
+          </el-form-item>
+          <el-form-item label="模块导语说明">
+            <el-input v-model="form.metrics.subtitle" maxlength="80" style="width: 420px" placeholder="全场景软硬件一体化产品矩阵，点击节点可直达详情" />
           </el-form-item>
         </el-form>
 
@@ -535,17 +582,21 @@ onMounted(async () => {
         <div v-for="(m, idx) in form.metrics.items" :key="m.key ?? `m-${idx}`" class="metric-row">
           <el-input v-model="m.displayValue" maxlength="16" placeholder="数值(如 800W)" style="width: 140px" />
           <el-input v-model="m.unit" maxlength="8" placeholder="上标(+)" style="width: 80px" />
-          <el-input v-model="m.label" maxlength="20" placeholder="指标名称(如 IoT设备连接)" style="width: 220px" />
+          <el-input v-model="m.label" maxlength="20" placeholder="指标名称(如 服务企业)" style="width: 220px" />
           <el-button link type="danger" @click="form.metrics.items.splice(idx, 1)">删除</el-button>
         </div>
         <el-button size="small" @click="addMetric">+ 添加指标（建议保持 8 项）</el-button>
 
         <el-divider />
-        <h3 class="sub-h">底部透视车身/产品图上的 11 条 90度折线引线文字标签</h3>
+        <h3 class="sub-h">产品透视架构图：11 个产品折线引线节点（支持修改产品名称与点击跳转详细界面的链接）</h3>
+        <p class="tab-hint" style="margin-top: -6px; margin-bottom: 14px">
+          访客在前台点击对应引线标签时，将直接跳转到您填写的详细页面（如 <code>/products/1</code> 或 <code>/products?category=安全</code>）。
+        </p>
         <div class="hotspot-grid">
           <div v-for="(hs, hIdx) in form.metrics.hotspots" :key="hIdx" class="hotspot-chip">
-            <span>#{{ hIdx + 1 }}</span>
-            <el-input v-model="hs.label" size="small" maxlength="20" />
+            <span class="hotspot-chip__idx">#{{ hIdx + 1 }}</span>
+            <el-input v-model="hs.label" size="small" maxlength="20" placeholder="产品名称" style="width: 130px" />
+            <el-input v-model="hs.path" size="small" maxlength="120" placeholder="跳转路径，如 /products/1" style="flex: 1" />
           </div>
         </div>
       </el-tab-pane>
@@ -661,14 +712,39 @@ onMounted(async () => {
 }
 .hotspot-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
 }
 .hotspot-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   color: var(--a-text-muted);
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+.hotspot-chip__idx {
+  font-weight: 600;
+  color: #5b4be8;
+  white-space: nowrap;
+}
+.color-pickers-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.color-picker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-label {
+  font-size: 12.5px;
+  color: #475569;
+  white-space: nowrap;
 }
 </style>

@@ -90,6 +90,11 @@ interface HeroItem {
   imageAlt: string
   buttonText: string
   link: LinkValue | null
+  titleColor?: string
+  subtitleColor?: string
+  kickerColor?: string
+  buttonBgColor?: string
+  buttonTextColor?: string
 }
 interface MetricItem {
   key?: string
@@ -486,6 +491,11 @@ function applySourceData(usePublished = false) {
           imageAlt: h.imageAlt ?? '',
           buttonText: h.buttonText ?? '',
           link: h.link ?? { type: 'NONE' },
+          titleColor: h.titleColor,
+          subtitleColor: h.subtitleColor,
+          kickerColor: h.kickerColor,
+          buttonBgColor: h.buttonBgColor,
+          buttonTextColor: h.buttonTextColor,
         })),
       },
       metrics: {
@@ -734,6 +744,10 @@ function addHeroSlide() {
     imageAlt: '全场景AI工具',
     buttonText: '了解详情',
     link: { type: 'PAGE', pageCode: 'PRODUCTS' },
+    titleColor: '#FFFFFF',
+    subtitleColor: 'rgba(255, 255, 255, 0.92)',
+    buttonBgColor: '#FFFFFF',
+    buttonTextColor: '#1F2329',
   })
   heroIndex.value = drafts.HOME.hero.items.length - 1
   selectedSection.value = 'hero'
@@ -1346,7 +1360,7 @@ onBeforeUnmount(() => {
               </nav>
 
               <div class="canvas-header__cta">
-                <span class="assistant-pill">🤖 数字物流专家 小七</span>
+                <span class="assistant-pill">🤖 数字物流专家 小鑫</span>
                 <span class="cta-pill">产品试用</span>
               </div>
             </div>
@@ -1507,9 +1521,20 @@ onBeforeUnmount(() => {
               <div class="canvas-hero__content">
                 <p class="canvas-hero__kicker">INDUSTRIAL IOT · ENERGY INTELLIGENCE</p>
                 <template v-if="studioMode === 'edit'">
+                  <div class="hero-color-row">
+                    <span class="color-tip">标题颜色:</span>
+                    <el-color-picker v-model="currentHero.titleColor" size="small" @change="recordSnapshot('修改首屏标题颜色')" />
+                    <span class="color-tip" style="margin-left: 10px">副标题:</span>
+                    <el-color-picker v-model="currentHero.subtitleColor" size="small" @change="recordSnapshot('修改首屏副标题颜色')" />
+                    <span class="color-tip" style="margin-left: 10px">按钮背景:</span>
+                    <el-color-picker v-model="currentHero.buttonBgColor" size="small" @change="recordSnapshot('修改按钮背景色')" />
+                    <span class="color-tip" style="margin-left: 10px">按钮文字:</span>
+                    <el-color-picker v-model="currentHero.buttonTextColor" size="small" @change="recordSnapshot('修改按钮文字颜色')" />
+                  </div>
                   <textarea
                     v-model="currentHero.title"
                     class="inline-textarea inline-textarea--hero-title"
+                    :style="{ color: currentHero.titleColor || '#ffffff' }"
                     rows="2"
                     maxlength="40"
                     placeholder="在此直接输入首屏大标题（支持换行）"
@@ -1518,6 +1543,7 @@ onBeforeUnmount(() => {
                   <textarea
                     v-model="currentHero.subtitle"
                     class="inline-textarea inline-textarea--hero-sub"
+                    :style="{ color: currentHero.subtitleColor || 'rgba(255, 255, 255, 0.88)' }"
                     rows="2"
                     maxlength="100"
                     placeholder="在此输入首屏副标题说明..."
@@ -1527,6 +1553,10 @@ onBeforeUnmount(() => {
                     <input
                       v-model="currentHero.buttonText"
                       class="inline-input inline-input--hero-btn"
+                      :style="{
+                        backgroundColor: currentHero.buttonBgColor || '#e5e7eb',
+                        color: currentHero.buttonTextColor || '#1f2329'
+                      }"
                       maxlength="12"
                       placeholder="按钮文字(如:了解详情)"
                       @change="recordSnapshot('修改首屏按钮文字')"
@@ -1551,9 +1581,16 @@ onBeforeUnmount(() => {
                   </div>
                 </template>
                 <template v-else>
-                  <h1 class="canvas-hero__title">{{ currentHero.title }}</h1>
-                  <p v-if="currentHero.subtitle" class="canvas-hero__sub">{{ currentHero.subtitle }}</p>
-                  <span v-if="currentHero.buttonText" class="canvas-hero__cta">
+                  <h1 class="canvas-hero__title" :style="{ color: currentHero.titleColor || '#ffffff' }">{{ currentHero.title }}</h1>
+                  <p v-if="currentHero.subtitle" class="canvas-hero__sub" :style="{ color: currentHero.subtitleColor || 'rgba(255, 255, 255, 0.88)' }">{{ currentHero.subtitle }}</p>
+                  <span
+                    v-if="currentHero.buttonText"
+                    class="canvas-hero__cta"
+                    :style="{
+                      backgroundColor: currentHero.buttonBgColor || '#e5e7eb',
+                      color: currentHero.buttonTextColor || '#1f2329'
+                    }"
+                  >
                     {{ currentHero.buttonText }} →
                   </span>
                 </template>
@@ -2852,6 +2889,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.hero-color-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: fit-content;
+}
+
+.hero-color-row .color-tip {
+  font-size: 11px;
+  color: #e2e8f0;
 }
 
 .canvas-hero__kicker {

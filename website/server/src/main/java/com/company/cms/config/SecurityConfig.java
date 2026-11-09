@@ -65,7 +65,7 @@ public class SecurityConfig {
                         .csrfTokenRepository(csrfRepository)
                         // 使用原始令牌而非 BREACH 掩码，前端从 /csrf 取到后原样放进请求头
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/api/public/leads"))
+                        .ignoringRequestMatchers("/api/public/leads", "/api/public/xiaoqi/chat"))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()

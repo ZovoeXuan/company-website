@@ -1,8 +1,9 @@
+<!-- 对应源码路径: website/admin/src/views/ContentEditorView.vue -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import ArticleBody from '@shared/ArticleBody.vue'
+import ArticleBody from '../../../shared/ArticleBody.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
 import { ApiError } from '@/api/http'
@@ -67,7 +68,10 @@ const form = ref({
   bodyHtml: '',
   seoTitle: '',
   seoDescription: '',
-  features: [] as Array<{ key?: string; title: string; description: string; iconMediaId?: number | null }>,
+  features: [] as Array<{ key?: string; tag?: string; title: string; description: string; iconMediaId?: number | null }>,
+  effectMetrics: [] as Array<{ displayValue: string; label: string }>,
+  roleTabs: [] as Array<{ role: string; headline: string; bulletsText: string }>,
+  terminalTools: [] as Array<{ name: string; badge: string; description: string }>,
   pains: [] as Array<{ key?: string; title: string; description: string }>,
   benefits: [] as Array<{ key?: string; title: string; description: string }>,
   outcomes: [] as Array<{ key?: string; displayValue: string; label: string }>,
@@ -154,6 +158,15 @@ function fillFromDraft(draft: Record<string, any>) {
   form.value.seoTitle = draft.seo?.title ?? ''
   form.value.seoDescription = draft.seo?.description ?? ''
   form.value.features = Array.isArray(draft.features) ? draft.features.map((f: any) => ({ ...f })) : []
+  form.value.effectMetrics = Array.isArray(draft.effectMetrics) ? draft.effectMetrics.map((m: any) => ({ ...m })) : []
+  form.value.roleTabs = Array.isArray(draft.roleTabs)
+    ? draft.roleTabs.map((r: any) => ({
+        role: r.role ?? '',
+        headline: r.headline ?? '',
+        bulletsText: Array.isArray(r.bullets) ? r.bullets.join('\n') : '',
+      }))
+    : []
+  form.value.terminalTools = Array.isArray(draft.terminalTools) ? draft.terminalTools.map((t: any) => ({ ...t })) : []
   form.value.pains = Array.isArray(draft.pains) ? draft.pains.map((p: any) => ({ ...p })) : []
   form.value.benefits = Array.isArray(draft.benefits) ? draft.benefits.map((b: any) => ({ ...b })) : []
   form.value.outcomes = Array.isArray(draft.outcomes) ? draft.outcomes.map((o: any) => ({ ...o })) : []
@@ -192,6 +205,19 @@ function buildDraftPayload(): Record<string, unknown> {
   if (contentType.value === 'PRODUCT') {
     base.heroMediaId = form.value.heroMediaId
     base.features = form.value.features
+    base.hardwareModules = form.value.features
+    base.effectMetrics = form.value.effectMetrics.filter((m) => m.displayValue.trim() && m.label.trim())
+    base.roleTabs = form.value.roleTabs
+      .filter((r) => r.role.trim())
+      .map((r) => ({
+        role: r.role.trim(),
+        headline: r.headline.trim(),
+        bullets: r.bulletsText
+          .split(/\n+/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }))
+    base.terminalTools = form.value.terminalTools.filter((t) => t.name.trim())
     base.relatedCaseIds = form.value.relatedCaseIds
   } else if (contentType.value === 'SOLUTION') {
     base.industry = form.value.industry.trim()
@@ -234,6 +260,13 @@ async function load() {
 async function onSaveDraft() {
   if (!form.value.title.trim()) {
     ElMessage.warning('请先填写标题')
+    return false
+  }
+  if (
+    contentType.value === 'CASE' &&
+    Boolean(form.value.quoteText.trim()) !== Boolean(form.value.quoteAuthor.trim())
+  ) {
+    ElMessage.warning('开发文档 6.7：客户证言（quoteText）与证言人（quoteAuthor）必须成对填写')
     return false
   }
   saving.value = true
@@ -432,6 +465,40 @@ onMounted(() => {
             </div>
             <el-button size="small" @click="form.features.length < 8 && form.features.push({ title: '', description: '' })">
               + 添加产品特性
+            </el-button>
+
+            <el-divider content-position="left">算法与量化效果指标 (D1 effectMetrics，如：17%↓ 事故率下降)</el-divider>
+            <div v-for="(em, emIdx) in form.effectMetrics" :key="`em-${emIdx}`" class="sub-row">
+              <el-input v-model="em.displayValue" maxlength="20" placeholder="指标值(如 17%↓)" style="width: 160px" />
+              <el-input v-model="em.label" maxlength="40" placeholder="指标说明(如 百公里事故率下降)" style="flex: 1" />
+              <el-button link type="danger" @click="form.effectMetrics.splice(emIdx, 1)">删除</el-button>
+            </div>
+            <el-button size="small" @click="form.effectMetrics.push({ displayValue: '', label: '' })">
+              + 添加量化效果指标
+            </el-button>
+
+            <el-divider content-position="left">按角色拆分价值 Tab (D1 roleTabs：司机端 / 安全员 / 车队长)</el-divider>
+            <div v-for="(rt, rtIdx) in form.roleTabs" :key="`rt-${rtIdx}`" style="margin-bottom: 10px; padding: 10px; border: 1px solid #ebeef5; border-radius: 8px">
+              <div class="sub-row">
+                <el-input v-model="rt.role" maxlength="20" placeholder="角色名(如 司机端)" style="width: 160px" />
+                <el-input v-model="rt.headline" maxlength="80" placeholder="角色核心价值一句话标题" style="flex: 1" />
+                <el-button link type="danger" @click="form.roleTabs.splice(rtIdx, 1)">删除</el-button>
+              </div>
+              <el-input v-model="rt.bulletsText" type="textarea" :rows="2" placeholder="每行一条角色价值要点" />
+            </div>
+            <el-button size="small" @click="form.roleTabs.push({ role: '', headline: '', bulletsText: '' })">
+              + 添加角色价值页签
+            </el-button>
+
+            <el-divider content-position="left">端侧协同工具矩阵 (D1 terminalTools：WEB + APP + 微信群)</el-divider>
+            <div v-for="(tt, ttIdx) in form.terminalTools" :key="`tt-${ttIdx}`" class="sub-row">
+              <el-input v-model="tt.badge" maxlength="16" placeholder="端侧标签(PC端/移动端)" style="width: 140px" />
+              <el-input v-model="tt.name" maxlength="30" placeholder="工具名称(如 WEB数字化工作台)" style="width: 220px" />
+              <el-input v-model="tt.description" maxlength="200" placeholder="工具能力描述" style="flex: 1" />
+              <el-button link type="danger" @click="form.terminalTools.splice(ttIdx, 1)">删除</el-button>
+            </div>
+            <el-button size="small" @click="form.terminalTools.push({ badge: '', name: '', description: '' })">
+              + 添加端侧工具
             </el-button>
 
             <el-divider content-position="left">关联标杆案例</el-divider>

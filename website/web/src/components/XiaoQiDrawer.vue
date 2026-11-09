@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { closeXiaoQi, openConsult, useXiaoQiDrawer } from '@/composables/consult'
+import { askXiaoqi } from '@/api/public'
 import type { SiteConfig, XiaoQiFaqPair } from '@/data/types'
 
 const props = defineProps<{
@@ -36,7 +37,7 @@ let msgCounter = 1
 let streamTimer: number | null = null
 
 const cfg = computed(() => props.site?.xiaoqiConfig ?? null)
-const botName = computed(() => cfg.value?.name || '小七')
+const botName = computed(() => cfg.value?.name || '小鑫')
 const welcomeSub = computed(
   () => cfg.value?.welcomeSubtitle || `${props.site?.siteName || 'G7易流'} 物流数字化专家`,
 )
@@ -175,7 +176,7 @@ function findAnswer(question: string): { thought: string; answer: string } {
     answer: `关于「${question}」：
 我们提供软硬一体化的全场景 AI 与数字化平台方案，可根据您的具体业务规模、管理痛点与系统对接需求进行灵活配置。
 
-您可以点击右上角「产品试用」预约专属顾问演示，或在后台「全站设置 → 小七AI配置」中接入您企业专属的大模型 API 与知识库问答库。`,
+您可以点击右上角「产品试用」预约专属顾问演示，或在后台「全站设置 → 小鑫AI配置」中接入您企业专属的大模型 API 与知识库问答库。`,
   }
 }
 
@@ -215,37 +216,19 @@ async function askQuestion(rawText?: string) {
   })
   await scrollToBottom()
 
-  // 若后台配置了自定义大模型 API (OpenAI 兼容格式)，优先请求真实接口
-  if (cfg.value?.apiUrl && cfg.value.apiUrl.startsWith('http')) {
-    try {
-      const resp = await fetch(cfg.value.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(cfg.value.apiKey ? { Authorization: `Bearer ${cfg.value.apiKey}` } : {}),
-        },
-        body: JSON.stringify({
-          model: cfg.value.modelName || 'deepseek-chat',
-          messages: [
-            {
-              role: 'system',
-              content:
-                cfg.value.systemPrompt ||
-                `你是${props.site?.siteName || '公司'}的智能助手${botName.value}，请专业、简洁地回答用户问题。`,
-            },
-            { role: 'user', content: q },
-          ],
-        }),
-      })
-      const json = await resp.json()
-      const content = json?.choices?.[0]?.message?.content
-      if (content) {
-        streamTextOut(replyId, content)
-        return
-      }
-    } catch {
-      // 接口跨域或不可达时平滑回退本地知识库流式输出
+  // 服务端代理调用后台配置的大模型；未接入、限流或上游失败时回退本地知识库
+  try {
+    const history = messages.value
+      .filter((m) => m.id !== replyId && m.text && m.id < replyId - 1)
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.text }))
+    const { answer } = await askXiaoqi(q, history)
+    if (answer) {
+      streamTextOut(replyId, answer)
+      return
     }
+  } catch {
+    // 回退本地回答
   }
 
   window.setTimeout(
@@ -329,8 +312,8 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <Transition name="xq-drawer">
       <div v-if="xiaoqi.open" class="xq-backdrop" @click.self="closeXiaoQi">
-        <!-- 1:1 还原 首页.mp4 00:34-00:41 右侧小七 AI 抽屉 -->
-        <aside class="xq-panel" role="dialog" aria-label="小七 AI 智能助手">
+        <!-- 1:1 还原 首页.mp4 00:34-00:41 右侧小鑫 AI 抽屉 -->
+        <aside class="xq-panel" role="dialog" aria-label="小鑫 AI 智能助手">
           <!-- 顶部栏：左侧菜单 ☰ + 右侧 关闭窗口 & 新建会话图标 -->
           <header class="xq-topbar">
             <button
@@ -385,7 +368,7 @@ onBeforeUnmount(() => {
 
           <!-- 主体滚动区 -->
           <div ref="scrollBox" class="xq-body">
-            <!-- 1. 顶部小七身份卡片 -->
+            <!-- 1. 顶部小鑫身份卡片 -->
             <div class="xq-hero-card">
               <div class="xq-hero-card__top">
                 <div class="xq-avatar" aria-hidden="true">

@@ -1,5 +1,6 @@
+// 对应源码路径: website/web/src/data/types.ts
 /**
- * 与后端公开 DTO 对齐的展示类型（含全站视频复刻与全局 CMS 扩展字段）。
+ * 与《公司官网后台及前后端联动开发文档》及《参考站核对.md》对齐的前端展示 DTO 类型定义。
  */
 
 export interface MediaRef {
@@ -93,10 +94,16 @@ export interface SiteConfig {
   xiaoqiConfig?: XiaoQiConfig | null
   contactEmails?: ContactEmailItem[]
   contact: {
+    companyName?: string
     phone: string
     email: string
     address: string
     hours: string
+    serviceHours?: string
+    mapUrl?: string
+    qrImageUrl?: string
+    qrLabel?: string
+    smsVerifyEnabled?: boolean
   }
   footer: {
     copyright: string
@@ -130,6 +137,11 @@ export interface HomeHeroItem {
   title: string
   subtitle: string
   theme?: 'dark' | 'light'
+  titleColor?: string
+  subtitleColor?: string
+  kickerColor?: string
+  buttonBgColor?: string
+  buttonTextColor?: string
   kicker?: string
   badgeText?: string
   watermark?: string
@@ -154,6 +166,9 @@ export interface HomeHotspotItem {
   labelX: number
   labelY: number
   align?: 'left' | 'right'
+  path?: string
+  tag?: string
+  description?: string
 }
 
 export interface HomeShowcaseSubItem {
@@ -238,6 +253,7 @@ export interface HomeView {
 export interface Category {
   id: string
   name: string
+  sortOrder?: number
 }
 
 export interface SeoMeta {
@@ -246,14 +262,31 @@ export interface SeoMeta {
 }
 
 export interface TitledItem {
+  key?: string
   title: string
   description: string
+  tag?: string
   icon?: MediaRef | null
 }
 
 export interface OutcomeMetric {
+  key?: string
   displayValue: string
   label: string
+}
+
+/** 《参考站核对.md》D1：产品详情按角色拆分价值项（司机端 / 安全员 / 车队长） */
+export interface ProductRoleTab {
+  role: string
+  headline: string
+  bullets: string[]
+}
+
+/** 《参考站核对.md》D1：产品详情端侧工具展示项（WEB + APP + 微信群） */
+export interface ProductTerminalTool {
+  name: string
+  badge?: string
+  description: string
 }
 
 export interface ContentSummary {
@@ -277,6 +310,14 @@ export interface ProductDetail extends ProductSummary {
   seo?: SeoMeta
   hero?: MediaRef | null
   features?: TitledItem[]
+  /** D1 扩展：硬件/核心感知模块（如 ADAS / DSM / BSD 三段图文） */
+  hardwareModules?: TitledItem[]
+  /** D1 扩展：算法与量化效果指标（如 事故率下降 17%） */
+  effectMetrics?: OutcomeMetric[]
+  /** D1 扩展：按角色拆分价值（如 司机端 / 安全员 / 车队长） */
+  roleTabs?: ProductRoleTab[]
+  /** D1 扩展：端侧工具矩阵（WEB + APP + 微信群） */
+  terminalTools?: ProductTerminalTool[]
   relatedCases?: CaseSummary[]
 }
 
@@ -365,11 +406,20 @@ export interface AboutStoryItem {
   videoUrl?: string
 }
 
+export interface AboutQualificationItem {
+  name: string
+  description?: string
+  mediaId?: string | number | null
+  imageUrl?: string | null
+}
+
 export interface AboutPage {
+  title?: string
   heroTitle?: string
   introTitle?: string
   intro: string
   introImage?: string
+  bodyHtml?: string
   ceoLetter?: AboutCeoLetter | null
   teamTitle?: string
   teamMembers?: AboutTeamMember[]
@@ -379,8 +429,8 @@ export interface AboutPage {
   mission: string
   vision?: string
   values?: AboutValueItem[]
-  milestones: Array<{ year: string; title: string; description: string }>
-  qualifications: Array<{ name: string; description: string }>
+  milestones: Array<{ year: string; title: string; description: string; sortOrder?: number }>
+  qualifications: AboutQualificationItem[]
   joinTitle?: string
   joinButtonText?: string
   joinUrl?: string
@@ -389,19 +439,28 @@ export interface AboutPage {
 }
 
 export interface PrivacyPage {
+  title?: string
   updatedAt: string
   bodyHtml: string
 }
 
 export interface ContactPage {
   title: string
+  companyName?: string
   description: string
+  formTitle?: string
   successText: string
   formEnabled: boolean
+  smsVerifyEnabled?: boolean
   phone?: string
   email?: string
   address?: string
   hours?: string
+  serviceHours?: string
+  mapUrl?: string
+  qrMediaId?: string | number | null
+  qrImageUrl?: string | null
+  qrLabel?: string
 }
 
 export interface LeadSubmitPayload {

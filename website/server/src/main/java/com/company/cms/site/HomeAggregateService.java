@@ -195,6 +195,11 @@ public class HomeAggregateService {
                 view.put("title", title);
                 view.put("subtitle", text(item, "subtitle"));
                 view.put("theme", "light".equals(text(item, "theme")) ? "light" : "dark");
+                view.put("titleColor", text(item, "titleColor"));
+                view.put("subtitleColor", text(item, "subtitleColor"));
+                view.put("kickerColor", text(item, "kickerColor"));
+                view.put("buttonBgColor", text(item, "buttonBgColor"));
+                view.put("buttonTextColor", text(item, "buttonTextColor"));
                 view.put("kicker", text(item, "kicker"));
                 view.put("badgeText", text(item, "badgeText"));
                 view.put("watermark", text(item, "watermark"));
@@ -256,7 +261,7 @@ public class HomeAggregateService {
         if (items.isEmpty()) return null;
         sortByOrder(list, items);
         Map<String, Object> result = blockView(block);
-        result.put("brandPrefix", text(block, "brandPrefix").isEmpty() ? "G" : text(block, "brandPrefix"));
+        result.put("brandPrefix", block.has("brandPrefix") ? text(block, "brandPrefix") : "G");
         if (block != null && block.get("hotspots") != null && block.get("hotspots").isArray()) {
             result.put("hotspots", block.get("hotspots"));
         }

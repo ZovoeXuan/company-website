@@ -1,3 +1,4 @@
+<!-- 对应源码路径: website/web/src/components/ConsultDialog.vue -->
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ConsultForm from '@/components/ConsultForm.vue'
@@ -5,6 +6,7 @@ import { useConsultDialog } from '@/composables/consult'
 
 const { dialog, closeConsult } = useConsultDialog()
 const modalRef = ref<HTMLElement | null>(null)
+let triggerEl: HTMLElement | null = null
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && dialog.open) {
@@ -16,6 +18,7 @@ watch(
   () => dialog.open,
   async (open) => {
     if (open) {
+      triggerEl = document.activeElement instanceof HTMLElement ? document.activeElement : null
       document.addEventListener('keydown', onKeydown)
       document.body.style.overflow = 'hidden'
       await nextTick()
@@ -23,6 +26,9 @@ watch(
     } else {
       document.removeEventListener('keydown', onKeydown)
       document.body.style.overflow = ''
+      await nextTick()
+      triggerEl?.focus?.()
+      triggerEl = null
     }
   },
 )
@@ -44,7 +50,7 @@ onBeforeUnmount(() => {
         aria-labelledby="trial-modal-title"
         @click.self="closeConsult"
       >
-        <!-- 1:1 还原截图 预约产品展示.png：居中白底简洁弹窗 -->
+        <!-- 1:1 还原截图 预约产品展示.png + 满足开发文档 11.3 键盘焦点回退 -->
         <div ref="modalRef" class="trial-modal" tabindex="-1">
           <button
             type="button"
@@ -93,7 +99,7 @@ onBeforeUnmount(() => {
   max-width: 472px;
   background: #ffffff;
   border-radius: 6px;
-  padding: 38px 40px 40px;
+  padding: 36px 40px 38px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
   outline: none;
 }
@@ -124,7 +130,7 @@ onBeforeUnmount(() => {
   font-size: 24px;
   font-weight: 700;
   color: #1f2329;
-  margin: 0 0 28px;
+  margin: 0 0 24px;
   letter-spacing: 0.01em;
 }
 

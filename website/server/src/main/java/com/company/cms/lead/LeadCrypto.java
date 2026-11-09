@@ -86,6 +86,15 @@ public class LeadCrypto {
         }
     }
 
+    /** 通用字段加密（复用同一信封格式），用于小鑫 API 密钥。 */
+    public byte[] encrypt(String plain) {
+        return encryptPhone(plain);
+    }
+
+    public String decrypt(byte[] envelope) {
+        return decryptPhone(envelope);
+    }
+
     public byte[] payloadHash(String canonicalPayload) {
         return hmac(canonicalPayload.getBytes(StandardCharsets.UTF_8));
     }

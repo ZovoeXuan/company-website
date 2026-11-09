@@ -1,3 +1,4 @@
+<!-- 对应源码路径: website/web/src/views/AboutView.vue -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -19,7 +20,7 @@ import type {
 const route = useRoute()
 const router = useRouter()
 const data = ref<AboutPage | null>(null)
-const siteName = ref('G7易流')
+const siteName = ref('公司官网')
 const newsList = ref<NewsSummary[]>([])
 const activeTab = ref<'intro' | 'team' | 'media' | 'resources' | 'join'>('intro')
 
@@ -718,6 +719,25 @@ onBeforeUnmount(() => {
               <ul class="history-card__bullets">
                 <li v-for="(b, bIdx) in card.item.bullets" :key="bIdx">{{ b }}</li>
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- (3.5) 荣誉资质与权威认证（开发文档 6.11 qualifications[]，有配置时展示，无内容自动隐藏） -->
+      <section v-if="data?.qualifications?.length" class="about-quals-sec">
+        <div class="container">
+          <h2 v-reveal class="about-center-title">荣誉与资质认证</h2>
+          <div class="quals-grid">
+            <div
+              v-for="(qItem, qIdx) in data.qualifications"
+              :key="qItem.name + qIdx"
+              v-reveal="qIdx * 60"
+              class="qual-card"
+            >
+              <img v-if="qItem.imageUrl" :src="qItem.imageUrl" :alt="qItem.name" class="qual-card__img" />
+              <h3 class="qual-card__name">{{ qItem.name }}</h3>
+              <p v-if="qItem.description" class="qual-card__desc">{{ qItem.description }}</p>
             </div>
           </div>
         </div>
@@ -1520,6 +1540,48 @@ onBeforeUnmount(() => {
   font-size: 13.5px;
   line-height: 1.8;
   color: #5f6470;
+}
+
+/* 5.5 荣誉资质认证墙（开发文档 6.11） */
+.about-quals-sec {
+  padding: 72px 0 88px;
+  background: #ffffff;
+}
+
+.quals-grid {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.qual-card {
+  padding: 24px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  text-align: center;
+  background: #fafbfe;
+}
+
+.qual-card__img {
+  max-height: 110px;
+  max-width: 100%;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+.qual-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2329;
+  margin: 0 0 6px;
+}
+
+.qual-card__desc {
+  font-size: 12.5px;
+  color: #6e7380;
+  margin: 0;
 }
 
 /* 6. 联系我们 7 城内部滚动容器 + 右侧地图 */

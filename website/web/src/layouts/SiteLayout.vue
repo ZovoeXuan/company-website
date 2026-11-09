@@ -58,7 +58,7 @@ onMounted(loadSite)
 
     <SiteFooter v-if="config" :config="config" />
 
-    <!-- 居中预约产品展示弹窗 + 右侧小七 AI 智能助手抽屉 + 视频播放弹窗 -->
+    <!-- 居中预约产品展示弹窗 + 右侧小鑫 AI 智能助手抽屉 + 视频播放弹窗 -->
     <ConsultDialog />
     <XiaoQiDrawer :site="config" />
     <VideoModal />

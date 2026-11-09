@@ -22,6 +22,8 @@ public enum ErrorCode {
     UNSUPPORTED_MEDIA(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "文件类型不支持"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "操作过于频繁，请稍后再试"),
     FORM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "表单暂不可用"),
+    XIAOQI_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "智能助手暂未接入"),
+    XIAOQI_UPSTREAM_ERROR(HttpStatus.BAD_GATEWAY, "智能助手暂时无法回答"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "服务异常，请稍后重试");
 
     private final HttpStatus status;

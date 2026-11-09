@@ -10,6 +10,7 @@ import com.company.cms.system.AuditLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -186,6 +187,20 @@ public class SiteConfigService {
         data.put("footer", footer);
 
         data.put("formEnabled", formEnabled);
+
+        // 页脚多邮箱与小鑫配置：后台已保存但此前未下发；apiKey 等密钥字段绝不能公开
+        JsonNode emails = siteJson.get("contactEmails");
+        if (emails != null && emails.isArray()) {
+            data.put("contactEmails", emails);
+        }
+        JsonNode xiaoqi = siteJson.get("xiaoqiConfig");
+        if (xiaoqi != null && xiaoqi.isObject()) {
+            ObjectNode safe = ((ObjectNode) xiaoqi).deepCopy();
+            for (String secret : List.of("apiKey", "apiUrl", "modelName", "systemPrompt")) {
+                safe.remove(secret);
+            }
+            data.put("xiaoqiConfig", safe);
+        }
 
         SiteConfigRow privacy = repository.find(SiteConfigKey.PRIVACY).orElse(null);
         data.put("privacyVersion", privacy != null && privacy.publishedVersion() != null
