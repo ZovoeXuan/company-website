@@ -120,7 +120,7 @@ interface BlockShape {
   title: string
   subtitle: string
 }
-export type HomeSectionKey = 'metrics' | 'services' | 'cases' | 'customers' | 'news' | 'consultation'
+export type HomeSectionKey = 'services' | 'cases' | 'customers' | 'news'
 interface HomeDraft {
   sectionOrder: HomeSectionKey[]
   hero: { items: HeroItem[] }
@@ -151,12 +151,10 @@ const DEFAULT_SECTION_ORDER: HomeSectionKey[] = [
 ]
 
 const SECTION_META: Record<HomeSectionKey, { label: string; icon: string; formPath: string }> = {
-  metrics: { label: '企业实力指标', icon: '📊', formPath: '/home' },
-  services: { label: '产品与解决方案', icon: '📦', formPath: '/home' },
+  services: { label: '核心产品与方案分组', icon: '📦', formPath: '/home' },
   cases: { label: '标杆客户案例', icon: '🏆', formPath: '/home' },
-  customers: { label: '客户标识 Logo 墙', icon: '🤝', formPath: '/home' },
+  customers: { label: '生态伙伴与客户标识', icon: '🤝', formPath: '/home' },
   news: { label: '新闻动态资讯', icon: '📰', formPath: '/home' },
-  consultation: { label: '底部咨询行动区', icon: '💬', formPath: '/home' },
 }
 
 // ==================== 全局状态与配置视图 ====================
@@ -762,21 +760,7 @@ function removeHeroSlide(idx: number) {
   recordSnapshot('删除首屏海报')
 }
 
-function addMetricItem() {
-  if (drafts.HOME.metrics.items.length >= 8) {
-    ElMessage.warning('企业指标最多配置 8 项')
-    return
-  }
-  drafts.HOME.metrics.items.push({
-    sortOrder: (drafts.HOME.metrics.items.length + 1) * 10,
-    displayValue: '800W',
-    unit: '+',
-    label: 'IoT 设备连接',
-    description: '实时在线追踪与风控守护',
-  })
-  selectedSection.value = 'metrics'
-  recordSnapshot('新增企业指标')
-}
+
 
 function addServiceGroup() {
   if (drafts.HOME.services.groups.length >= 8) {
@@ -1176,7 +1160,7 @@ onBeforeUnmount(() => {
             class="outline-item"
             :class="{
               'is-selected': selectedSection === secKey,
-              'is-disabled': secKey !== 'consultation' && !drafts.HOME[secKey].enabled,
+              'is-disabled': !drafts.HOME[secKey]?.enabled,
             }"
             @click="focusSection(secKey)"
           >
@@ -1184,7 +1168,7 @@ onBeforeUnmount(() => {
             <span class="outline-item__label">{{ SECTION_META[secKey].label }}</span>
             <div class="outline-item__actions" @click.stop>
               <el-switch
-                v-if="secKey !== 'consultation'"
+                
                 v-model="drafts.HOME[secKey].enabled"
                 size="small"
                 @change="recordSnapshot('切换模块显隐')"
@@ -1617,109 +1601,6 @@ onBeforeUnmount(() => {
           <!-- ==================== 3. 动态可自由排序的 6 大业务模块 ==================== -->
           <div class="canvas-sections">
             <template v-for="(secKey, orderIdx) in drafts.HOME.sectionOrder" :key="secKey">
-              <!-- (A) 企业指标模块 metrics -->
-              <section
-                v-if="secKey === 'metrics' && (drafts.HOME.metrics.enabled || (studioMode === 'edit' && showDisabledBlocks))"
-                id="studio-sec-metrics"
-                class="canvas-block"
-                :class="{
-                  'is-focused': studioMode === 'edit' && selectedSection === 'metrics',
-                  'is-disabled-block': !drafts.HOME.metrics.enabled,
-                }"
-                @click="selectedSection = 'metrics'"
-              >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">📊 企业指标 (排序 #{{ orderIdx + 1 }})</span>
-                  <el-switch v-model="drafts.HOME.metrics.enabled" size="small" active-text="显示" />
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('metrics', -1)">
-                    ⬆️ 上移模块
-                  </button>
-                  <button
-                    type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('metrics', 1)"
-                  >
-                    ⬇️ 下移模块
-                  </button>
-                  <button type="button" class="tb-btn" @click.stop="addMetricItem">
-                    ➕ 添加指标
-                  </button>
-                </div>
-
-                <div class="canvas-wrap">
-                  <div class="sec-header-center">
-                    <template v-if="studioMode === 'edit'">
-                      <input
-                        v-model="drafts.HOME.metrics.title"
-                        class="inline-input inline-input--sec-title"
-                        maxlength="40"
-                        placeholder="模块标题（如：大数据）"
-                      />
-                      <input
-                        v-model="drafts.HOME.metrics.subtitle"
-                        class="inline-input inline-input--sec-sub"
-                        maxlength="200"
-                        placeholder="可选副标题说明..."
-                      />
-                    </template>
-                    <template v-else>
-                      <h2 class="sec-title">{{ drafts.HOME.metrics.title || '企业实力' }}</h2>
-                      <p v-if="drafts.HOME.metrics.subtitle" class="sec-sub">{{ drafts.HOME.metrics.subtitle }}</p>
-                    </template>
-                  </div>
-
-                  <div class="metrics-grid">
-                    <div
-                      v-for="(mItem, mIdx) in drafts.HOME.metrics.items"
-                      :key="mItem.key ?? `m-${mIdx}`"
-                      class="metric-box"
-                    >
-                      <template v-if="studioMode === 'edit'">
-                        <div class="metric-box__num-row">
-                          <input
-                            v-model="mItem.displayValue"
-                            class="inline-input inline-input--metric-val"
-                            maxlength="16"
-                            placeholder="800W"
-                          />
-                          <input
-                            v-model="mItem.unit"
-                            class="inline-input inline-input--metric-unit"
-                            maxlength="8"
-                            placeholder="+"
-                          />
-                        </div>
-                        <input
-                          v-model="mItem.label"
-                          class="inline-input inline-input--metric-label"
-                          maxlength="20"
-                          placeholder="指标名称"
-                        />
-                        <input
-                          v-model="mItem.description"
-                          class="inline-input inline-input--metric-desc"
-                          maxlength="80"
-                          placeholder="补充说明(可选)"
-                        />
-                        <div class="item-mini-bar">
-                          <button type="button" :disabled="mIdx === 0" @click.stop="moveItem(drafts.HOME.metrics.items, mIdx, -1)">←</button>
-                          <button type="button" :disabled="mIdx === drafts.HOME.metrics.items.length - 1" @click.stop="moveItem(drafts.HOME.metrics.items, mIdx, 1)">→</button>
-                          <button type="button" class="danger" @click.stop="drafts.HOME.metrics.items.splice(mIdx, 1)">删除</button>
-                        </div>
-                      </template>
-                      <template v-else>
-                        <p class="metric-box__val">
-                          {{ mItem.displayValue }}<span>{{ mItem.unit }}</span>
-                        </p>
-                        <p class="metric-box__lbl">{{ mItem.label }}</p>
-                        <p v-if="mItem.description" class="metric-box__dsc">{{ mItem.description }}</p>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
               <!-- (B) 产品与解决方案模块 services -->
               <section
                 v-if="secKey === 'services' && (drafts.HOME.services.enabled || (studioMode === 'edit' && showDisabledBlocks))"
@@ -2074,74 +1955,6 @@ onBeforeUnmount(() => {
                 </div>
               </section>
 
-              <!-- (F) 底部咨询行动区 consultation -->
-              <section
-                v-if="secKey === 'consultation'"
-                id="studio-sec-consultation"
-                class="canvas-cta"
-                :class="{ 'is-focused': studioMode === 'edit' && selectedSection === 'consultation' }"
-                @click="selectedSection = 'consultation'"
-              >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">💬 底部咨询区 (排序 #{{ orderIdx + 1 }})</span>
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('consultation', -1)">
-                    ⬆️ 上移模块
-                  </button>
-                  <button
-                    type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('consultation', 1)"
-                  >
-                    ⬇️ 下移模块
-                  </button>
-                </div>
-
-                <div class="canvas-wrap canvas-cta__inner">
-                  <template v-if="studioMode === 'edit'">
-                    <input
-                      v-model="drafts.HOME.consultation.title"
-                      class="inline-input inline-input--cta-title"
-                      maxlength="40"
-                      placeholder="行动区主标题"
-                    />
-                    <input
-                      v-model="drafts.HOME.consultation.subtitle"
-                      class="inline-input inline-input--cta-sub"
-                      maxlength="200"
-                      placeholder="行动区副标题说明"
-                    />
-                    <div class="canvas-hero__btn-edit">
-                      <input
-                        v-model="drafts.HOME.consultation.buttonText"
-                        class="inline-input inline-input--hero-btn"
-                        maxlength="12"
-                        placeholder="立即咨询"
-                      />
-                      <button
-                        type="button"
-                        class="link-badge-btn"
-                        @click.stop="
-                          openLinkModal({
-                            title: '底部咨询区按钮动作',
-                            current: drafts.HOME.consultation.link,
-                            allowNone: false,
-                            allowConsult: true,
-                            onConfirm: (val) => (drafts.HOME.consultation.link = val),
-                          })
-                        "
-                      >
-                        🔗 {{ describeLink(drafts.HOME.consultation.link) }}
-                      </button>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <h2>{{ drafts.HOME.consultation.title }}</h2>
-                    <p v-if="drafts.HOME.consultation.subtitle">{{ drafts.HOME.consultation.subtitle }}</p>
-                    <span class="canvas-hero__cta">{{ drafts.HOME.consultation.buttonText || '立即咨询' }}</span>
-                  </template>
-                </div>
-              </section>
             </template>
           </div>
 

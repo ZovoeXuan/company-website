@@ -289,7 +289,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="全站设置与小鑫 AI 助手配置"
+    title="全站设置（基础信息、Logo 与页脚配置）"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -396,91 +396,6 @@ onMounted(async () => {
         <el-button @click="addGroup">+ 添加页脚分组（最多 4 组）</el-button>
       </el-tab-pane>
 
-      <!-- Tab 3: 小鑫 AI 助手自定义配置与大模型 API 接入 -->
-      <el-tab-pane label="3. 🤖 小鑫 AI 助手与大模型接入" name="xiaoqi">
-        <el-alert
-          type="info"
-          :closable="false"
-          title="支持完全自定义顶部导航循环打字机文案、右侧抽屉身份卡、5个能力标签、换一批预设题库、本地知识库问答，以及接入外部 OpenAI/DeepSeek 兼容大模型 API。"
-          style="margin-bottom: 16px"
-        />
-        <el-form label-width="150px" class="form">
-          <el-form-item label="在前台启用 AI 助手">
-            <el-switch v-model="values.xiaoqi.enabled" active-text="启用" inactive-text="隐藏" />
-          </el-form-item>
-          <el-form-item label="AI 助手名字">
-            <el-input v-model="values.xiaoqi.name" maxlength="20" style="width: 220px" placeholder="例如：小鑫" />
-          </el-form-item>
-          <el-form-item label="专家头衔">
-            <el-input v-model="values.xiaoqi.roleTitle" maxlength="30" style="width: 260px" placeholder="例如：数字物流专家" />
-          </el-form-item>
-          <el-form-item label="顶部导航打字机第1行">
-            <el-input v-model="values.xiaoqi.headerLine1" maxlength="30" style="width: 300px" />
-          </el-form-item>
-          <el-form-item label="顶部导航打字机第2行">
-            <el-input v-model="values.xiaoqi.headerLine2" maxlength="30" style="width: 300px" />
-          </el-form-item>
-          <el-form-item label="抽屉卡片副标题">
-            <el-input v-model="values.xiaoqi.welcomeSubtitle" maxlength="50" style="width: 360px" />
-          </el-form-item>
-          <el-form-item label="右上角认证角标">
-            <el-input v-model="values.xiaoqi.certBadge" maxlength="20" style="width: 220px" placeholder="专业认证" />
-          </el-form-item>
-          <el-form-item label="能力胶囊标签(每行1个)">
-            <el-input v-model="values.xiaoqi.capabilitiesText" type="textarea" :rows="4" placeholder="每行一个能力标签" />
-          </el-form-item>
-          <el-form-item label="换一批预设问题池(每行1个)">
-            <el-input
-              v-model="values.xiaoqi.questionsText"
-              type="textarea"
-              :rows="6"
-              placeholder="每行一个预设问题，前台每次展示 5 条，点击「换一批」循环切换"
-            />
-          </el-form-item>
-          <el-form-item label="开启深度思考开关">
-            <el-switch v-model="values.xiaoqi.deepThinkEnabled" />
-            <el-input
-              v-model="values.xiaoqi.deepThinkModel"
-              style="width: 180px; margin-left: 12px"
-              placeholder="DeepSeek R1"
-            />
-          </el-form-item>
-          <el-form-item label="底部免责提示语">
-            <el-input v-model="values.xiaoqi.disclaimer" maxlength="80" />
-          </el-form-item>
-
-          <el-divider content-position="left">外部大模型 API 接入（选填，留空则使用下方知识库流式问答）</el-divider>
-          <el-form-item label="API 接口地址 (URL)">
-            <el-input
-              v-model="values.xiaoqi.apiUrl"
-              placeholder="例如：https://api.deepseek.com/v1/chat/completions"
-            />
-          </el-form-item>
-          <el-form-item label="API Key 密钥">
-            <el-input v-model="values.xiaoqi.apiKey" type="password" show-password placeholder="sk-..." />
-          </el-form-item>
-          <el-form-item label="模型名称 (model)">
-            <el-input v-model="values.xiaoqi.modelName" style="width: 260px" placeholder="deepseek-reasoner / gpt-4o" />
-          </el-form-item>
-          <el-form-item label="System Prompt 人设">
-            <el-input v-model="values.xiaoqi.systemPrompt" type="textarea" :rows="2" />
-          </el-form-item>
-
-          <el-divider content-position="left">自定义知识库问答对（精准匹配优先回答）</el-divider>
-          <div v-for="(faq, fIdx) in values.xiaoqi.faqPairs" :key="fIdx" class="group-card">
-            <div class="group-head">
-              <strong>问答对 #{{ fIdx + 1 }}</strong>
-              <el-button link type="danger" @click="values.xiaoqi.faqPairs.splice(fIdx, 1)">删除</el-button>
-            </div>
-            <el-input v-model="faq.q" placeholder="问题（如：新能源物流车运营痛点解决方案？）" style="margin-bottom: 8px" />
-            <el-input v-model="faq.thought" placeholder="深度思考过程文案（选填）" style="margin-bottom: 8px" />
-            <el-input v-model="faq.a" type="textarea" :rows="3" placeholder="标准回答内容" />
-          </div>
-          <el-button size="small" @click="values.xiaoqi.faqPairs.push({ q: '', thought: '', a: '' })">
-            + 新增知识库问答对
-          </el-button>
-        </el-form>
-      </el-tab-pane>
     </el-tabs>
 
     <MediaPicker v-model="pickerOpen" kind="IMAGE" @select="onPicked" />

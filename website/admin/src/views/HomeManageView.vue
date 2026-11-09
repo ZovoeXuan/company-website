@@ -457,19 +457,7 @@ function addServiceGroup() {
   })
 }
 
-function addMetric() {
-  if (form.metrics.items.length >= 8) {
-    ElMessage.warning('关键指标最多 8 条')
-    return
-  }
-  form.metrics.items.push({
-    sortOrder: (form.metrics.items.length + 1) * 10,
-    displayValue: '100W',
-    unit: '+',
-    label: '新指标名称',
-    description: '',
-  })
-}
+
 
 const DEFAULT_CALLOUT_COORDS = [
   { x: 24, y: 18 },
@@ -514,7 +502,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="首页管理（含 3屏深浅主题轮播、G大数据 8指标与折线引线、三圆点纵向切换舞台）"
+    title="首页管理（首屏 3 屏轮播、核心产品与方案分组左右灵动排布、标杆案例、生态伙伴、新闻动态）"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -541,7 +529,7 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab" class="home-tabs">
       <!-- Tab 1: 首屏 Hero -->
-      <el-tab-pane label="1. 首屏 3 屏轮播 (Hero 深/浅主题)" name="hero">
+      <el-tab-pane label="1. 首屏 3 屏轮播 (Hero 深/浅主题与自定义配色)" name="hero">
         <p class="tab-hint">
           支持每屏独立选择「深色背景/白色文字」或「浅色背景/渐变文字（如白皮书屏）」，未选图片时自动使用高还原度内置 3D 舞台背景。
         </p>
@@ -620,45 +608,8 @@ onMounted(async () => {
         <el-button @click="addHero">+ 添加首屏轮播项</el-button>
       </el-tab-pane>
 
-      <!-- Tab 2: 产品展示与核心节点 (产品展示 + 11大产品跳转链接) -->
-      <el-tab-pane label="2. 产品展示与核心节点 (产品展示 + 11大产品跳转链接)" name="metrics">
-        <el-form label-width="120px">
-          <el-form-item label="品牌前缀斜体字">
-            <el-input v-model="form.metrics.brandPrefix" maxlength="10" style="width: 120px" placeholder="可留空，如 G" />
-          </el-form-item>
-          <el-form-item label="模块主标题">
-            <el-input v-model="form.metrics.title" maxlength="40" style="width: 260px" placeholder="产品展示" />
-          </el-form-item>
-          <el-form-item label="模块导语说明">
-            <el-input v-model="form.metrics.subtitle" maxlength="80" style="width: 420px" placeholder="全场景软硬件一体化产品矩阵，点击节点可直达详情" />
-          </el-form-item>
-        </el-form>
-
-        <h3 class="sub-h">8 项核心指标（右上角上标 +，轮流紫色高亮）</h3>
-        <div v-for="(m, idx) in form.metrics.items" :key="m.key ?? `m-${idx}`" class="metric-row">
-          <el-input v-model="m.displayValue" maxlength="16" placeholder="数值(如 800W)" style="width: 140px" />
-          <el-input v-model="m.unit" maxlength="8" placeholder="上标(+)" style="width: 80px" />
-          <el-input v-model="m.label" maxlength="20" placeholder="指标名称(如 服务企业)" style="width: 220px" />
-          <el-button link type="danger" @click="form.metrics.items.splice(idx, 1)">删除</el-button>
-        </div>
-        <el-button size="small" @click="addMetric">+ 添加指标（建议保持 8 项）</el-button>
-
-        <el-divider />
-        <h3 class="sub-h">产品透视架构图：11 个产品折线引线节点（支持修改产品名称与点击跳转详细界面的链接）</h3>
-        <p class="tab-hint" style="margin-top: -6px; margin-bottom: 14px">
-          访客在前台点击对应引线标签时，将直接跳转到您填写的详细页面（如 <code>/products/1</code> 或 <code>/products?category=安全</code>）。
-        </p>
-        <div class="hotspot-grid">
-          <div v-for="(hs, hIdx) in form.metrics.hotspots" :key="hIdx" class="hotspot-chip">
-            <span class="hotspot-chip__idx">#{{ hIdx + 1 }}</span>
-            <el-input v-model="hs.label" size="small" maxlength="20" placeholder="产品名称" style="width: 130px" />
-            <el-input v-model="hs.path" size="small" maxlength="120" placeholder="跳转路径，如 /products/1" style="flex: 1" />
-          </div>
-        </div>
-      </el-tab-pane>
-
       <!-- Tab 3: 核心产品与方案分组 (Services - 一个在左一个在右灵动排布) -->
-      <el-tab-pane label="3. 核心产品与方案分组 (Services - 左右交错灵动排布)" name="services">
+      <el-tab-pane label="2. 核心产品与方案分组 (Services - 左右交错灵动排布)" name="services">
         <div class="tab-toolbar">
           <el-switch v-model="form.services.enabled" active-text="在前台启用该模块" />
           <el-button type="primary" size="small" @click="addServiceGroup">+ 添加服务分组</el-button>
@@ -728,7 +679,7 @@ onMounted(async () => {
       </el-tab-pane>
 
       <!-- Tab 4: 客户案例 -->
-      <el-tab-pane label="4. 客户成功案例 (Cases)" name="cases">
+      <el-tab-pane label="3. 客户成功案例 (Cases)" name="cases">
         <div class="tab-toolbar">
           <el-switch v-model="form.cases.enabled" active-text="在前台启用该模块" />
         </div>
@@ -746,7 +697,7 @@ onMounted(async () => {
       </el-tab-pane>
 
       <!-- Tab 5: 合作客户 -->
-      <el-tab-pane label="5. 合作客户标识 (Customers)" name="customers">
+      <el-tab-pane label="4. 合作客户标识 (Customers)" name="customers">
         <div class="tab-toolbar">
           <el-switch v-model="form.customers.enabled" active-text="在前台启用该模块" />
         </div>
@@ -764,7 +715,7 @@ onMounted(async () => {
       </el-tab-pane>
 
       <!-- Tab 6: 新闻动态 -->
-      <el-tab-pane label="6. 新闻动态 (News)" name="news">
+      <el-tab-pane label="5. 最新动态资讯 (News)" name="news">
         <div class="tab-toolbar">
           <el-switch v-model="form.news.enabled" active-text="在前台启用该模块" />
         </div>
@@ -787,23 +738,6 @@ onMounted(async () => {
         </el-form>
       </el-tab-pane>
 
-      <!-- Tab 7: 底部咨询区 -->
-      <el-tab-pane label="7. 底部咨询区 (CTA)" name="consultation">
-        <el-form label-width="120px">
-          <el-form-item label="主标题" required>
-            <el-input v-model="form.consultation.title" maxlength="40" show-word-limit placeholder="开启企业数字化生产力跃升" />
-          </el-form-item>
-          <el-form-item label="副标题说明">
-            <el-input v-model="form.consultation.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="留下您的业务痛点，我们的行业架构师将在 1 个工作日内为您提供定制方案与演示。" />
-          </el-form-item>
-          <el-form-item label="按钮文字" required>
-            <el-input v-model="form.consultation.buttonText" maxlength="12" style="width: 220px" placeholder="立即预约咨询" />
-          </el-form-item>
-          <el-form-item label="按钮动作">
-            <LinkEditor v-model="form.consultation.link" :allow-consult="true" :allow-none="false" />
-          </el-form-item>
-        </el-form>
-      </el-tab-pane>
     </el-tabs>
 
     <MediaPicker v-model="pickerOpen" :kind="pickerKind" @select="onMediaPicked" />
