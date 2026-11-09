@@ -63,22 +63,12 @@ const DEFAULT_HEROES: HomeHeroItem[] = [
 
 const heroes = computed<HomeHeroItem[]>(() => {
   const configured = data.value?.hero?.items ?? []
-  if (configured.length >= 3) {
+  if (configured.length > 0) {
     return configured.map((item, idx) => ({
       ...DEFAULT_HEROES[idx % DEFAULT_HEROES.length],
       ...item,
-      theme: item.theme || DEFAULT_HEROES[idx % DEFAULT_HEROES.length].theme,
+      theme: item.theme || DEFAULT_HEROES[idx % DEFAULT_HEROES.length]?.theme || 'dark',
     }))
-  }
-  if (configured.length > 0) {
-    const merged = configured.map((item, idx) => ({
-      ...DEFAULT_HEROES[idx % DEFAULT_HEROES.length],
-      ...item,
-    }))
-    for (let i = merged.length; i < 3; i++) {
-      merged.push(DEFAULT_HEROES[i])
-    }
-    return merged
   }
   return DEFAULT_HEROES
 })
@@ -194,6 +184,9 @@ const DEFAULT_SERVICES: HomeServiceGroupItem[] = [
 ]
 
 const servicesList = computed<HomeServiceGroupItem[]>(() => {
+  if (data.value && (!data.value.services || data.value.services.enabled === false)) {
+    return []
+  }
   const customGroups = (data.value?.services?.groups ?? []) as unknown as HomeServiceGroupItem[]
   if (customGroups.length > 0) {
     return customGroups.map((g, idx) => {
@@ -202,13 +195,14 @@ const servicesList = computed<HomeServiceGroupItem[]>(() => {
         ...fallback,
         ...g,
         layout: g.layout || (idx % 2 === 1 ? 'right' : 'left'),
-        tag: (g as any).contentType === 'SOLUTION' ? '行业解决方案' : (fallback.tag || '核心产品系列'),
-        items: g.items && g.items.length > 0 ? g.items : fallback.items,
-        highlights: fallback.highlights,
+        tag: g.tag || ((g as any).contentType === 'SOLUTION' ? '行业解决方案' : (fallback.tag || '核心产品系列')),
+        items: g.items && g.items.length > 0 ? g.items : (fallback.items || []),
+        highlights: Array.isArray(g.highlights) && g.highlights.length > 0 ? g.highlights : (fallback.highlights || []),
       }
     })
   }
-  return DEFAULT_SERVICES
+  if (!data.value) return DEFAULT_SERVICES
+  return []
 })
 
 function isGroupReversed(group: HomeServiceGroupItem, gIdx: number): boolean {
@@ -1017,6 +1011,7 @@ onBeforeUnmount(() => {
   line-height: 1.18;
   margin: 0;
   letter-spacing: -0.02em;
+  white-space: pre-line;
 }
 
 .g7-hero--dark .g7-hero__title {
@@ -1034,6 +1029,7 @@ onBeforeUnmount(() => {
   font-size: clamp(16px, 1.5vw, 20px);
   color: rgba(255, 255, 255, 0.88);
   line-height: 1.65;
+  white-space: pre-line;
 }
 
 .g7-hero--light .g7-hero__sub {

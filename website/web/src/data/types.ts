@@ -128,6 +128,7 @@ export interface HomeLink {
 }
 
 export interface HomeBlock {
+  enabled?: boolean
   title: string
   subtitle: string
 }
@@ -210,6 +211,8 @@ export interface HomeServiceGroup {
   key: string
   title: string
   description: string
+  tag?: string
+  highlights?: string[]
   image: MediaRef | null
   moreLink: HomeLink | null
   items: HomeCard[]

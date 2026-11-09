@@ -108,6 +108,9 @@ interface ServiceGroup {
   key?: string
   sortOrder: number
   title: string
+  tag?: string
+  highlights?: string[]
+  highlightsText?: string
   description: string
   layout?: 'auto' | 'left' | 'right'
   imageMediaId?: number
@@ -516,6 +519,11 @@ function applySourceData(usePublished = false) {
           key: g.key,
           sortOrder: g.sortOrder ?? 100,
           title: g.title ?? '',
+          tag: g.tag ?? (g.contentType === 'SOLUTION' ? '行业解决方案' : '核心产品系列'),
+          highlightsText: Array.isArray(g.highlights)
+            ? g.highlights.join(' / ')
+            : (typeof g.highlights === 'string' ? g.highlights : ''),
+          highlights: Array.isArray(g.highlights) ? g.highlights : [],
           description: g.description ?? '',
           imageMediaId: g.imageMediaId ? Number(g.imageMediaId) : undefined,
           contentType: g.contentType ?? 'PRODUCT',
@@ -621,9 +629,18 @@ async function saveAllDrafts(silent = false): Promise<boolean> {
     for (const key of targets) {
       const view = configViews[key]
       if (!view) continue
+      const payload = JSON.parse(JSON.stringify(drafts[key]))
+      if (key === 'HOME' && payload.services?.groups) {
+        payload.services.groups = payload.services.groups.map((g: any) => ({
+          ...g,
+          highlights: g.highlightsText
+            ? g.highlightsText.split('/').map((s: string) => s.trim()).filter(Boolean)
+            : (g.highlights || []),
+        }))
+      }
       const updated = await saveConfigDraft(
         key,
-        JSON.parse(JSON.stringify(drafts[key])),
+        payload,
         view.lockVersion,
       )
       ;(configViews as Record<string, unknown>)[key] = updated
@@ -735,8 +752,8 @@ function addHeroSlide() {
   drafts.HOME.hero.items.push({
     enabled: true,
     sortOrder: (drafts.HOME.hero.items.length + 1) * 10,
-    title: '紫宝盒 · 物流行业全场景 AI 工具',
-    subtitle: '聪明看见，有效沟通，覆盖 50+ 高危驾驶与作业场景',
+    title: '新首屏海报标题',
+    subtitle: '请在此输入副标题描述',
     desktopMediaId: firstMediaId,
     mobileMediaId: undefined,
     imageAlt: '全场景AI工具',
@@ -772,6 +789,9 @@ function addServiceGroup() {
   drafts.HOME.services.groups.push({
     sortOrder: (nextIdx + 1) * 10,
     title: `新业务服务分组 0${nextIdx + 1}`,
+    tag: '核心产品系列',
+    highlightsText: '工业协议全栈解析 / 毫秒级边缘缓存',
+    highlights: ['工业协议全栈解析', '毫秒级边缘缓存'],
     description: '在此输入该业务分组的核心能力描述与适用场景说明。',
     layout: nextIdx % 2 === 0 ? 'left' : 'right',
     contentType: 'PRODUCT',
@@ -1687,11 +1707,22 @@ onBeforeUnmount(() => {
                           <button type="button" class="mini-btn" :disabled="gIdx === drafts.HOME.services.groups.length - 1" @click.stop="moveItem(drafts.HOME.services.groups, gIdx, 1)">↓</button>
                           <button type="button" class="mini-del" @click.stop="drafts.HOME.services.groups.splice(gIdx, 1)">删除分组</button>
                         </div>
+                        <div style="margin-bottom: 6px;">
+                          <input
+                            v-model="grp.tag"
+                            class="inline-input"
+                            style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.08); border: 1px solid #c7d2fe; color: #4338ca; width: 220px;"
+                            maxlength="30"
+                            placeholder="🏷️ 分组胶囊标识（如：IoT硬件与边缘网关）"
+                            @change="recordSnapshot('修改分组标识')"
+                          />
+                        </div>
                         <input
                           v-model="grp.title"
                           class="inline-input inline-input--grp-title"
                           maxlength="30"
-                          placeholder="分组名称（如：IoT 服务）"
+                          placeholder="分组名称（如：设备接入）"
+                          @change="recordSnapshot('修改分组标题')"
                         />
                         <textarea
                           v-model="grp.description"
@@ -1699,7 +1730,18 @@ onBeforeUnmount(() => {
                           rows="2"
                           maxlength="200"
                           placeholder="分组业务场景描述..."
+                          @change="recordSnapshot('修改分组描述')"
                         ></textarea>
+                        <div style="margin: 6px 0 10px;">
+                          <input
+                            v-model="grp.highlightsText"
+                            class="inline-input"
+                            style="font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #faf5ff; border: 1px dashed #d8b4fe; color: #6b21a8; width: 100%; box-sizing: border-box;"
+                            maxlength="120"
+                            placeholder="✨ 亮点标签（斜杠分隔，如：工业协议全栈解析 / 毫秒级边缘缓存）"
+                            @change="recordSnapshot('修改亮点标签')"
+                          />
+                        </div>
                         <div class="grp-picker-wrap" @click.stop>
                           <p class="grp-picker-label">已关联的线上卡片（可上下调整顺序或增删）：</p>
                           <ContentPicker v-model="grp.contentIds" :content-type="grp.contentType" :max="6" />
@@ -1722,8 +1764,22 @@ onBeforeUnmount(() => {
                         </div>
                       </template>
                       <template v-else>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                          <span style="font-size: 13px; font-weight: 700; color: #6366f1;">0{{ gIdx + 1 }}</span>
+                          <span style="font-size: 11.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #e0e7ff; color: #4338ca;">{{ grp.tag || '核心产品系列' }}</span>
+                        </div>
                         <h3 class="grp-title">{{ grp.title }}</h3>
                         <p class="grp-desc">{{ grp.description }}</p>
+                        <div v-if="grp.highlightsText || (grp.highlights && grp.highlights.length)" style="display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px;">
+                          <span
+                            v-for="(chip, cIdx) in (grp.highlightsText ? grp.highlightsText.split('/').map(s => s.trim()).filter(Boolean) : (grp.highlights || []))"
+                            :key="cIdx"
+                            style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 8px; border-radius: 4px;"
+                          >
+                            <span style="width: 4px; height: 4px; border-radius: 50%; background: #6366f1;"></span>
+                            {{ chip }}
+                          </span>
+                        </div>
                       </template>
 
                       <!-- 关联内容卡片实时渲染 -->

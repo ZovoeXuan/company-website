@@ -76,6 +76,9 @@ interface ServiceGroup {
   key?: string
   sortOrder: number
   title: string
+  tag?: string
+  highlightsText?: string
+  highlights?: string[]
   description: string
   layout?: 'auto' | 'left' | 'right'
   imageMediaId: number | null
@@ -84,7 +87,7 @@ interface ServiceGroup {
   moreLink: LinkValue | null
 }
 
-const DEFAULT_ORDER = ['metrics', 'services', 'cases', 'customers', 'news', 'consultation']
+const DEFAULT_ORDER = ['services', 'cases', 'customers', 'news']
 
 const router = useRouter()
 const activeTab = ref('hero')
@@ -323,6 +326,11 @@ function fill() {
       key: g.key,
       sortOrder: g.sortOrder ?? (idx + 1) * 10,
       title: g.title ?? '',
+      tag: g.tag ?? (g.contentType === 'SOLUTION' ? '行业解决方案' : '核心产品系列'),
+      highlightsText: Array.isArray(g.highlights)
+        ? g.highlights.join(' / ')
+        : (typeof g.highlights === 'string' ? g.highlights : ''),
+      highlights: Array.isArray(g.highlights) ? g.highlights : [],
       description: g.description ?? '',
       layout: (g.layout as 'auto' | 'left' | 'right') || 'auto',
       imageMediaId: g.imageMediaId != null ? Number(g.imageMediaId) : null,
@@ -448,6 +456,9 @@ function addServiceGroup() {
     key: `key-g${Date.now()}`,
     sortOrder: (nextIdx + 1) * 10,
     title: `新业务分组 0${nextIdx + 1}`,
+    tag: '核心产品系列',
+    highlightsText: '工业协议全栈解析 / 毫秒级边缘缓存',
+    highlights: ['工业协议全栈解析', '毫秒级边缘缓存'],
     description: '',
     layout: nextIdx % 2 === 0 ? 'left' : 'right',
     imageMediaId: null,
@@ -468,6 +479,12 @@ const DEFAULT_CALLOUT_COORDS = [
 
 async function onSave() {
   const payload = JSON.parse(JSON.stringify(form))
+  payload.services.groups = form.services.groups.map((grp) => ({
+    ...grp,
+    highlights: grp.highlightsText
+      ? grp.highlightsText.split('/').map((s) => s.trim()).filter(Boolean)
+      : (grp.highlights || []),
+  }))
   payload.showcaseStages = form.showcaseStages.map((st) => ({
     ...st,
     subItems: st.subItems.map((sub) => ({
@@ -640,8 +657,19 @@ onMounted(async () => {
             <el-form-item label="分组标题" required>
               <el-input v-model="grp.title" maxlength="30" show-word-limit placeholder="如：设备接入 / 健康与能源" />
             </el-form-item>
+            <el-form-item label="分组胶囊标识 (tag)">
+              <el-input v-model="grp.tag" maxlength="30" show-word-limit placeholder="如：IoT硬件与边缘网关 / AI能耗与预测性维护" />
+            </el-form-item>
             <el-form-item label="分组场景描述">
               <el-input v-model="grp.description" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="从协议解析到边缘缓存，把不同厂商的设备统一接进来。" />
+            </el-form-item>
+            <el-form-item label="分组亮点特色标签">
+              <el-input
+                v-model="grp.highlightsText"
+                maxlength="120"
+                show-word-limit
+                placeholder="用斜杠分隔，如：工业协议全栈解析 / 毫秒级边缘缓存 / 多厂商设备即插即用"
+              />
             </el-form-item>
             <el-form-item label="排版对齐灵动性">
               <el-radio-group v-model="grp.layout">

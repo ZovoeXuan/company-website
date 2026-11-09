@@ -428,13 +428,15 @@ public class SiteConfigValidator {
     // -------------------------------------------------- HOME
 
     private static final List<String> DEFAULT_HOME_SECTIONS = List.of(
-            "metrics", "services", "cases", "customers", "news", "consultation");
+            "services", "cases", "customers", "news");
 
     private ObjectNode home(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
         node.set("sectionOrder", sectionOrder(draft.get("sectionOrder")));
         node.set("hero", hero(draft.get("hero"), errors));
-        node.set("metrics", metrics(draft.get("metrics"), errors));
+        if (draft.get("metrics") != null && draft.get("metrics").isObject()) {
+            node.set("metrics", metrics(draft.get("metrics"), errors));
+        }
         if (draft.get("showcaseStages") != null && draft.get("showcaseStages").isArray()) {
             node.set("showcaseStages", draft.get("showcaseStages"));
         }
@@ -442,7 +444,9 @@ public class SiteConfigValidator {
         node.set("cases", caseBlock(draft.get("cases"), errors));
         node.set("customers", customers(draft.get("customers"), errors));
         node.set("news", news(draft.get("news"), errors));
-        node.set("consultation", consultation(draft.get("consultation"), errors));
+        if (draft.get("consultation") != null && draft.get("consultation").isObject()) {
+            node.set("consultation", consultation(draft.get("consultation"), errors));
+        }
         return node;
     }
 
@@ -569,6 +573,20 @@ public class SiteConfigValidator {
                 item.put("title", limit(text(group, "title"), 30, path + ".title", "分组标题", errors));
                 item.put("description",
                         limit(text(group, "description"), 200, path + ".description", "分组说明", errors));
+                item.put("tag", limit(text(group, "tag"), 40, path + ".tag", "分组标签", errors));
+                ArrayNode highlights = objectMapper.createArrayNode();
+                JsonNode hNode = group.get("highlights");
+                if (hNode != null && hNode.isArray()) {
+                    for (int j = 0; j < Math.min(hNode.size(), 6); j++) {
+                        JsonNode hItem = hNode.get(j);
+                        String rawH = hItem != null && hItem.isString() ? hItem.asString().trim() : "";
+                        String hText = limit(rawH, 40, path + ".highlights[" + j + "]", "亮点标签", errors);
+                        if (!hText.isBlank()) {
+                            highlights.add(hText);
+                        }
+                    }
+                }
+                item.set("highlights", highlights);
                 String layout = text(group, "layout");
                 item.put("layout", layout.isBlank() ? "auto" : layout);
                 Long image = mediaId(group.get("imageMediaId"), path + ".imageMediaId", "分组配图", errors);

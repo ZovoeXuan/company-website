@@ -131,7 +131,7 @@ public class HomeAggregateService {
                 }
             }
         }
-        for (String defKey : List.of("metrics", "services", "cases", "customers", "news", "consultation")) {
+        for (String defKey : List.of("services", "cases", "customers", "news")) {
             if (!order.contains(defKey)) {
                 order.add(defKey);
             }
@@ -292,6 +292,17 @@ public class HomeAggregateService {
                 view.put("key", text(group, "key"));
                 view.put("title", title);
                 view.put("description", text(group, "description"));
+                view.put("tag", text(group, "tag"));
+                List<String> highlightsList = new ArrayList<>();
+                JsonNode hNode = group.get("highlights");
+                if (hNode != null && hNode.isArray()) {
+                    for (JsonNode h : hNode) {
+                        if (h != null && !h.asText().isBlank()) {
+                            highlightsList.add(h.asText().trim());
+                        }
+                    }
+                }
+                view.put("highlights", highlightsList);
                 view.put("layout", text(group, "layout").isBlank() ? "auto" : text(group, "layout"));
                 view.put("image", media(group.get("imageMediaId"), mediaMap, text(group, "title")));
                 view.put("moreLink", links.resolve(group.get("moreLink"), null, formEnabled, Set.of()));
