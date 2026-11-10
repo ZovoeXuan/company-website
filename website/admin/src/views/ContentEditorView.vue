@@ -396,7 +396,7 @@ onMounted(() => {
 
     <!-- 客户标识 CUSTOMER 专属极简表单 -->
     <el-card v-if="contentType === 'CUSTOMER'" shadow="never" class="main-card">
-      <el-form label-width="110px">
+      <el-form label-width="130px">
         <el-form-item label="客户名称" required>
           <el-input v-model="form.title" maxlength="60" show-word-limit />
         </el-form-item>
@@ -421,7 +421,7 @@ onMounted(() => {
     <!-- 产品 / 方案 / 案例 / 新闻 完整编辑器 -->
     <template v-else>
       <el-card shadow="never" class="main-card">
-        <el-form label-width="110px">
+        <el-form label-width="130px">
           <el-form-item label="标题" required>
             <el-input v-model="form.title" maxlength="120" show-word-limit placeholder="请输入标题" />
           </el-form-item>
@@ -467,7 +467,7 @@ onMounted(() => {
 
           <!-- 类型专属结构化字段 -->
           <template v-if="contentType === 'PRODUCT'">
-            <el-divider content-position="left">产品核心特性 (features，最多 8 条)</el-divider>
+            <el-divider content-position="left">产品核心特性 (最多 8 条)</el-divider>
             <div v-for="(feat, fIdx) in form.features" :key="fIdx" class="sub-row">
               <el-input v-model="feat.title" maxlength="30" placeholder="特性标题" style="width: 200px" />
               <el-input v-model="feat.description" maxlength="200" placeholder="特性说明" style="flex: 1" />
@@ -477,7 +477,7 @@ onMounted(() => {
               + 添加产品特性
             </el-button>
 
-            <el-divider content-position="left">算法与量化效果指标 (D1 effectMetrics，如：17%↓ 事故率下降)</el-divider>
+            <el-divider content-position="left">算法与量化效果指标</el-divider>
             <div v-for="(em, emIdx) in form.effectMetrics" :key="`em-${emIdx}`" class="sub-row">
               <el-input v-model="em.displayValue" maxlength="20" placeholder="指标值(如 17%↓)" style="width: 160px" />
               <el-input v-model="em.label" maxlength="40" placeholder="指标说明(如 百公里事故率下降)" style="flex: 1" />
@@ -487,7 +487,7 @@ onMounted(() => {
               + 添加量化效果指标
             </el-button>
 
-            <el-divider content-position="left">按角色拆分价值 Tab (D1 roleTabs：司机端 / 安全员 / 车队长)</el-divider>
+            <el-divider content-position="left">按角色拆分价值</el-divider>
             <div v-for="(rt, rtIdx) in form.roleTabs" :key="`rt-${rtIdx}`" style="margin-bottom: 10px; padding: 10px; border: 1px solid #ebeef5; border-radius: 8px">
               <div class="sub-row">
                 <el-input v-model="rt.role" maxlength="20" placeholder="角色名(如 司机端)" style="width: 160px" />
@@ -500,7 +500,7 @@ onMounted(() => {
               + 添加角色价值页签
             </el-button>
 
-            <el-divider content-position="left">端侧协同工具矩阵 (D1 terminalTools：WEB + APP + 微信群)</el-divider>
+            <el-divider content-position="left">端侧协同工具矩阵</el-divider>
             <div v-for="(tt, ttIdx) in form.terminalTools" :key="`tt-${ttIdx}`" class="sub-row">
               <el-input v-model="tt.badge" maxlength="16" placeholder="端侧标签(PC端/移动端)" style="width: 140px" />
               <el-input v-model="tt.name" maxlength="30" placeholder="工具名称(如 WEB数字化工作台)" style="width: 220px" />
@@ -519,7 +519,7 @@ onMounted(() => {
             <el-form-item label="适用行业">
               <el-input v-model="form.industry" maxlength="60" style="width: 280px" placeholder="例如：冷链物流 / 大宗能源" />
             </el-form-item>
-            <el-divider content-position="left">行业痛点 (pains，最多 6 条)</el-divider>
+            <el-divider content-position="left">行业痛点 (最多 6 条)</el-divider>
             <div v-for="(p, pIdx) in form.pains" :key="pIdx" class="sub-row">
               <el-input v-model="p.title" maxlength="30" placeholder="痛点标题" style="width: 200px" />
               <el-input v-model="p.description" maxlength="200" placeholder="痛点说明" style="flex: 1" />
@@ -529,7 +529,7 @@ onMounted(() => {
               + 添加行业痛点
             </el-button>
 
-            <el-divider content-position="left">方案核心价值 (benefits，最多 6 条)</el-divider>
+            <el-divider content-position="left">方案核心价值 (最多 6 条)</el-divider>
             <div v-for="(b, bIdx) in form.benefits" :key="bIdx" class="sub-row">
               <el-input v-model="b.title" maxlength="30" placeholder="价值标题" style="width: 200px" />
               <el-input v-model="b.description" maxlength="200" placeholder="价值说明" style="flex: 1" />
@@ -553,7 +553,7 @@ onMounted(() => {
               </el-form-item>
             </div>
 
-            <el-divider content-position="left">量化成果指标 (outcomes，最多 4 条)</el-divider>
+            <el-divider content-position="left">量化成果指标 (最多 4 条)</el-divider>
             <div v-for="(out, oIdx) in form.outcomes" :key="oIdx" class="sub-row">
               <el-input v-model="out.displayValue" maxlength="20" placeholder="数值(如 68%↓)" style="width: 160px" />
               <el-input v-model="out.label" maxlength="40" placeholder="成果说明(如 事故率下降)" style="flex: 1" />
@@ -593,7 +593,7 @@ onMounted(() => {
           </template>
 
           <!-- 可视化富文本工具栏 + 左右分屏实时预览 -->
-          <el-divider content-position="left">详情正文 (支持快捷排版与实时预览)</el-divider>
+          <el-divider content-position="left">详情正文</el-divider>
           <div class="richtext-toolbar">
             <div class="richtext-toolbar__btns">
               <el-button size="small" @click="insertHtmlSnippet('<h2>在此输入内容</h2>\n')">H2 章节标题</el-button>

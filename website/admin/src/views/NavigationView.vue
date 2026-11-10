@@ -352,8 +352,8 @@ onMounted(async () => {
 
         <el-button class="add" @click="addMegaCol">+ 添加全景菜单列</el-button>
 
-        <el-divider content-position="left">全景菜单底部引导条 (megaCta)</el-divider>
-        <el-form label-width="110px">
+        <el-divider content-position="left">全景菜单底部引导条</el-divider>
+        <el-form label-width="120px">
           <el-form-item label="左侧提示文案">
             <el-input v-model="form.megaCta.text" maxlength="100" style="width: 320px" />
           </el-form-item>

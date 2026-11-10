@@ -577,7 +577,7 @@ onMounted(async () => {
           title="管理团队配置说明：支持为每位高管上传真实照片、自由调整前后排序、编辑职务与详细履历。修改后点击右上角「保存草稿」并「发布上线」，前台即可实时生效。"
         />
 
-        <el-form label-width="120px" class="form" style="margin-bottom: 16px">
+        <el-form label-width="140px" class="form" style="margin-bottom: 16px">
           <el-form-item label="团队页面标题">
             <el-input v-model="form.teamTitle" maxlength="60" style="width: 320px" placeholder="G7易流管理团队" />
           </el-form-item>
@@ -828,7 +828,7 @@ onMounted(async () => {
           style="margin-bottom: 16px"
           title="加入我们与企业文化说明：本页配置的招聘海报、企业使命、愿景以及 5 大核心价值观，展示在官网「关于我们 - 加入我们」页面。修改后直接点击右上角「保存草稿」或「发布上线」即刻生效。"
         />
-        <el-form label-width="130px" class="form">
+        <el-form label-width="140px" class="form">
           <el-form-item label="招聘横幅标题">
             <el-input v-model="form.joinTitle" maxlength="60" placeholder="G7易流路上见" />
           </el-form-item>
@@ -846,7 +846,7 @@ onMounted(async () => {
           </el-form-item>
         </el-form>
 
-        <h3 class="sec-h">核心价值观（完整包含：客户成功、极限、信任、坚韧、主人翁精神）</h3>
+        <h3 class="sec-h">核心价值观</h3>
         <div v-for="(val, vIdx) in form.values" :key="vIdx" class="card-box">
           <div class="card-box__head">
             <el-input v-model="val.title" placeholder="价值观名称（如：主人翁精神）" style="width: 240px" />
@@ -878,7 +878,7 @@ onMounted(async () => {
         <el-button size="small" @click="addMilestone">+ 添加发展历程</el-button>
 
         <el-divider />
-        <h3 class="sec-h">全国办公网点列表（对应左侧内部滚动容器与右侧中国地图坐标点）</h3>
+        <h3 class="sec-h">全国办公网点列表</h3>
         <div v-for="(off, oIdx) in form.offices" :key="oIdx" class="card-box">
           <div class="row-inline">
             <el-input v-model="off.city" placeholder="城市名称（如：北京（总部））" style="width: 170px" />

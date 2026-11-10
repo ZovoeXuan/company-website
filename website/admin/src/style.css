@@ -43,3 +43,24 @@ h3,
 p {
   margin: 0;
 }
+
+/* 全局表单与控件间距规范：防止单行中文标签折行破损，保证表单视觉统一整洁 */
+.el-form-item__label {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  font-weight: 500;
+}
+
+/* 工具栏与开关间距规范：防止开关与操作按钮紧贴黏在一起 */
+.tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 16px;
+  margin-bottom: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+

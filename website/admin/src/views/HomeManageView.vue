@@ -598,7 +598,7 @@ onMounted(async () => {
             <el-switch v-model="slide.enabled" active-text="启用" />
             <el-button link type="danger" @click="form.hero.items.splice(idx, 1)">删除</el-button>
           </div>
-          <el-form label-width="120px">
+          <el-form label-width="140px">
             <el-form-item label="文字与背景主题">
               <el-radio-group v-model="slide.theme">
                 <el-radio value="dark">深色背景</el-radio>
@@ -635,10 +635,10 @@ onMounted(async () => {
             <el-form-item label="副标题">
               <el-input v-model="slide.subtitle" type="textarea" :rows="2" maxlength="100" show-word-limit />
             </el-form-item>
-            <el-form-item label="讲师/署名行(选填)">
+            <el-form-item label="讲师署名行">
               <el-input v-model="slide.kicker" maxlength="60" placeholder="例如：徐浪 G7易流安全专家、金牌讲师" />
             </el-form-item>
-            <el-form-item label="大字号提示(选填)">
+            <el-form-item label="大字号提示">
               <el-input v-model="slide.badgeText" maxlength="20" style="width: 220px" placeholder="例如：免费下载" />
             </el-form-item>
             <el-form-item label="背景大字水印">
@@ -673,7 +673,7 @@ onMounted(async () => {
           <el-switch v-model="form.services.enabled" active-text="在前台启用该模块" />
           <el-button type="primary" size="small" @click="addServiceGroup">+ 添加服务分组</el-button>
         </div>
-        <el-form label-width="120px">
+        <el-form label-width="140px">
           <el-form-item label="模块标题">
             <el-input v-model="form.services.title" maxlength="40" show-word-limit placeholder="核心产品与行业方案" />
           </el-form-item>
@@ -695,11 +695,11 @@ onMounted(async () => {
             </div>
           </div>
 
-          <el-form label-width="120px">
+          <el-form label-width="140px">
             <el-form-item label="分组标题" required>
               <el-input v-model="grp.title" maxlength="30" show-word-limit placeholder="如：设备接入 / 健康与能源" />
             </el-form-item>
-            <el-form-item label="分组胶囊标识 (tag)">
+            <el-form-item label="分组胶囊标识">
               <el-input v-model="grp.tag" maxlength="30" show-word-limit placeholder="如：IoT硬件与边缘网关 / AI能耗与预测性维护" />
             </el-form-item>
             <el-form-item label="分组场景描述">
@@ -715,9 +715,9 @@ onMounted(async () => {
             </el-form-item>
             <el-form-item label="排版对齐灵动性">
               <el-radio-group v-model="grp.layout">
-                <el-radio value="auto">自动交替（一个在左一个在右，灵动错落）</el-radio>
-                <el-radio value="left">左文右图 / 卡片（文在左）</el-radio>
-                <el-radio value="right">左图 / 卡片右文（文在右）</el-radio>
+                <el-radio value="auto">自动交替</el-radio>
+                <el-radio value="left">左文右图</el-radio>
+                <el-radio value="right">左图右文</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="关联内容类型">
@@ -753,7 +753,7 @@ onMounted(async () => {
         <div class="tab-toolbar">
           <el-switch v-model="form.cases.enabled" active-text="在前台启用该模块" />
         </div>
-        <el-form label-width="120px">
+        <el-form label-width="140px">
           <el-form-item label="模块标题">
             <el-input v-model="form.cases.title" maxlength="40" show-word-limit placeholder="行业领军企业的共同选择" />
           </el-form-item>
@@ -771,7 +771,7 @@ onMounted(async () => {
         <div class="tab-toolbar">
           <el-switch v-model="form.customers.enabled" active-text="在前台启用该模块" />
         </div>
-        <el-form label-width="120px">
+        <el-form label-width="140px">
           <el-form-item label="模块标题">
             <el-input v-model="form.customers.title" maxlength="40" show-word-limit placeholder="生态伙伴与标杆客户" />
           </el-form-item>
@@ -789,7 +789,7 @@ onMounted(async () => {
         <div class="tab-toolbar">
           <el-switch v-model="form.news.enabled" active-text="在前台启用该模块" />
         </div>
-        <el-form label-width="120px">
+        <el-form label-width="140px">
           <el-form-item label="模块标题">
             <el-input v-model="form.news.title" maxlength="40" show-word-limit placeholder="最新动态与前沿洞察" />
           </el-form-item>
@@ -859,6 +859,21 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 16px;
+  margin-bottom: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+:deep(.el-form-item__label) {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
 .studio-banner {
   display: flex;
   align-items: center;

@@ -137,23 +137,23 @@ onMounted(async () => {
       <el-form-item label="服务时间">
         <el-input v-model="form.hours" maxlength="100" placeholder="周一至周日 08:30 - 20:30" style="width: 320px" />
       </el-form-item>
-      <el-form-item label="地图外链 (选填)">
+      <el-form-item label="地图外链">
         <el-input v-model="form.mapUrl" maxlength="500" placeholder="https://..." />
       </el-form-item>
 
-      <el-divider content-position="left">在线咨询表单控制（对应开发文档 6.12 & 7.1）</el-divider>
+      <el-divider content-position="left">在线咨询表单控制</el-divider>
       <el-form-item label="开启在线咨询表单">
         <el-switch
           v-model="form.formEnabled"
-          active-text="开启（允许访客提交咨询线索）"
-          inactive-text="关闭（前台隐藏表单并引导至联系页，接口返回 503）"
+          active-text="开启"
+          inactive-text="关闭"
         />
       </el-form-item>
       <el-form-item label="显示手机验证码框">
         <el-switch
           v-model="form.smsVerifyEnabled"
-          active-text="显示（还原《预约产品展示.png》样式）"
-          inactive-text="隐藏（标准 4 字段模式）"
+          active-text="开启"
+          inactive-text="关闭"
         />
       </el-form-item>
       <el-form-item label="弹窗表单标题">

@@ -309,7 +309,7 @@ onMounted(async () => {
     <el-tabs v-model="activeTab">
       <!-- Tab 1: 基础品牌与备案 -->
       <el-tab-pane label="1. 品牌标识与备案 SEO" name="basic">
-        <el-form label-width="130px" class="form">
+        <el-form label-width="140px" class="form">
           <el-form-item label="站点名称" required>
             <el-input v-model="values.siteName" maxlength="60" show-word-limit />
           </el-form-item>
@@ -345,7 +345,7 @@ onMounted(async () => {
 
       <!-- Tab 2: 底部 6 栏导航、双二维码与多邮箱说明 -->
       <el-tab-pane label="2. 页脚 6 栏导航、双二维码与多邮箱" name="footer">
-        <h3 class="sec-h">页脚「联系我们」多邮箱与职能说明（1:1 对应视频页脚双邮箱）</h3>
+        <h3 class="sec-h">页脚「联系我们」多邮箱与职能说明</h3>
         <div v-for="(em, eIdx) in values.contactEmails" :key="eIdx" class="inline-row">
           <el-input v-model="em.email" placeholder="例如：connect@company.com" style="width: 240px" />
           <el-input v-model="em.desc" placeholder="下方灰色小字说明（如：媒体联系&数据合作）" style="width: 260px" />
@@ -356,10 +356,10 @@ onMounted(async () => {
         </el-button>
 
         <el-divider />
-        <h3 class="sec-h">页脚「关注我们」上下双二维码配置（公众号 + 视频号）</h3>
+        <h3 class="sec-h">页脚「关注我们」上下双二维码配置</h3>
         <div class="qr-grid">
           <div v-for="(qr, idx) in values.qrCodes" :key="idx" class="qr-card">
-            <el-form label-width="90px">
+            <el-form label-width="100px">
               <el-form-item :label="`二维码 #${idx + 1}`">
                 <el-input v-model="qr.label" maxlength="16" placeholder="如：公众号 / 视频号" />
               </el-form-item>
