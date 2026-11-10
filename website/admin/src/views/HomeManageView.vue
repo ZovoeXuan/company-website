@@ -89,11 +89,11 @@ interface ServiceGroup {
 
 const DEFAULT_ORDER = ['services', 'cases', 'customers', 'news']
 
-const SECTION_META: Record<string, { name: string; sub: string; icon: string }> = {
-  services: { name: '核心产品与解决方案 (Services)', sub: '左右交替卡片灵动排布', icon: '🧩' },
-  cases: { name: '标杆客户成功案例 (Cases)', sub: '量化成效与高管证言', icon: '🏆' },
-  customers: { name: '合作客户标识墙 (Customers)', sub: '标杆企业信任背书 Logo 矩阵', icon: '🤝' },
-  news: { name: '动态资讯与前沿观察 (News)', sub: '企业大事件与行业权威动态', icon: '📰' },
+const SECTION_META: Record<string, { name: string; sub: string }> = {
+  services: { name: '核心产品与解决方案 (Services)', sub: '左右交替卡片灵动排布' },
+  cases: { name: '标杆客户成功案例 (Cases)', sub: '量化成效与高管证言' },
+  customers: { name: '合作客户标识墙 (Customers)', sub: '标杆企业信任背书 Logo 矩阵' },
+  news: { name: '动态资讯与前沿观察 (News)', sub: '企业大事件与行业权威动态' },
 }
 
 const route = useRoute()
@@ -817,7 +817,6 @@ onMounted(async () => {
           >
             <div class="order-item__left">
               <span class="order-item__num">0{{ idx + 1 }}</span>
-              <span class="order-item__icon">{{ SECTION_META[key]?.icon || '📦' }}</span>
               <div class="order-item__info">
                 <strong class="order-item__name">{{ SECTION_META[key]?.name || key }}</strong>
                 <span class="order-item__sub">{{ SECTION_META[key]?.sub }}</span>

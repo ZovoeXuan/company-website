@@ -141,41 +141,41 @@ interface CmdAction {
 }
 
 const ALL_COMMANDS: CmdAction[] = [
-  { id: 'studio', title: '🎨 打开全站实景交互工作台 (Visual Live Studio)', category: '核心推荐', path: '/preview/home', keywords: 'preview studio 预演 可视化 画布 首页 实景' },
-  { id: 'dash', title: '📊 工作台概览 (Dashboard)', category: '工作台', path: '/dashboard', keywords: 'dashboard 工作台 统计' },
+  { id: 'studio', title: '打开全站实景交互工作台 (Visual Live Studio)', category: '核心推荐', path: '/preview/home', keywords: 'preview studio 预演 可视化 画布 首页 实景' },
+  { id: 'dash', title: '工作台概览 (Dashboard)', category: '工作台', path: '/dashboard', keywords: 'dashboard 工作台 统计' },
   // 首页模块独立直达
-  { id: 'home-hero', title: '🎞️ 首页: 轮播焦点图 (Hero 轮播深浅主题/配色)', category: '首页管理', path: '/home?tab=hero', keywords: 'home hero 轮播 焦点图 banner 首页' },
-  { id: 'home-services', title: '🧩 首页: 核心产品与方案分组推荐', category: '首页管理', path: '/home?tab=services', keywords: 'home services 产品 方案 分组 首页' },
-  { id: 'home-cases', title: '🏆 首页: 标杆客户成功案例精选', category: '首页管理', path: '/home?tab=cases', keywords: 'home cases 案例 首页' },
-  { id: 'home-customers', title: '🤝 首页: 合作客户标识 Logo 墙', category: '首页管理', path: '/home?tab=customers', keywords: 'home customers 客户标识 首页' },
-  { id: 'home-news', title: '📰 首页: 最新动态资讯精选', category: '首页管理', path: '/home?tab=news', keywords: 'home news 新闻 资讯 首页' },
-  { id: 'home-order', title: '↕️ 首页: 模块显示开关与上下排序', category: '首页管理', path: '/home?tab=order', keywords: 'home order 排序 显示 模块 首页' },
+  { id: 'home-hero', title: '首页: 轮播焦点图 (Hero 轮播深浅主题/配色)', category: '首页管理', path: '/home?tab=hero', keywords: 'home hero 轮播 焦点图 banner 首页' },
+  { id: 'home-services', title: '首页: 核心产品与方案分组推荐', category: '首页管理', path: '/home?tab=services', keywords: 'home services 产品 方案 分组 首页' },
+  { id: 'home-cases', title: '首页: 标杆客户成功案例精选', category: '首页管理', path: '/home?tab=cases', keywords: 'home cases 案例 首页' },
+  { id: 'home-customers', title: '首页: 合作客户标识 Logo 墙', category: '首页管理', path: '/home?tab=customers', keywords: 'home customers 客户标识 首页' },
+  { id: 'home-news', title: '首页: 最新动态资讯精选', category: '首页管理', path: '/home?tab=news', keywords: 'home news 新闻 资讯 首页' },
+  { id: 'home-order', title: '首页: 模块显示开关与上下排序', category: '首页管理', path: '/home?tab=order', keywords: 'home order 排序 显示 模块 首页' },
   // 各主要页面管理中心
-  { id: 'prod-list', title: '📦 产品中心: 全部产品管理列表', category: '产品中心', path: '/contents/products', keywords: 'products 产品 列表' },
-  { id: 'prod-new', title: '➕ 产品中心: 新增产品 (Create Product)', category: '产品中心', path: '/contents/products/create', keywords: 'create new product 新增产品' },
-  { id: 'prod-cat', title: '🏷️ 产品中心: 产品分类体系管理', category: '产品中心', path: '/contents/categories?type=PRODUCT', keywords: 'product category 分类 产品' },
-  { id: 'sol-list', title: '💡 解决方案: 全部方案管理列表', category: '解决方案', path: '/contents/solutions', keywords: 'solutions 解决方案 列表' },
-  { id: 'sol-new', title: '➕ 解决方案: 新增方案 (Create Solution)', category: '解决方案', path: '/contents/solutions/create', keywords: 'create new solution 新增方案' },
-  { id: 'sol-cat', title: '🏷️ 解决方案: 方案分类体系管理', category: '解决方案', path: '/contents/categories?type=SOLUTION', keywords: 'solution category 分类 方案' },
-  { id: 'case-list', title: '🏆 客户案例: 客户案例管理列表', category: '客户案例', path: '/contents/cases', keywords: 'cases 客户案例 列表' },
-  { id: 'case-new', title: '➕ 客户案例: 新增案例 (Create Case)', category: '客户案例', path: '/contents/cases/create', keywords: 'create new case 新增案例' },
-  { id: 'case-cust', title: '🤝 客户案例: 合作客户 Logo 标识墙', category: '客户案例', path: '/contents/customers', keywords: 'customers 客户标识 logo' },
-  { id: 'case-cat', title: '🏷️ 客户案例: 案例分类体系管理', category: '客户案例', path: '/contents/categories?type=CASE', keywords: 'case category 分类 案例' },
-  { id: 'news-list', title: '📰 动态资讯: 新闻动态管理列表', category: '动态资讯', path: '/contents/news', keywords: 'news 新闻 动态 列表' },
-  { id: 'news-new', title: '➕ 动态资讯: 发布新闻动态 (Create News)', category: '动态资讯', path: '/contents/news/create', keywords: 'create new news 发布动态' },
-  { id: 'news-cat', title: '🏷️ 动态资讯: 资讯分类体系管理', category: '动态资讯', path: '/contents/categories?type=NEWS', keywords: 'news category 分类 资讯' },
+  { id: 'prod-list', title: '产品中心: 全部产品管理列表', category: '产品中心', path: '/contents/products', keywords: 'products 产品 列表' },
+  { id: 'prod-new', title: '产品中心: 新增产品 (Create Product)', category: '产品中心', path: '/contents/products/create', keywords: 'create new product 新增产品' },
+  { id: 'prod-cat', title: '产品中心: 产品分类体系管理', category: '产品中心', path: '/contents/categories?type=PRODUCT', keywords: 'product category 分类 产品' },
+  { id: 'sol-list', title: '解决方案: 全部方案管理列表', category: '解决方案', path: '/contents/solutions', keywords: 'solutions 解决方案 列表' },
+  { id: 'sol-new', title: '解决方案: 新增方案 (Create Solution)', category: '解决方案', path: '/contents/solutions/create', keywords: 'create new solution 新增方案' },
+  { id: 'sol-cat', title: '解决方案: 方案分类体系管理', category: '解决方案', path: '/contents/categories?type=SOLUTION', keywords: 'solution category 分类 方案' },
+  { id: 'case-list', title: '客户案例: 客户案例管理列表', category: '客户案例', path: '/contents/cases', keywords: 'cases 客户案例 列表' },
+  { id: 'case-new', title: '客户案例: 新增案例 (Create Case)', category: '客户案例', path: '/contents/cases/create', keywords: 'create new case 新增案例' },
+  { id: 'case-cust', title: '客户案例: 合作客户 Logo 标识墙', category: '客户案例', path: '/contents/customers', keywords: 'customers 客户标识 logo' },
+  { id: 'case-cat', title: '客户案例: 案例分类体系管理', category: '客户案例', path: '/contents/categories?type=CASE', keywords: 'case category 分类 案例' },
+  { id: 'news-list', title: '动态资讯: 新闻动态管理列表', category: '动态资讯', path: '/contents/news', keywords: 'news 新闻 动态 列表' },
+  { id: 'news-new', title: '动态资讯: 发布新闻动态 (Create News)', category: '动态资讯', path: '/contents/news/create', keywords: 'create new news 发布动态' },
+  { id: 'news-cat', title: '动态资讯: 资讯分类体系管理', category: '动态资讯', path: '/contents/categories?type=NEWS', keywords: 'news category 分类 资讯' },
   // 单页管理
-  { id: 'about', title: '🏢 关于我们单页配置', category: '单页管理', path: '/pages/about', keywords: 'about 关于我们 里程碑 资质' },
-  { id: 'contact', title: '📞 联系我们与咨询开关配置', category: '单页管理', path: '/pages/contact', keywords: 'contact 联系我们 电话 邮箱 表单开关' },
-  { id: 'privacy', title: '🛡️ 隐私说明正文配置', category: '单页管理', path: '/pages/privacy', keywords: 'privacy 隐私说明 协议' },
+  { id: 'about', title: '关于我们单页配置', category: '单页管理', path: '/pages/about', keywords: 'about 关于我们 里程碑 资质' },
+  { id: 'contact', title: '联系我们与咨询开关配置', category: '单页管理', path: '/pages/contact', keywords: 'contact 联系我们 电话 邮箱 表单开关' },
+  { id: 'privacy', title: '隐私说明正文配置', category: '单页管理', path: '/pages/privacy', keywords: 'privacy 隐私说明 协议' },
   // 全局配置与运维
-  { id: 'nav', title: '🧭 顶部导航与五列全景菜单 (Navigation)', category: '全局配置', path: '/settings/navigation', keywords: 'nav mega 导航 菜单 全景' },
-  { id: 'site', title: '⚙️ 全站设置与 SEO / 页脚备案 (Site)', category: '全局配置', path: '/settings/site', keywords: 'site seo logo icp 全站 页脚 二维码' },
-  { id: 'media', title: '🖼️ 素材库管理（图片与视频）', category: '全局配置', path: '/media', keywords: 'media 素材 图片 视频 上传' },
-  { id: 'leads', title: '📬 客户咨询线索看板与跟进 (Leads)', category: '运营与安全', path: '/leads', keywords: 'leads 咨询 线索 客户 看板', adminOnly: true },
-  { id: 'users', title: '👥 后台系统账号与角色管理', category: '运营与安全', path: '/system/users', keywords: 'users 账号 管理员 编辑 密码', adminOnly: true },
-  { id: 'audit', title: '📜 系统操作审计日志', category: '运营与安全', path: '/system/audit-logs', keywords: 'audit logs 审计 日志', adminOnly: true },
-  { id: 'pwd', title: '🔑 修改个人登录密码', category: '个人中心', path: '/profile/password', keywords: 'password 修改密码' },
+  { id: 'nav', title: '顶部导航与五列全景菜单 (Navigation)', category: '全局配置', path: '/settings/navigation', keywords: 'nav mega 导航 菜单 全景' },
+  { id: 'site', title: '全站设置与 SEO / 页脚备案 (Site)', category: '全局配置', path: '/settings/site', keywords: 'site seo logo icp 全站 页脚 二维码' },
+  { id: 'media', title: '素材库管理（图片与视频）', category: '全局配置', path: '/media', keywords: 'media 素材 图片 视频 上传' },
+  { id: 'leads', title: '客户咨询线索看板与跟进 (Leads)', category: '运营与安全', path: '/leads', keywords: 'leads 咨询 线索 客户 看板', adminOnly: true },
+  { id: 'users', title: '后台系统账号与角色管理', category: '运营与安全', path: '/system/users', keywords: 'users 账号 管理员 编辑 密码', adminOnly: true },
+  { id: 'audit', title: '系统操作审计日志', category: '运营与安全', path: '/system/audit-logs', keywords: 'audit logs 审计 日志', adminOnly: true },
+  { id: 'pwd', title: '修改个人登录密码', category: '个人中心', path: '/profile/password', keywords: 'password 修改密码' },
 ]
 
 const cmdOpen = ref(false)
@@ -389,7 +389,7 @@ async function onLogout() {
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
               </svg>
             </el-icon>
-            <template #title>🎨 全站实景交互工作台</template>
+            <template #title>全站实景交互工作台</template>
           </el-menu-item>
 
           <!-- 页面管理中心：分页面模块化编辑 -->
@@ -404,14 +404,14 @@ async function onLogout() {
                   <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
               </el-icon>
-              <span>🏠 首页模块管理</span>
+              <span>首页模块管理</span>
             </template>
-            <el-menu-item index="/home?tab=hero">🎞️ 轮播焦点图 (Hero)</el-menu-item>
-            <el-menu-item index="/home?tab=services">🧩 核心产品与方案</el-menu-item>
-            <el-menu-item index="/home?tab=cases">🏆 标杆成功案例</el-menu-item>
-            <el-menu-item index="/home?tab=customers">🤝 合作客户标识墙</el-menu-item>
-            <el-menu-item index="/home?tab=news">📰 最新动态资讯</el-menu-item>
-            <el-menu-item index="/home?tab=order">↕️ 模块显示与排序</el-menu-item>
+            <el-menu-item index="/home?tab=hero">轮播焦点图 (Hero)</el-menu-item>
+            <el-menu-item index="/home?tab=services">核心产品与方案</el-menu-item>
+            <el-menu-item index="/home?tab=cases">标杆成功案例</el-menu-item>
+            <el-menu-item index="/home?tab=customers">合作客户标识墙</el-menu-item>
+            <el-menu-item index="/home?tab=news">最新动态资讯</el-menu-item>
+            <el-menu-item index="/home?tab=order">模块显示与排序</el-menu-item>
           </el-sub-menu>
 
           <!-- 2. 产品中心页 -->
@@ -424,11 +424,11 @@ async function onLogout() {
                   <polyline points="2 12 12 17 22 12"></polyline>
                 </svg>
               </el-icon>
-              <span>📦 产品中心页</span>
+              <span>产品中心页</span>
             </template>
             <el-menu-item index="/contents/products">全部产品列表</el-menu-item>
-            <el-menu-item index="/contents/products/create">➕ 新增产品</el-menu-item>
-            <el-menu-item index="/contents/categories?type=PRODUCT">🏷️ 产品分类体系</el-menu-item>
+            <el-menu-item index="/contents/products/create">新增产品</el-menu-item>
+            <el-menu-item index="/contents/categories?type=PRODUCT">产品分类体系</el-menu-item>
           </el-sub-menu>
 
           <!-- 3. 解决方案页 -->
@@ -440,11 +440,11 @@ async function onLogout() {
                   <path d="M12 9a4 4 0 0 0-4 4c0 1.5 1 2.5 1.5 3.5.5 1 1 2.5 1 3.5h3c0-1 .5-2.5 1-3.5.5-1 1.5-2 1.5-3.5a4 4 0 0 0-4-4z"></path>
                 </svg>
               </el-icon>
-              <span>💡 解决方案页</span>
+              <span>解决方案页</span>
             </template>
             <el-menu-item index="/contents/solutions">全部解决方案列表</el-menu-item>
-            <el-menu-item index="/contents/solutions/create">➕ 新增解决方案</el-menu-item>
-            <el-menu-item index="/contents/categories?type=SOLUTION">🏷️ 方案分类体系</el-menu-item>
+            <el-menu-item index="/contents/solutions/create">新增解决方案</el-menu-item>
+            <el-menu-item index="/contents/categories?type=SOLUTION">方案分类体系</el-menu-item>
           </el-sub-menu>
 
           <!-- 4. 客户案例页 -->
@@ -459,12 +459,12 @@ async function onLogout() {
                   <path d="M18 4H6v7a6 6 0 0 0 12 0V4z"></path>
                 </svg>
               </el-icon>
-              <span>🏆 客户案例页</span>
+              <span>客户案例页</span>
             </template>
             <el-menu-item index="/contents/cases">客户案例列表</el-menu-item>
-            <el-menu-item index="/contents/cases/create">➕ 新增客户案例</el-menu-item>
-            <el-menu-item index="/contents/customers">🤝 合作客户 Logo 墙</el-menu-item>
-            <el-menu-item index="/contents/categories?type=CASE">🏷️ 案例分类体系</el-menu-item>
+            <el-menu-item index="/contents/cases/create">新增客户案例</el-menu-item>
+            <el-menu-item index="/contents/customers">合作客户 Logo 墙</el-menu-item>
+            <el-menu-item index="/contents/categories?type=CASE">案例分类体系</el-menu-item>
           </el-sub-menu>
 
           <!-- 5. 动态资讯页 -->
@@ -478,11 +478,11 @@ async function onLogout() {
                   <path d="M10 6h8v4h-8V6Z"></path>
                 </svg>
               </el-icon>
-              <span>📰 动态资讯页</span>
+              <span>动态资讯页</span>
             </template>
             <el-menu-item index="/contents/news">新闻动态列表</el-menu-item>
-            <el-menu-item index="/contents/news/create">➕ 发布新动态</el-menu-item>
-            <el-menu-item index="/contents/categories?type=NEWS">🏷️ 资讯分类体系</el-menu-item>
+            <el-menu-item index="/contents/news/create">发布新动态</el-menu-item>
+            <el-menu-item index="/contents/categories?type=NEWS">资讯分类体系</el-menu-item>
           </el-sub-menu>
 
           <!-- 6. 独立单页配置 -->
@@ -493,7 +493,7 @@ async function onLogout() {
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </el-icon>
-            <template #title>🏢 关于我们单页</template>
+            <template #title>关于我们单页</template>
           </el-menu-item>
 
           <el-menu-item index="/pages/contact">
@@ -502,7 +502,7 @@ async function onLogout() {
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
               </svg>
             </el-icon>
-            <template #title>📞 联系我们单页</template>
+            <template #title>联系我们单页</template>
           </el-menu-item>
 
           <el-menu-item index="/pages/privacy">
@@ -511,7 +511,7 @@ async function onLogout() {
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
               </svg>
             </el-icon>
-            <template #title>🛡️ 隐私说明单页</template>
+            <template #title>隐私说明单页</template>
           </el-menu-item>
 
           <!-- 7. 动态顶栏扩展菜单 (当导航设置中新建了自定义顶栏菜单时自动显示并实时更新) -->
@@ -522,7 +522,7 @@ async function onLogout() {
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                 </svg>
               </el-icon>
-              <span>✨ 顶栏扩展页面 ({{ customNavItems.length }})</span>
+              <span>顶栏扩展页面 ({{ customNavItems.length }})</span>
             </template>
             <el-menu-item
               v-for="cItem in customNavItems"
@@ -534,7 +534,7 @@ async function onLogout() {
               <span class="custom-nav-badge">{{ cItem.targetDesc }}</span>
             </el-menu-item>
             <el-menu-item index="/settings/navigation">
-              <span style="color: #a78bfa;">🧭 配置顶栏菜单...</span>
+              <span style="color: #a78bfa;">配置顶栏菜单...</span>
             </el-menu-item>
           </el-sub-menu>
 
@@ -548,7 +548,7 @@ async function onLogout() {
                 <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
               </svg>
             </el-icon>
-            <template #title>🧭 顶栏导航与全景菜单</template>
+            <template #title>顶栏导航与全景菜单</template>
           </el-menu-item>
 
           <el-menu-item index="/settings/site">
@@ -558,7 +558,7 @@ async function onLogout() {
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
             </el-icon>
-            <template #title>⚙️ 全站设置与备案</template>
+            <template #title>全站设置与备案</template>
           </el-menu-item>
 
           <el-menu-item index="/media">
@@ -569,7 +569,7 @@ async function onLogout() {
                 <polyline points="21 15 16 10 5 21"></polyline>
               </svg>
             </el-icon>
-            <template #title>🖼️ 素材管理库</template>
+            <template #title>素材管理库</template>
           </el-menu-item>
 
           <el-menu-item v-if="isAdmin" index="/leads">
@@ -578,7 +578,7 @@ async function onLogout() {
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
             </el-icon>
-            <template #title>📬 咨询线索管理</template>
+            <template #title>咨询线索管理</template>
           </el-menu-item>
 
           <!-- 系统运维与安全 -->
@@ -594,8 +594,8 @@ async function onLogout() {
               </el-icon>
               <span>系统账号管理</span>
             </template>
-            <el-menu-item index="/system/users">👥 账号与角色列表</el-menu-item>
-            <el-menu-item index="/system/audit-logs">📜 操作审计日志</el-menu-item>
+            <el-menu-item index="/system/users">账号与角色列表</el-menu-item>
+            <el-menu-item index="/system/audit-logs">操作审计日志</el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-scrollbar>
@@ -626,12 +626,12 @@ async function onLogout() {
         <div class="header__right">
           <!-- ⌘K 快捷指令入口 -->
           <button type="button" class="cmd-btn" title="全局快捷命令面板 (Ctrl+K / ⌘K)" @click="openCommandPalette">
-            <span>🔍 快捷指令</span>
+            <span>快捷指令</span>
             <kbd>⌘K</kbd>
           </button>
 
           <button type="button" class="studio-launch-btn" @click="router.push('/preview/home')">
-            🎨 实景交互预演台
+            实景交互工作台
           </button>
 
           <a href="/" target="_blank" class="site-link" title="在新窗口打开前台官网">
