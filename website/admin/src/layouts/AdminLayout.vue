@@ -112,6 +112,9 @@ const activeMenu = computed(() => {
   if (p === '/home') {
     return `/home?tab=${route.query.tab || 'hero'}`
   }
+  if (p === '/pages/about') {
+    return `/pages/about?tab=${route.query.tab || 'intro'}`
+  }
   if (p === '/contents/categories') {
     return route.query.type ? `/contents/categories?type=${route.query.type}` : '/contents/categories?type=PRODUCT'
   }
@@ -286,7 +289,18 @@ const breadcrumbs = computed(() => {
       items.push({ title: '分类体系管理' })
     }
   } else if (path === '/pages/about') {
-    items.push({ title: '关于我们单页' })
+    items.push({ title: '关于我们模块管理', path: '/pages/about' })
+    const aboutTabMap: Record<string, string> = {
+      intro: '企业简介与CEO信件',
+      team: '管理团队与详情弹窗',
+      resources: '资料共享与客户故事',
+      join: '加入我们与企业文化',
+      milestones: '发展历程与全国网点',
+    }
+    const tab = (route.query.tab as string) || 'intro'
+    if (aboutTabMap[tab]) {
+      items.push({ title: aboutTabMap[tab] })
+    }
   } else if (path === '/pages/contact') {
     items.push({ title: '联系我们单页' })
   } else if (path === '/pages/privacy') {
@@ -485,16 +499,23 @@ async function onLogout() {
             <el-menu-item index="/contents/categories?type=NEWS">资讯分类体系</el-menu-item>
           </el-sub-menu>
 
-          <!-- 6. 独立单页配置 -->
-          <el-menu-item index="/pages/about">
-            <el-icon>
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-            </el-icon>
-            <template #title>关于我们单页</template>
-          </el-menu-item>
+          <!-- 6. 关于我们页各模块编辑 -->
+          <el-sub-menu index="page-about">
+            <template #title>
+              <el-icon>
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </el-icon>
+              <span>关于我们模块管理</span>
+            </template>
+            <el-menu-item index="/pages/about?tab=intro">企业简介与CEO信件</el-menu-item>
+            <el-menu-item index="/pages/about?tab=team">管理团队与详情弹窗</el-menu-item>
+            <el-menu-item index="/pages/about?tab=resources">资料共享与客户故事</el-menu-item>
+            <el-menu-item index="/pages/about?tab=join">加入我们与企业文化</el-menu-item>
+            <el-menu-item index="/pages/about?tab=milestones">发展历程与全国网点</el-menu-item>
+          </el-sub-menu>
 
           <el-menu-item index="/pages/contact">
             <el-icon>

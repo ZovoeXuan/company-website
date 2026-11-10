@@ -73,7 +73,7 @@ const introTitle = computed(() => data.value?.introTitle || `关于${siteName.va
 
 const introParagraphs = computed(() => {
   const raw = (data.value?.intro || '').trim()
-  if (raw) {
+  if (raw && !raw.includes('示例科技')) {
     return raw.split(/\n+/).filter(Boolean)
   }
   return [
@@ -104,10 +104,18 @@ const DEFAULT_CEO_LETTER: AboutCeoLetter = {
 }
 
 const ceoLetter = computed<AboutCeoLetter>(() => {
-  if (data.value?.ceoLetter && data.value.ceoLetter.title) {
+  const raw = data.value?.ceoLetter
+  if (raw && raw.title) {
     return {
-      ...DEFAULT_CEO_LETTER,
-      ...data.value.ceoLetter,
+      leftQuote: raw.leftQuote || DEFAULT_CEO_LETTER.leftQuote,
+      title: raw.title || DEFAULT_CEO_LETTER.title,
+      signature: raw.signature || DEFAULT_CEO_LETTER.signature,
+      buttonText: raw.buttonText || DEFAULT_CEO_LETTER.buttonText,
+      excerpt: Array.isArray(raw.excerpt) && raw.excerpt.length > 0 ? raw.excerpt : DEFAULT_CEO_LETTER.excerpt,
+      fullParagraphs:
+        Array.isArray(raw.fullParagraphs) && raw.fullParagraphs.length > 0
+          ? raw.fullParagraphs
+          : DEFAULT_CEO_LETTER.fullParagraphs,
     }
   }
   return DEFAULT_CEO_LETTER
@@ -162,7 +170,7 @@ const DEFAULT_MILESTONES: NormalizedMilestone[] = [
 
 const milestonesList = computed<NormalizedMilestone[]>(() => {
   const raw = data.value?.milestones ?? []
-  if (raw.length >= 3) {
+  if (raw.length > 0) {
     return raw.map((m) => {
       const text = [m.title, m.description].filter(Boolean).join('；')
       const bullets = text
@@ -452,12 +460,10 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
 ]
 
 const filteredResources = computed<AboutResourceItem[]>(() => {
-  const pool =
-    data.value?.resources && data.value.resources.length > 0
-      ? [...data.value.resources, ...DEFAULT_RESOURCES]
-      : DEFAULT_RESOURCES
+  const custom = data.value?.resources
+  const pool = Array.isArray(custom) && custom.length > 0 ? custom : DEFAULT_RESOURCES
   const list = pool.filter((r) => r.category === activeResourceCat.value)
-  return list.length > 0 ? list : DEFAULT_RESOURCES.slice(0, 4)
+  return list.length > 0 ? list : DEFAULT_RESOURCES.filter((r) => r.category === activeResourceCat.value)
 })
 
 const visibleResources = computed(() => {
@@ -573,9 +579,7 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(async () => {
-  syncTabFromQuery()
-  document.addEventListener('keydown', onKeydown)
+async function reloadAll() {
   const [aboutRes, siteRes, newsRes] = await Promise.all([
     getAbout().catch(() => null),
     getSite().catch(() => null),
@@ -590,10 +594,38 @@ onMounted(async () => {
   if (newsRes?.items?.length) {
     newsList.value = newsRes.items
   }
+}
+
+function handleRealtimeSync(e?: StorageEvent | Event) {
+  if (e instanceof StorageEvent) {
+    if (e.key === 'g7_last_published' || e.key === 'admin_data_updated') {
+      reloadAll()
+    }
+  } else {
+    reloadAll()
+  }
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    reloadAll()
+  }
+}
+
+onMounted(async () => {
+  syncTabFromQuery()
+  document.addEventListener('keydown', onKeydown)
+  window.addEventListener('storage', handleRealtimeSync)
+  window.addEventListener('focus', reloadAll)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  await reloadAll()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('storage', handleRealtimeSync)
+  window.removeEventListener('focus', reloadAll)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 

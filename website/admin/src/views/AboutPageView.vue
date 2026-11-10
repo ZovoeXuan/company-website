@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import { useConfig } from '@/composables/useConfig'
@@ -53,7 +54,116 @@ interface StoryItemForm {
   videoUrl: string
 }
 
+const DEFAULT_INTRO = `北京汇通天下物联科技有限公司（G7易流）是一家领先的公路货运行业物联网科技和软件服务公司。为货运经营者提供从车队管理、安全管理、货物管理到智能调度、自动结算的一体化操作平台，连接货运全流程并以数据和AI驱动运营，助力货运经营者降本增效。\n\nG7易流的客户覆盖超80%上游头部货主以及35000+下游中小物流企业，服务网络覆盖全国核心物流节点与产业园区。`
+
+const DEFAULT_CEO_QUOTE = '“我谨代表G7易流全体员工，向在这个不凡时代中努力前行的货运经营者致以崇高的敬意！”'
+const DEFAULT_CEO_TITLE = '从微不足道开始改变世界'
+const DEFAULT_CEO_SIGNATURE = '翟学魂'
+const DEFAULT_CEO_EXCERPT = [
+  '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
+  '公路货运是国民经济的血脉，千万名卡车司机和数万家货运经营者日夜兼程。然而在过去很长一段时间里，安全风险高、油费过路费核算难、在途货物状态黑盒，一直是压在每一位车队经营者心头的三座大山。',
+  '正是从每一次毫秒级的定位、每一次防碰撞预警、每一滴油的精准计量这些看似“微不足道”的小事开始，我们将物联网感知技术与AI算法融入货运现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
+].join('\n')
+const DEFAULT_CEO_FULL = [
+  '我谨代表G7易流全体员工，向在这个不凡时代中努力前行的货运经营者致以崇高的敬意！',
+  '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
+  '公路货运是国民经济的血脉，千万名卡车司机和数万家货运经营者日夜兼程。然而在过去很长一段时间里，安全风险高、油费过路费核算难、在途货物状态黑盒，一直是压在每一位车队经营者心头的三座大山。',
+  '正是从每一次毫秒级的定位、每一次防碰撞预警、每一滴油的精准计量这些看似“微不足道”的小事开始，我们将物联网感知技术与AI算法融入货运现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
+  '今天，超过800万台物联网设备在我们的平台上实时在线，每天产生超12TB的真实运营数据与1亿次车辆事件交互。当大模型与全场景AI工具「紫宝盒」走进车队，数据不再只是冰冷的报表，而是能够主动看见风险、听懂指令、帮车队省钱管事的“数字员工”。',
+  '时代在变，技术在变，但我们存在的唯一理由始终未变——用科技创新和服务升级物流生产力，做货运经营者最值得信赖的长期伙伴。让我们继续从微不足道处着手，一起改变世界！',
+].join('\n')
+
+const DEFAULT_RESOURCES_LIST: ResourceItemForm[] = [
+  { category: '企业资料', title: 'G7易流企业宣传册', logoText: 'G7易流 全栈产品手册', logoColor: '#4c2ce6', url: '', isVideo: false },
+  { category: '企业资料', title: '安全管家', logoText: 'G 安全管家 · 主动安全托管', logoColor: '#2563eb', url: '', isVideo: false },
+  { category: '企业资料', title: '财运通', logoText: 'G 财运通 · 数字化运力结算', logoColor: '#0284c7', url: '', isVideo: false },
+  { category: '企业资料', title: '冷链管家', logoText: 'G 冷链管家 · 全程温控可视', logoColor: '#0d9488', url: '', isVideo: false },
+  { category: '客户视频', title: '滨拓物流', logoText: '滨拓物流', logoColor: '#16a34a', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
+  { category: '客户视频', title: '华电能源', logoText: '中国华电 CHD', logoColor: '#0284c7', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
+  { category: '客户视频', title: '双汇物流', logoText: '双汇物流', logoColor: '#dc2626', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
+  { category: '客户视频', title: '天佑物流', logoText: 'tianyou天佑', logoColor: '#d97706', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
+  { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队管理白皮书', logoColor: '#0284c7', url: '', isVideo: false },
+  { category: '行业报告', title: '2026上半年冷链物流行业报告', logoText: '中国冷链物流大数据报告', logoColor: '#2563eb', url: '', isVideo: false },
+  { category: '行业报告', title: '中国公路货运数字安全蓝皮书', logoText: '公路货运安全AI治理报告', logoColor: '#4f46e5', url: '', isVideo: false },
+  { category: '行业报告', title: '大宗物流数字化转型实践指南', logoText: '大宗物流无人化协同白皮书', logoColor: '#334155', url: '', isVideo: false },
+  { category: 'ESG', title: 'G7易流环境、社会及管治（ESG）报告', logoText: 'ESG 可持续发展报告', logoColor: '#059669', url: '', isVideo: false },
+  { category: 'ESG', title: '绿色物流与电动重卡减碳核算标准', logoText: '物流双碳与绿色运力实践', logoColor: '#10b981', url: '', isVideo: false },
+  { category: 'ESG', title: '卡车司机安全守护与公益行动年报', logoText: '千万卡车司机安全守护计划', logoColor: '#0d9488', url: '', isVideo: false },
+  { category: 'ESG', title: '数据安全与隐私合规治理白皮书', logoText: '信息安全与隐私保护合规', logoColor: '#0284c7', url: '', isVideo: false },
+]
+
+const DEFAULT_STORIES_LIST: StoryItemForm[] = [
+  {
+    company: '双汇物流',
+    author: '张太喜 双汇物流董事长',
+    quote: '通过G7易流冷链数字运营体系，冷藏车温控合规率提升至99.8%，全程实时可视。',
+    logoText: '双汇物流',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  },
+  {
+    company: '滨拓物流',
+    author: '王滨 滨拓物流总经理',
+    quote: '全场景物联网终端与AI安全管家，让我们车队的百万公里事故率下降超过70%。',
+    logoText: '滨拓物流',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  },
+  {
+    company: '天佑物流',
+    author: '李天佑 董事长',
+    quote: '财运通自动结算与智能调度彻底改变了我们的现金流与运力周转效率。',
+    logoText: 'tianyou天佑',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  },
+]
+
+const DEFAULT_MILESTONES_LIST: Milestone[] = [
+  {
+    year: '2018',
+    title: '发布智能挂车与安全管家托管服务',
+    description: '连接平台货运车辆突破 80 万台；完成由多家国际顶级机构联合领投的战略融资',
+  },
+  {
+    year: '2019',
+    title: '平台卡车连接数突破140万',
+    description: '面向煤炭、钢铁、水泥、汽车、快运提供综合性数字化方案；与中铝、普洛斯设立合资公司',
+  },
+  {
+    year: '2022',
+    title: '平台卡车连接数突破 200万',
+    description: '宣布完成新一轮2亿美元融资；嬴彻科技自动驾驶卡车量产交付',
+  },
+  {
+    year: '2010',
+    title: '提供基于北斗和GPS车队管理 SaaS 服务',
+    description: '平台连接车辆突破 2000 台',
+  },
+  {
+    year: '2014',
+    title: '推出智能管车与车队金融结算体系',
+    description: '全国设立七大区域运营中心，服务超万家物流企业',
+  },
+]
+
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref('intro')
+
+watch(
+  () => route.query.tab,
+  (t) => {
+    if (t && typeof t === 'string' && ['intro', 'team', 'resources', 'join', 'milestones'].includes(t)) {
+      activeTab.value = t
+    }
+  },
+  { immediate: true },
+)
+
+function onTabChange(tabPane: any) {
+  const name = typeof tabPane === 'string' ? tabPane : tabPane?.props?.name || tabPane?.name
+  if (name) {
+    router.replace({ query: { ...route.query, tab: name } }).catch(() => {})
+  }
+}
 
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('ABOUT')
@@ -63,12 +173,12 @@ const form = reactive({
   introTitle: '关于G7易流',
   intro: '',
   introImage: '',
-  ceoQuote: '“我谨代表G7易流全体员工，向在这个不凡时代中努力前行的货运经营者致以崇高的敬意！”',
-  ceoTitle: '从微不足道开始改变世界',
-  ceoSignature: '翟学魂',
+  ceoQuote: DEFAULT_CEO_QUOTE,
+  ceoTitle: DEFAULT_CEO_TITLE,
+  ceoSignature: DEFAULT_CEO_SIGNATURE,
   ceoButtonText: '展开全部',
-  ceoExcerptText: '',
-  ceoFullText: '',
+  ceoExcerptText: DEFAULT_CEO_EXCERPT,
+  ceoFullText: DEFAULT_CEO_FULL,
   teamTitle: 'G7易流管理团队',
   teamMembers: [] as TeamMemberForm[],
   resourcesTitle: '资料库',
@@ -90,20 +200,27 @@ function fill() {
   if (!draft) return
   form.heroTitle = draft.heroTitle ?? '以物联网技术和软件服务改变公路货运'
   form.introTitle = draft.introTitle ?? '关于G7易流'
-  form.intro = draft.intro ?? ''
+  form.intro = (draft.intro && !draft.intro.includes('示例科技')) ? draft.intro : DEFAULT_INTRO
   form.introImage = draft.introImage ?? ''
 
   if (draft.ceoLetter) {
-    form.ceoQuote = draft.ceoLetter.leftQuote ?? form.ceoQuote
-    form.ceoTitle = draft.ceoLetter.title ?? form.ceoTitle
-    form.ceoSignature = draft.ceoLetter.signature ?? form.ceoSignature
-    form.ceoButtonText = draft.ceoLetter.buttonText ?? '展开全部'
-    form.ceoExcerptText = Array.isArray(draft.ceoLetter.excerpt)
+    form.ceoQuote = draft.ceoLetter.leftQuote || DEFAULT_CEO_QUOTE
+    form.ceoTitle = draft.ceoLetter.title || DEFAULT_CEO_TITLE
+    form.ceoSignature = draft.ceoLetter.signature || DEFAULT_CEO_SIGNATURE
+    form.ceoButtonText = draft.ceoLetter.buttonText || '展开全部'
+    form.ceoExcerptText = Array.isArray(draft.ceoLetter.excerpt) && draft.ceoLetter.excerpt.length > 0
       ? draft.ceoLetter.excerpt.join('\n')
-      : ''
-    form.ceoFullText = Array.isArray(draft.ceoLetter.fullParagraphs)
+      : DEFAULT_CEO_EXCERPT
+    form.ceoFullText = Array.isArray(draft.ceoLetter.fullParagraphs) && draft.ceoLetter.fullParagraphs.length > 0
       ? draft.ceoLetter.fullParagraphs.join('\n')
-      : ''
+      : DEFAULT_CEO_FULL
+  } else {
+    form.ceoQuote = DEFAULT_CEO_QUOTE
+    form.ceoTitle = DEFAULT_CEO_TITLE
+    form.ceoSignature = DEFAULT_CEO_SIGNATURE
+    form.ceoButtonText = '展开全部'
+    form.ceoExcerptText = DEFAULT_CEO_EXCERPT
+    form.ceoFullText = DEFAULT_CEO_FULL
   }
 
   form.teamTitle = draft.teamTitle ?? 'G7易流管理团队'
@@ -154,6 +271,8 @@ function fill() {
       url: r.url ?? '',
       isVideo: Boolean(r.isVideo),
     }))
+  } else {
+    form.resources = DEFAULT_RESOURCES_LIST.map((r) => ({ ...r }))
   }
 
   if (Array.isArray(draft.customerStories) && draft.customerStories.length > 0) {
@@ -164,10 +283,14 @@ function fill() {
       logoText: s.logoText ?? '',
       videoUrl: s.videoUrl ?? '',
     }))
+  } else {
+    form.customerStories = DEFAULT_STORIES_LIST.map((s) => ({ ...s }))
   }
 
-  form.mission = draft.mission ?? form.mission
-  form.vision = draft.vision ?? form.vision
+  form.mission = (draft.mission && !draft.mission.includes('设备状态'))
+    ? draft.mission
+    : '以科技创新和服务升级物流生产力，让产业参与者共享美好改变'
+  form.vision = draft.vision ?? '物流产业最受尊重的SaaS公司'
   form.joinTitle = draft.joinTitle ?? 'G7易流路上见'
   form.joinButtonText = draft.joinButtonText ?? '查看职位'
   form.joinUrl = draft.joinUrl ?? ''
@@ -179,15 +302,21 @@ function fill() {
     }))
   } else {
     form.values = [
-      { title: '客户成功', linesText: '我们存在的唯一目的就是为客户带来价值\n以可信赖的产品和有温度的服务，做客户的长期朋友' },
-      { title: '极限', linesText: '目标远大，不甘平庸，不断挑战认知边界\n把事做透，用工匠精神实现卓越成果' },
-      { title: '信任', linesText: '以身作则，说到做到\n敢于信任，从我做起' },
-      { title: '坚韧', linesText: '坚持长期主义积极面对挑战和不确定性\n坚定目标，锲而不舍，迎难而上，确保结果' },
-      { title: '主人翁精神', linesText: '从全局出发，长期利益最大化\n主动担当，站在造钟者的角度思考并解决问题' },
+      { title: '客户成功', linesText: '我们存在的唯一目的就是为客户带来价值\n深入场景，洞察客户需求，解决客户痛点问题\n以可信赖的产品和有温度的服务，做客户的长期朋友' },
+      { title: '极限', linesText: '目标远大，不甘平庸，不断挑战认知边界，把不可能变为可能\n敢想、敢试、敢突破，致力于打造有号召力的产品\n把事做透，用工匠精神实现卓越成果' },
+      { title: '信任', linesText: '以身作则，说到做到\n敢于信任，从我做起\n主动寻找有共同理想的产业变革者，打造有格局的朋友圈' },
+      { title: '坚韧', linesText: '坚持长期主义积极面对挑战和不确定性，敢于在泥泞中前行\n坚定目标，锲而不舍，迎难而上，确保结果\n充分发挥主观能动性，多找思路和方法，拒绝借口' },
+      { title: '主人翁精神', linesText: '从全局出发，长期利益最大化\n主动担当，站在造钟者的角度思考并解决问题\n持续学习，自我迭代，与公司共同成长' },
     ]
   }
 
-  form.milestones = (draft.milestones ?? []).map((item: any) => ({ ...item }))
+  const isDemoMilestones = Array.isArray(draft.milestones) && draft.milestones.some((m: any) => (m.description || '').includes('设备巡检'))
+  if (Array.isArray(draft.milestones) && draft.milestones.length >= 3 && !isDemoMilestones) {
+    form.milestones = draft.milestones.map((item: any) => ({ ...item }))
+  } else {
+    form.milestones = DEFAULT_MILESTONES_LIST.map((item) => ({ ...item }))
+  }
+
   if (Array.isArray(draft.offices) && draft.offices.length > 0) {
     form.offices = draft.offices.map((o: any) => ({ ...o }))
   } else {
@@ -306,7 +435,7 @@ onMounted(async () => {
   >
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" style="margin-bottom: 14px" />
 
-    <el-tabs v-model="activeTab">
+    <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <!-- Tab 1: 企业简介与 CEO 信件 -->
       <el-tab-pane label="1. 企业简介 & CEO的一封信" name="intro">
         <el-form label-width="140px" class="form">
