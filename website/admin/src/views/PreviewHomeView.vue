@@ -1,32 +1,82 @@
+<!-- 对应源码路径: website/admin/src/views/PreviewHomeView.vue -->
 <script setup lang="ts">
 /**
- * 全站实景交互预演与全局可视化编辑台 (Visual Live Studio)
+ * 全站多页面实景交互工作台 (Full-Site Visual Live Studio)
  *
  * 核心能力：
- * 1. 全局跨模块双向同步：同时加载并可视化编辑 SITE（全站设置/页脚）、NAVIGATION（顶部导航与5列全景菜单）、
- *    HOME（首屏、指标、服务分组、案例、客户墙、新闻、咨询区及模块摆放顺序 sectionOrder）、CONTACT（热线/邮箱/地址/表单开关）。
- * 2. 画布级所见即所得直改：文字直接点击修改、图片/视频点击唤起 MediaPicker 即时替换、按钮/导航链接点击唤起 LinkEditor、
- *    关联产品/方案/案例/客户/新闻点击唤起 ContentPicker。
- * 3. 模块自由摆放与增删：支持在画布悬浮条或左侧大纲树中上下移动模块顺序、开关模块显隐、增删改查各模块子条目。
- * 4. 实用增强工具：桌面(100%)/平板(768px)/手机(390px)多视口实时切换、30步 Undo/Redo 撤销重做栈、
- *    「交互编辑态 / 纯净预演态 / 线上已发布版」三态切换、发布前智能合规体检抽屉、一键全局保存草稿与一键全局发布。
+ * 1. 全站 8 大页面无缝实景切换与画布内点击穿透：
+ *    - 🏠 首页 (HOME)：Hero 自由增删与自定义标题/按钮颜色、极简横条切换器、核心产品与方案左右灵动交错排布 (layout/tag/highlights)、案例、客户墙、新闻
+ *    - 📦 产品中心 (PRODUCTS)：悬浮分类栏画布直改 + 产品卡片网格快编 + 点击进入「产品详情 7 段式结构化画布」直改
+ *    - 🧩 解决方案 (SOLUTIONS)：分类栏画布直改 + 方案卡片网格 + 点击进入「方案详情（痛点/价值/正文/关联产品）画布」直改
+ *    - 🏆 客户案例 (CASES)：行业分类栏直改 + 4×2 联名水印案例卡片 + 底部 2×2「客户成功故事」视频证言直改 + 「案例详情画布」直改
+ *    - 📰 新闻中心 (NEWS)：分类栏直改 + 50/50 置顶头条大图卡 + 4×2 新闻网格 + 点击进入「新闻正文画布」直改
+ *    - 🏢 关于我们 (ABOUT)：5 大子页签（企业简介 & CEO信全文弹窗 / 管理团队 & 高管履历弹窗 / 媒体中心 / 资料共享4分类 / 加入我们 & 5大价值观）+ 7城地图与荣誉资质全画布直改
+ *    - 📞 联系我们 (CONTACT)：联系方式画布直改 + 右侧「预约产品展示」表单实时预览与开关（formEnabled / smsVerifyEnabled）
+ *    - 🛡️ 隐私说明 (PRIVACY)：标题、更新日期与隐私正文所见即所得直改
+ * 2. 跨页面全局脏数据追踪、30 步 Undo/Redo 历史栈、桌面/平板/手机三视口切换、一键全局保存草稿与按依赖顺序一键全局发布上线。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import ContentPicker from '@/components/ContentPicker.vue'
-import LinkEditor, { type LinkValue } from '@/components/LinkEditor.vue'
+import type { LinkValue } from '@/components/LinkEditor.vue'
 import MediaPicker from '@/components/MediaPicker.vue'
-import { getMedia, listContents, type ContentView, type MediaItem } from '@/api/content'
+import {
+  createCategory,
+  createContent,
+  getContent,
+  listCategories,
+  listContents,
+  publishCategory,
+  publishContent,
+  saveCategory,
+  saveDraft as saveContentDraft,
+  type CategoryView,
+  type ContentView,
+  type MediaItem,
+} from '@/api/content'
 import { ApiError } from '@/api/http'
 import { getConfig, publishConfig, saveConfigDraft, type ConfigKey, type ConfigView } from '@/api/site'
 import { useAuth } from '@/stores/auth'
 
-const router = useRouter()
+const route = useRoute()
 const { current } = useAuth()
 const isAdmin = computed(() => current.value?.role === 'ADMIN')
+const activePageInfo = computed(() => STUDIO_PAGES.find((p) => p.key === activePage.value))
+const hasHealthError = computed(() => healthIssues.value.some((i) => i.level === 'error'))
+const activeProductRole = computed(() => activeContentDraft.value.roleTabs?.[activeProductRoleIdx.value] ?? null)
+const currentContentType = computed(() => PAGE_TO_CONTENT_TYPE[activePage.value] ?? 'PRODUCT')
+const currentCategoryType = computed(() => PAGE_TO_CATEGORY_TYPE[activePage.value] ?? 'PRODUCT')
+const currentContents = computed(() => contentsMap[currentContentType.value] || [])
+const currentCategories = computed(() => categoriesMap[currentCategoryType.value] || [])
+const aboutMediaNews = computed(() => (contentsMap.NEWS || []).slice(0, 6))
+const emptyTeamMember = { name: '', role: '', avatar: '', bio: [] as string[] }
+const activeTeamMember = computed(() => {
+  if (activeTeamIdx.value === null) return emptyTeamMember
+  return drafts.value.ABOUT.teamMembers[activeTeamIdx.value] || emptyTeamMember
+})
 
-// ==================== 类型定义 ====================
+// ==================== 全站页面枚举与类型定义 ====================
+export type StudioPageKey =
+  | 'HOME'
+  | 'PRODUCTS'
+  | 'SOLUTIONS'
+  | 'CASES'
+  | 'NEWS'
+  | 'ABOUT'
+  | 'CONTACT'
+  | 'PRIVACY'
+
+const STUDIO_PAGES: Array<{ key: StudioPageKey; label: string; icon: string; badge?: string }> = [
+  { key: 'HOME', label: '首页', icon: '🏠', badge: 'HOME' },
+  { key: 'PRODUCTS', label: '产品中心', icon: '📦', badge: '列表+7段详情' },
+  { key: 'SOLUTIONS', label: '解决方案', icon: '🧩', badge: '列表+详情' },
+  { key: 'CASES', label: '客户案例', icon: '🏆', badge: '列表+故事+详情' },
+  { key: 'NEWS', label: '新闻中心', icon: '📰', badge: '头条+列表+正文' },
+  { key: 'ABOUT', label: '关于我们', icon: '🏢', badge: '5大子页签' },
+  { key: 'CONTACT', label: '联系我们', icon: '📞', badge: 'CONTACT' },
+  { key: 'PRIVACY', label: '隐私说明', icon: '🛡️', badge: 'PRIVACY' },
+]
+
 interface FooterLink {
   key?: string
   label: string
@@ -37,6 +87,15 @@ interface FooterLink {
 interface FooterGroup {
   title: string
   links: FooterLink[]
+}
+interface QrCodeConfig {
+  label: string
+  mediaId?: number
+  imageUrl?: string
+}
+interface ContactEmailConfig {
+  email: string
+  desc: string
 }
 interface SiteDraft {
   siteName: string
@@ -51,12 +110,16 @@ interface SiteDraft {
   faviconMediaId?: number
   defaultSeo: { title: string; description: string }
   footerGroups: FooterGroup[]
+  qrCodes: QrCodeConfig[]
+  contactEmails: ContactEmailConfig[]
 }
 
 interface MegaSubItem {
   label: string
   path: string
   tag?: string
+  desc?: string
+  link?: LinkValue | null
   isVideo?: boolean
   videoUrl?: string
   videoTitle?: string
@@ -75,7 +138,7 @@ interface NavNode {
 }
 interface NavigationDraft {
   items: NavNode[]
-  megaColumns?: MegaColumn[]
+  megaColumns: MegaColumn[]
   megaCta?: { text: string; linkText: string }
 }
 
@@ -85,6 +148,8 @@ interface HeroItem {
   sortOrder: number
   title: string
   subtitle: string
+  kicker?: string
+  videoUrl?: string
   desktopMediaId?: number
   mobileMediaId?: number
   imageAlt: string
@@ -135,72 +200,213 @@ interface HomeDraft {
   consultation: { title: string; subtitle: string; buttonText: string; link: LinkValue | null }
 }
 
+interface AboutDraft {
+  heroTitle: string
+  introTitle: string
+  intro: string
+  introImage: string
+  ceoLetter: {
+    leftQuote: string
+    title: string
+    signature: string
+    buttonText: string
+    excerpt: string[]
+    fullParagraphs: string[]
+  }
+  teamTitle: string
+  teamMembers: Array<{ name: string; role: string; avatar?: string; bio: string[] }>
+  resourcesTitle: string
+  resources: Array<{
+    category: string
+    title: string
+    logoText: string
+    logoColor: string
+    url: string
+    isVideo?: boolean
+  }>
+  customerStories: Array<{
+    quote: string
+    author: string
+    company: string
+    logoText: string
+    videoUrl: string
+  }>
+  mission: string
+  vision: string
+  values: Array<{ title: string; lines: string[] }>
+  joinTitle: string
+  joinButtonText: string
+  joinUrl: string
+  milestones: Array<{ year: string; title: string; description: string }>
+  offices: Array<{
+    city: string
+    phone: string
+    address: string
+    image?: string
+    mapX?: number
+    mapY?: number
+  }>
+  qualifications: Array<{ name: string; description: string; mediaId?: number; imageUrl?: string }>
+}
+
 interface ContactDraft {
   title: string
+  companyName: string
   description: string
+  formTitle: string
   successText: string
   formEnabled: boolean
+  smsVerifyEnabled: boolean
   phone: string
   email: string
   address: string
   hours: string
+  mapUrl: string
 }
 
-const DEFAULT_SECTION_ORDER: HomeSectionKey[] = [
-  'services',
-  'cases',
-  'customers',
-  'news',
-]
+interface PrivacyDraft {
+  title: string
+  updatedAt: string
+  bodyHtml: string
+}
+
+const DEFAULT_SECTION_ORDER: HomeSectionKey[] = ['services', 'cases', 'customers', 'news']
 
 const SECTION_META: Record<HomeSectionKey, { label: string; icon: string; formPath: string }> = {
-  services: { label: '核心产品与方案分组', icon: '📦', formPath: '/home' },
+  services: { label: '产品与解决方案分组', icon: '📦', formPath: '/home' },
   cases: { label: '标杆客户案例', icon: '🏆', formPath: '/home' },
-  customers: { label: '生态伙伴与客户标识', icon: '🤝', formPath: '/home' },
+  customers: { label: '客户标识 Logo 墙', icon: '🤝', formPath: '/home' },
   news: { label: '新闻动态资讯', icon: '📰', formPath: '/home' },
 }
 
-// ==================== 全局状态与配置视图 ====================
+// ==================== 全局状态与多页面导航状态 ====================
 const loading = ref(true)
 const savingAll = ref(false)
 const publishingAll = ref(false)
 
+const activePage = ref<StudioPageKey>('HOME')
 const studioMode = ref<'edit' | 'preview' | 'published'>('edit')
 const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const showLeftOutline = ref(true)
 const showDisabledBlocks = ref(true)
 const healthDrawerOpen = ref(false)
 
+// 首页内部状态
 const heroIndex = ref(0)
-const activeServiceGroup = ref(0)
 const openMegaPreview = ref(false)
-const selectedSection = ref<'header' | 'hero' | HomeSectionKey | 'footer'>('hero')
+const selectedSection = ref<string>('hero')
 
+// 关于我们内部状态（5 大子页签 + 2 个弹窗 + 时间轴/地图索引）
+const aboutSubTab = ref<'intro' | 'team' | 'media' | 'resources' | 'join'>('intro')
+const ceoModalOpen = ref(false)
+const activeTeamIdx = ref<number | null>(null)
+const aboutMilestoneIdx = ref(0)
+const aboutOfficeIdx = ref(0)
+const aboutResourceCat = ref('企业资料')
+
+// 列表页与详情页内嵌实景编辑状态（PRODUCTS / SOLUTIONS / CASES / NEWS）
+const activeCategoryFilter = ref<string>('ALL')
+const activeContentId = ref<string>('')
+const contentDetailLoading = ref(false)
+const activeContentMeta = ref<ContentView | null>(null)
+const activeProductRoleIdx = ref(0)
+const activeContentDraft = ref<{
+  title: string
+  summary: string
+  coverMediaId: number | null
+  coverAlt: string
+  heroMediaId: number | null
+  categoryId: string
+  sortOrder: number
+  industry: string
+  customerName: string
+  quoteText: string
+  quoteAuthor: string
+  author: string
+  displayTime: string
+  sourceName: string
+  sourceUrl: string
+  bodyHtml: string
+  seoTitle: string
+  seoDescription: string
+  features: Array<{ key?: string; tag?: string; title: string; description: string }>
+  effectMetrics: Array<{ displayValue: string; label: string }>
+  roleTabs: Array<{ role: string; headline: string; bullets: string[] }>
+  terminalTools: Array<{ name: string; badge: string; description: string }>
+  pains: Array<{ key?: string; title: string; description: string }>
+  benefits: Array<{ key?: string; title: string; description: string }>
+  outcomes: Array<{ key?: string; displayValue: string; label: string }>
+  relatedCaseIds: number[]
+  relatedProductIds: number[]
+  relatedSolutionIds: number[]
+}>({
+  title: '',
+  summary: '',
+  coverMediaId: null,
+  coverAlt: '',
+  heroMediaId: null,
+  categoryId: '',
+  sortOrder: 100,
+  industry: '',
+  customerName: '',
+  quoteText: '',
+  quoteAuthor: '',
+  author: '',
+  displayTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  sourceName: '',
+  sourceUrl: '',
+  bodyHtml: '',
+  seoTitle: '',
+  seoDescription: '',
+  features: [],
+  effectMetrics: [],
+  roleTabs: [],
+  terminalTools: [],
+  pains: [],
+  benefits: [],
+  outcomes: [],
+  relatedCaseIds: [],
+  relatedProductIds: [],
+  relatedSolutionIds: [],
+})
+const activeContentBaseline = ref('')
+const isActiveContentDirty = computed(() => {
+  if (!activeContentId.value || !activeContentBaseline.value) return false
+  return JSON.stringify(activeContentDraft.value) !== activeContentBaseline.value
+})
+
+// 六大单例配置视图
 const configViews = reactive<{
   SITE: ConfigView<SiteDraft> | null
   NAVIGATION: ConfigView<NavigationDraft> | null
   HOME: ConfigView<HomeDraft> | null
+  ABOUT: ConfigView<AboutDraft> | null
   CONTACT: ConfigView<ContactDraft> | null
+  PRIVACY: ConfigView<PrivacyDraft> | null
 }>({
   SITE: null,
   NAVIGATION: null,
   HOME: null,
+  ABOUT: null,
   CONTACT: null,
+  PRIVACY: null,
 })
 
-// 实时可编辑草稿副本
-const drafts = reactive<{
+// 六大单例可编辑草稿副本
+const drafts = ref<{
   SITE: SiteDraft
   NAVIGATION: NavigationDraft
   HOME: HomeDraft
+  ABOUT: AboutDraft
   CONTACT: ContactDraft
+  PRIVACY: PrivacyDraft
 }>({
   SITE: {
-    siteName: 'G7易流',
+    siteName: '公司官网',
     slogan: '领先的物联网与数字化软件服务商',
     copyrightText: '© 2026 示例科技有限公司',
-    icpText: '',
-    icpUrl: '',
+    icpText: '京ICP备08004136号',
+    icpUrl: 'https://beian.miit.gov.cn/',
     policeText: '',
     policeUrl: '',
     logoMediaId: undefined,
@@ -208,6 +414,14 @@ const drafts = reactive<{
     faviconMediaId: undefined,
     defaultSeo: { title: '企业官网', description: '面向企业的物联网与数字化平台' },
     footerGroups: [],
+    qrCodes: [
+      { label: '公众号', imageUrl: '' },
+      { label: '视频号', imageUrl: '' },
+    ],
+    contactEmails: [
+      { email: 'connect@g7.com.cn', desc: '媒体联系&数据合作' },
+      { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
+    ],
   },
   NAVIGATION: {
     items: [],
@@ -217,26 +431,152 @@ const drafts = reactive<{
   HOME: {
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hero: { items: [] },
-    metrics: { enabled: true, title: '企业实力', subtitle: '', items: [] },
-    services: { enabled: true, title: '产品与解决方案', subtitle: '', groups: [] },
+    metrics: { enabled: false, title: '企业实力', subtitle: '', items: [] },
+    services: { enabled: true, title: '核心产品与行业方案', subtitle: '', groups: [] },
     cases: { enabled: true, title: '客户案例', subtitle: '', contentIds: [] },
     customers: { enabled: true, title: '合作客户', subtitle: '', contentIds: [] },
-    news: { enabled: true, title: '新闻动态', subtitle: '', mode: 'SELECTED', limit: 3, contentIds: [] },
+    news: { enabled: true, title: '新闻动态', subtitle: '', mode: 'LATEST', limit: 3, contentIds: [] },
     consultation: { title: '了解适合您的服务', subtitle: '', buttonText: '立即咨询', link: { type: 'CONSULT' } },
+  },
+  ABOUT: {
+    heroTitle: '以物联网技术和软件服务改变公路货运',
+    introTitle: '关于我们',
+    intro: '我们是一家领先的产业物联网科技和软件服务公司，连接业务全流程并以数据和AI驱动运营，助力企业降本增效。',
+    introImage: '',
+    ceoLetter: {
+      leftQuote: '“我谨代表全体员工，向在这个不凡时代中努力前行的经营者致以崇高的敬意！”',
+      title: '从微不足道开始改变世界',
+      signature: '创始人',
+      buttonText: '展开全部',
+      excerpt: [
+        '十多年前，当我们刚开始走进业务一线的时候，很少有人相信，一个个小小的智能终端，有一天会彻底改变整个行业的运行方式。',
+        '正是从每一次毫秒级的感知、每一次防碰撞预警、每一份数据的精准计量这些看似“微不足道”的小事开始，我们陪伴客户迈入数字化精细运营的新时代。',
+      ],
+      fullParagraphs: [
+        '我谨代表全体员工，向在这个不凡时代中努力前行的行业经营者致以崇高的敬意！',
+        '十多年前，当我们刚开始走进业务一线的时候，很少有人相信，一个个小小的智能终端，有一天会彻底改变整个行业的运行方式。',
+        '正是从每一次毫秒级的感知、每一次防碰撞预警、每一份数据的精准计量这些看似“微不足道”的小事开始，我们陪伴客户迈入数字化精细运营的新时代。',
+        '时代在变，技术在变，但我们存在的唯一理由始终未变——用科技创新和服务升级产业生产力，做客户最值得信赖的长期伙伴。',
+      ],
+    },
+    teamTitle: '管理团队',
+    teamMembers: [
+      {
+        name: '翟学魂',
+        role: '首席执行官 (CEO)',
+        avatar: '',
+        bio: ['现任公司首席执行官，产业物联网和数字化领域的开拓者。', '毕业于清华大学，致力于推进产业的智能化与绿色化转型。'],
+      },
+      {
+        name: '张景涛',
+        role: '总裁',
+        avatar: '',
+        bio: ['全面负责公司产品研发、行业解决方案及客户成功体系建设。'],
+      },
+      {
+        name: '郝淑霞',
+        role: '高级副总裁',
+        avatar: '',
+        bio: ['负责组织发展、人才体系与大客户战略生态协同。'],
+      },
+      {
+        name: '张杰龙',
+        role: '首席财务官 (CFO)',
+        avatar: '',
+        bio: ['负责集团财务战略、资本市场运作及战略投资并购。'],
+      },
+    ],
+    resourcesTitle: '资料库',
+    resources: [
+      { category: '企业资料', title: '企业全栈产品手册', logoText: '全栈产品宣传册', logoColor: '#4c2ce6', url: '' },
+      { category: '企业资料', title: '安全管家白皮书', logoText: '主动安全托管指南', logoColor: '#2563eb', url: '' },
+      { category: '客户视频', title: '标杆客户证言视频', logoText: '双汇物流 × 数字化实践', logoColor: '#dc2626', url: '', isVideo: true },
+      { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队运营报告', logoColor: '#0284c7', url: '' },
+      { category: 'ESG', title: '年度可持续发展报告', logoText: 'ESG 绿色低碳实践', logoColor: '#059669', url: '' },
+    ],
+    customerStories: [
+      {
+        quote: '“通过数字化平台合作，对公司各项核心经营指标都有显著提升。”',
+        author: '张太喜  双汇物流董事长',
+        company: '双汇物流',
+        logoText: 'SHUANGHUI 双汇物流',
+        videoUrl: '',
+      },
+      {
+        quote: '“统一多元的数据，加上精准的算法，帮助我们完善了管理闭环。”',
+        author: '何镭  天佑物流执行总监',
+        company: '天佑物流',
+        logoText: 'tianyou天佑',
+        videoUrl: '',
+      },
+      {
+        quote: '“「数字化」之后，每一个往返我们都能实时算清利润账。”',
+        author: '赵春波  滨拓物流总经理',
+        company: '滨拓物流',
+        logoText: '滨拓物流',
+        videoUrl: '',
+      },
+      {
+        quote: '通过IoT技术重构大宗运输环节，让干线运输与装卸解耦，助力绿色低碳转型。',
+        author: '华电能源包头公司',
+        company: '中国华电 CHD',
+        logoText: '中国华电 CHD',
+        videoUrl: '',
+      },
+    ],
+    mission: '以科技创新和服务升级产业生产力，让产业参与者共享美好改变',
+    vision: '产业最受尊重的SaaS公司',
+    values: [
+      { title: '客户成功', lines: ['我们存在的唯一目的就是为客户带来价值', '以可信赖的产品和有温度的服务，做客户的长期朋友'] },
+      { title: '极限', lines: ['目标远大，不甘平庸，不断挑战认知边界', '把事做透，用工匠精神实现卓越成果'] },
+      { title: '信任', lines: ['以身作则，说到做到', '敢于信任，从我做起'] },
+      { title: '坚韧', lines: ['坚持长期主义积极面对挑战和不确定性', '坚定目标，锲而不舍，迎难而上，确保结果'] },
+      { title: '主人翁精神', lines: ['从全局出发，长期利益最大化', '主动担当，站在造钟者的角度思考并解决问题'] },
+    ],
+    joinTitle: '与我们路上见',
+    joinButtonText: '查看职位',
+    joinUrl: '',
+    milestones: [
+      { year: '2018', title: '发布智能安全托管服务', description: '连接平台终端突破 80 万台；完成战略融资' },
+      { year: '2019', title: '平台连接数突破 140 万', description: '面向多行业提供综合性数字化解决方案' },
+      { year: '2022', title: '平台连接数突破 200 万', description: '宣布完成新一轮 2 亿美元融资；量产交付智能装备' },
+      { year: '2010', title: '启动 SaaS 服务', description: '提供基于北斗与 GPS 的智能管理 SaaS 服务' },
+      { year: '2014', title: '设立七大区域运营中心', description: '推出智能结算服务体系，服务超万家企业' },
+    ],
+    offices: [
+      { city: '北京（总部）', phone: '010-62667878', address: '北京市海淀区建材城中路27号金隅智造工场N7号楼2层', mapX: 68, mapY: 41 },
+      { city: '深圳', phone: '0755-26944168', address: '深圳市南山区滨海大道3369号有线信息传输大厦9层', mapX: 68, mapY: 77 },
+      { city: '成都', phone: '028-83358692', address: '成都市天府新区兴隆湖畔路西段99号天府新经济产业园D区', mapX: 53, mapY: 63 },
+      { city: '广州', phone: '', address: '广州市黄埔区科学大道237号A1栋1106室', mapX: 66, mapY: 74 },
+      { city: '上海', phone: '021-51083899', address: '上海市闵行区申长路988弄虹桥万科中心T2号楼6层', mapX: 76, mapY: 57 },
+      { city: '西安', phone: '', address: '西安市雁塔区丈八一路1号汇鑫IBC-D座8楼', mapX: 59, mapY: 52 },
+      { city: '天津', phone: '', address: '天津市东丽区东二道空港商务园东区E6', mapX: 71, mapY: 45 },
+    ],
+    qualifications: [],
   },
   CONTACT: {
     title: '联系我们',
-    description: '',
+    companyName: '北京汇通天下物联科技有限公司',
+    description: '感谢您的关注，我们的专家顾问随时为您提供产品演示与方案咨询。',
+    formTitle: '预约产品展示',
     successText: '已收到您的咨询，我们会尽快与您联系。',
     formEnabled: true,
+    smsVerifyEnabled: true,
     phone: '400-888-6688',
-    email: 'connect@example.com',
-    address: '北京市海淀区中关村南大街1号',
+    email: 'connect@g7.com.cn',
+    address: '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
     hours: '周一至周日 09:00 - 18:00',
+    mapUrl: '',
+  },
+  PRIVACY: {
+    title: '隐私说明',
+    updatedAt: new Date().toISOString().slice(0, 10),
+    bodyHtml: '<h2>一、我们如何收集和使用您的信息</h2><p>当您在官网提交预约咨询表单时，我们会收集您的姓名、联系电话、公司名称及咨询需求，仅用于安排产品顾问与您联系提供服务。</p>',
   },
 })
 
-// 初始快照基线（用于判断哪个模块被修改过）
+const ALL_CONFIG_KEYS: ConfigKey[] = ['SITE', 'NAVIGATION', 'HOME', 'ABOUT', 'CONTACT', 'PRIVACY']
+
 const baselineJson = reactive<Record<ConfigKey, string>>({
   SITE: '',
   NAVIGATION: '',
@@ -246,417 +586,1161 @@ const baselineJson = reactive<Record<ConfigKey, string>>({
   PRIVACY: '',
 })
 
-const dirtyKeys = computed<ConfigKey[]>(() => {
-  const keys: ConfigKey[] = []
-  ;(['SITE', 'NAVIGATION', 'HOME', 'CONTACT'] as ConfigKey[]).forEach((k) => {
-    const currentStr = JSON.stringify(drafts[k as 'SITE' | 'NAVIGATION' | 'HOME' | 'CONTACT'])
-    if (baselineJson[k] && currentStr !== baselineJson[k]) {
-      keys.push(k)
-    }
+const dirtyConfigKeys = computed<ConfigKey[]>(() => {
+  return ALL_CONFIG_KEYS.filter((k) => {
+    const cur = JSON.stringify(drafts.value[k])
+    return Boolean(baselineJson[k] && cur !== baselineJson[k])
   })
-  return keys
 })
 
-const unpublishedKeys = computed<ConfigKey[]>(() => {
-  const keys: ConfigKey[] = []
-  ;(['SITE', 'NAVIGATION', 'HOME', 'CONTACT'] as const).forEach((k) => {
-    if (configViews[k]?.hasUnpublishedChanges || dirtyKeys.value.includes(k)) {
-      keys.push(k)
-    }
-  })
-  return keys
+const unpublishedConfigKeys = computed<ConfigKey[]>(() => {
+  return ALL_CONFIG_KEYS.filter(
+    (k) => configViews[k]?.hasUnpublishedChanges || dirtyConfigKeys.value.includes(k),
+  )
 })
 
-// ==================== Undo / Redo 历史栈 ====================
+const totalDirtyCount = computed(
+  () => dirtyConfigKeys.value.length + (isActiveContentDirty.value ? 1 : 0),
+)
+
+export type CategoryType = 'PRODUCT' | 'SOLUTION' | 'CASE' | 'NEWS'
+export type ContentType = 'PRODUCT' | 'SOLUTION' | 'CASE' | 'NEWS' | 'CUSTOMER'
+
+// 30 步撤销 / 重做历史栈（全站 6 大单例草稿）
 const historyStack = ref<string[]>([])
 const historyPointer = ref(-1)
-let suppressHistory = false
+let isApplyingHistory = false
+let historyTimer: ReturnType<typeof setTimeout> | null = null
 
-function recordSnapshot(label = '') {
-  if (suppressHistory) return
+function pushHistorySnapshot() {
+  if (isApplyingHistory || loading.value) return
   const snap = JSON.stringify(drafts)
   if (historyPointer.value >= 0 && historyStack.value[historyPointer.value] === snap) return
   historyStack.value = historyStack.value.slice(0, historyPointer.value + 1)
   historyStack.value.push(snap)
   if (historyStack.value.length > 30) {
     historyStack.value.shift()
-  }
-  historyPointer.value = historyStack.value.length - 1
-  if (label) {
-    // 轻量提示
+  } else {
+    historyPointer.value++
   }
 }
+
+watch(
+  drafts,
+  () => {
+    if (isApplyingHistory || loading.value) return
+    if (historyTimer) clearTimeout(historyTimer)
+    historyTimer = setTimeout(() => {
+      pushHistorySnapshot()
+    }, 450)
+  },
+  { deep: true },
+)
 
 const canUndo = computed(() => historyPointer.value > 0)
 const canRedo = computed(() => historyPointer.value < historyStack.value.length - 1)
 
 function undo() {
   if (!canUndo.value) return
-  suppressHistory = true
-  historyPointer.value -= 1
-  const parsed = JSON.parse(historyStack.value[historyPointer.value])
-  Object.assign(drafts.SITE, parsed.SITE)
-  Object.assign(drafts.NAVIGATION, parsed.NAVIGATION)
-  Object.assign(drafts.HOME, parsed.HOME)
-  Object.assign(drafts.CONTACT, parsed.CONTACT)
-  suppressHistory = false
-  ElMessage.info('已撤销上一步修改')
+  isApplyingHistory = true
+  historyPointer.value--
+  const snap = JSON.parse(historyStack.value[historyPointer.value])
+  Object.assign(drafts.value.SITE, snap.SITE)
+  Object.assign(drafts.value.NAVIGATION, snap.NAVIGATION)
+  Object.assign(drafts.value.HOME, snap.HOME)
+  Object.assign(drafts.value.ABOUT, snap.ABOUT)
+  Object.assign(drafts.value.CONTACT, snap.CONTACT)
+  Object.assign(drafts.value.PRIVACY, snap.PRIVACY)
+  setTimeout(() => {
+    isApplyingHistory = false
+  }, 50)
 }
 
 function redo() {
   if (!canRedo.value) return
-  suppressHistory = true
-  historyPointer.value += 1
-  const parsed = JSON.parse(historyStack.value[historyPointer.value])
-  Object.assign(drafts.SITE, parsed.SITE)
-  Object.assign(drafts.NAVIGATION, parsed.NAVIGATION)
-  Object.assign(drafts.HOME, parsed.HOME)
-  Object.assign(drafts.CONTACT, parsed.CONTACT)
-  suppressHistory = false
-  ElMessage.info('已重做修改')
+  isApplyingHistory = true
+  historyPointer.value++
+  const snap = JSON.parse(historyStack.value[historyPointer.value])
+  Object.assign(drafts.value.SITE, snap.SITE)
+  Object.assign(drafts.value.NAVIGATION, snap.NAVIGATION)
+  Object.assign(drafts.value.HOME, snap.HOME)
+  Object.assign(drafts.value.ABOUT, snap.ABOUT)
+  Object.assign(drafts.value.CONTACT, snap.CONTACT)
+  Object.assign(drafts.value.PRIVACY, snap.PRIVACY)
+  setTimeout(() => {
+    isApplyingHistory = false
+  }, 50)
 }
 
-// ==================== 内容与媒体缓存 ====================
-const contentCatalog = reactive<Record<string, ContentView>>({})
-const latestNewsList = ref<ContentView[]>([])
+function onKeyDown(e: KeyboardEvent) {
+  const isMod = e.ctrlKey || e.metaKey
+  if (!isMod) return
+  if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    undo()
+  } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+    e.preventDefault()
+    redo()
+  } else if (e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    saveAllDrafts()
+  }
+}
+
+// 通用素材选择器状态
+const pickerOpen = ref(false)
+const pickerKind = ref<'IMAGE' | 'VIDEO' | 'ALL'>('IMAGE')
+let pickerCallback: ((media: MediaItem) => void) | null = null
+
+function openMediaPicker(kind: 'IMAGE' | 'VIDEO' | 'ALL', cb: (m: MediaItem) => void) {
+  pickerKind.value = kind
+  pickerCallback = cb
+  pickerOpen.value = true
+}
+
+function onMediaPicked(media: MediaItem) {
+  mediaCache[Number(media.id)] = media
+  if (pickerCallback) {
+    pickerCallback(media)
+    pickerCallback = null
+  }
+  pickerOpen.value = false
+}
+
+// 媒体资源与内容实体字典
 const mediaCache = reactive<Record<number, MediaItem>>({})
+const categoriesMap = reactive<Record<CategoryType, CategoryView[]>>({
+  PRODUCT: [],
+  SOLUTION: [],
+  CASE: [],
+  NEWS: [],
+})
+const contentsMap = reactive<Record<ContentType, ContentView[]>>({
+  PRODUCT: [],
+  SOLUTION: [],
+  CASE: [],
+  NEWS: [],
+  CUSTOMER: [],
+})
+const contentDetailsCache = reactive<Record<string, Record<string, any>>>({})
+const activeContentRawBackup = ref<Record<string, unknown>>({})
 
-async function loadCatalogAndMedia() {
-  try {
-    const types = ['PRODUCT', 'SOLUTION', 'CASE', 'NEWS', 'CUSTOMER']
-    await Promise.all(
-      types.map(async (t) => {
-        const res = await listContents({
-          contentType: t,
-          publicationStatus: 'PUBLISHED',
-          page: 1,
-          pageSize: 50,
-        })
-        for (const item of res.items) {
-          contentCatalog[String(item.id)] = item
-        }
-        if (t === 'NEWS') {
-          latestNewsList.value = res.items
-        }
-      }),
-    )
-  } catch {
-    // 忽略单个列表失败
-  }
-  await syncMediaCache()
+function clone<T>(val: T): T {
+  return JSON.parse(JSON.stringify(val ?? {}))
 }
 
-async function syncMediaCache() {
-  const ids = new Set<number>()
-  if (drafts.SITE.logoMediaId) ids.add(Number(drafts.SITE.logoMediaId))
-  if (drafts.SITE.faviconMediaId) ids.add(Number(drafts.SITE.faviconMediaId))
-  for (const h of drafts.HOME.hero.items) {
-    if (h.desktopMediaId) ids.add(Number(h.desktopMediaId))
-    if (h.mobileMediaId) ids.add(Number(h.mobileMediaId))
-  }
-  for (const g of drafts.HOME.services.groups) {
-    if (g.imageMediaId) ids.add(Number(g.imageMediaId))
-  }
-  for (const c of Object.values(contentCatalog)) {
-    if (c.coverMediaId) ids.add(Number(c.coverMediaId))
-  }
-  await Promise.all(
-    Array.from(ids)
-      .filter((id) => id > 0 && !mediaCache[id])
-      .map(async (id) => {
-        try {
-          mediaCache[id] = await getMedia(id)
-        } catch {
-          // 忽略已删除素材
-        }
-      }),
-  )
-}
-
-function mediaUrl(id?: number | string | null): string {
-  if (!id) return ''
-  return `/api/admin/media/${id}/file`
-}
-
-function isVideoMedia(id?: number | string | null): boolean {
-  if (!id) return false
-  return mediaCache[Number(id)]?.mediaType === 'VIDEO'
-}
-
-// ==================== 数据加载与归一化 ====================
 function normalizeSectionOrder(raw?: unknown): HomeSectionKey[] {
-  const result: HomeSectionKey[] = []
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      const k = String(item) as HomeSectionKey
-      if (DEFAULT_SECTION_ORDER.includes(k) && !result.includes(k)) {
-        result.push(k)
-      }
-    }
+  const list = Array.isArray(raw) ? (raw as HomeSectionKey[]) : []
+  const valid = list.filter((k) => DEFAULT_SECTION_ORDER.includes(k))
+  for (const key of DEFAULT_SECTION_ORDER) {
+    if (!valid.includes(key)) valid.push(key)
   }
-  for (const k of DEFAULT_SECTION_ORDER) {
-    if (!result.includes(k)) result.push(k)
-  }
-  return result
+  return valid
 }
 
-function applySourceData(usePublished = false) {
-  const siteSrc = (usePublished ? configViews.SITE?.published : configViews.SITE?.draft) as Partial<SiteDraft> | null
-  if (siteSrc) {
-    drafts.SITE = {
-      siteName: siteSrc.siteName ?? 'G7易流',
-      slogan: siteSrc.slogan ?? '领先的物联网与数字化软件服务商',
-      copyrightText: siteSrc.copyrightText ?? '© 2026 示例科技有限公司',
-      icpText: siteSrc.icpText ?? '',
-      icpUrl: siteSrc.icpUrl ?? '',
-      policeText: siteSrc.policeText ?? '',
-      policeUrl: siteSrc.policeUrl ?? '',
-      logoMediaId: siteSrc.logoMediaId ? Number(siteSrc.logoMediaId) : undefined,
-      logoAlt: siteSrc.logoAlt ?? '',
-      faviconMediaId: siteSrc.faviconMediaId ? Number(siteSrc.faviconMediaId) : undefined,
-      defaultSeo: {
-        title: siteSrc.defaultSeo?.title ?? '',
-        description: siteSrc.defaultSeo?.description ?? '',
-      },
-      footerGroups: (siteSrc.footerGroups ?? []).map((g) => ({
-        title: g.title ?? '',
-        links: (g.links ?? []).map((l) => ({
-          key: l.key,
-          label: l.label ?? '',
-          enabled: l.enabled ?? true,
-          sortOrder: l.sortOrder ?? 100,
-          link: l.link ?? { type: 'PAGE', pageCode: 'HOME' },
-        })),
+function normalizeSite(d?: Partial<SiteDraft> | null): SiteDraft {
+  const c = clone(d || {})
+  return {
+    siteName: c.siteName ?? 'G7易流',
+    slogan: c.slogan ?? '领先的物联网与数字化软件服务商',
+    copyrightText: c.copyrightText ?? '© 2026 示例科技有限公司',
+    icpText: c.icpText ?? '京ICP备08004136号',
+    icpUrl: c.icpUrl ?? 'https://beian.miit.gov.cn/',
+    policeText: c.policeText ?? '京公网安备11010802020592号',
+    policeUrl: c.policeUrl ?? '',
+    logoMediaId: c.logoMediaId ? Number(c.logoMediaId) : undefined,
+    logoAlt: c.logoAlt ?? '',
+    faviconMediaId: c.faviconMediaId ? Number(c.faviconMediaId) : undefined,
+    defaultSeo: {
+      title: c.defaultSeo?.title ?? '企业官网',
+      description: c.defaultSeo?.description ?? '面向企业的物联网与数字化平台',
+    },
+    footerGroups: (c.footerGroups ?? []).map((g) => ({
+      title: g.title ?? '',
+      links: (g.links ?? []).map((l) => ({
+        key: l.key,
+        label: l.label ?? '',
+        enabled: l.enabled ?? true,
+        sortOrder: l.sortOrder ?? 100,
+        link: l.link ?? { type: 'PAGE', pageCode: 'HOME' },
       })),
-    }
+    })),
+    qrCodes:
+      Array.isArray(c.qrCodes) && c.qrCodes.length
+        ? c.qrCodes
+        : [
+            { label: '公众号', imageUrl: '' },
+            { label: '视频号', imageUrl: '' },
+          ],
+    contactEmails:
+      Array.isArray(c.contactEmails) && c.contactEmails.length
+        ? c.contactEmails
+        : [
+            { email: 'connect@g7.com.cn', desc: '媒体联系&数据合作' },
+            { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
+          ],
   }
+}
 
-  const navSrc = (usePublished ? configViews.NAVIGATION?.published : configViews.NAVIGATION?.draft) as Partial<NavigationDraft> | null
-  if (navSrc) {
-    drafts.NAVIGATION = {
-      items: (navSrc.items ?? []).map((n) => ({
-        key: n.key,
-        label: n.label ?? '',
-        enabled: n.enabled ?? true,
-        sortOrder: n.sortOrder ?? 100,
-        link: n.link ?? { type: 'NONE' },
-        children: (n.children ?? []).map((c) => ({
-          key: c.key,
-          label: c.label ?? '',
-          enabled: c.enabled ?? true,
-          sortOrder: c.sortOrder ?? 100,
-          link: c.link ?? { type: 'PAGE', pageCode: 'HOME' },
-        })),
+function normalizeNav(d?: Partial<NavigationDraft> | null): NavigationDraft {
+  const c = clone(d || {})
+  const items = (c.items ?? []).map((n) => ({
+    key: n.key,
+    label: n.label ?? '',
+    enabled: n.enabled ?? true,
+    sortOrder: n.sortOrder ?? 100,
+    link: n.link ?? { type: 'PAGE', pageCode: 'HOME' },
+    children: (n.children ?? []).map((ch) => ({
+      key: ch.key,
+      label: ch.label ?? '',
+      enabled: ch.enabled ?? true,
+      sortOrder: ch.sortOrder ?? 100,
+      link: ch.link ?? { type: 'PAGE', pageCode: 'HOME' },
+    })),
+  }))
+  return {
+    items: items.length
+      ? items
+      : [
+          { label: '首页', enabled: true, sortOrder: 10, link: { type: 'PAGE', pageCode: 'HOME' }, children: [] },
+          { label: '产品及解决方案', enabled: true, sortOrder: 20, link: { type: 'PAGE', pageCode: 'PRODUCTS' }, children: [] },
+          { label: '客户案例', enabled: true, sortOrder: 30, link: { type: 'PAGE', pageCode: 'CASES' }, children: [] },
+          { label: '新闻中心', enabled: true, sortOrder: 40, link: { type: 'PAGE', pageCode: 'NEWS' }, children: [] },
+          { label: '关于我们', enabled: true, sortOrder: 50, link: { type: 'PAGE', pageCode: 'ABOUT' }, children: [] },
+        ],
+    megaColumns: (c.megaColumns ?? []).map((col) => ({
+      title: col.title ?? '',
+      items: (col.items ?? []).map((sub) => ({
+        label: sub.label ?? '',
+        path: sub.path ?? '/products',
+        tag: sub.tag ?? '',
+        isVideo: Boolean(sub.isVideo),
+        videoUrl: sub.videoUrl ?? '',
+        videoTitle: sub.videoTitle ?? '',
       })),
-      megaColumns: (navSrc.megaColumns ?? []).map((col) => ({
-        title: col.title ?? '',
-        items: (col.items ?? []).map((sub) => ({
-          label: sub.label ?? '',
-          path: sub.path ?? '/products',
-          tag: sub.tag ?? '',
-          isVideo: Boolean(sub.isVideo),
-          videoUrl: sub.videoUrl ?? '',
-          videoTitle: sub.videoTitle ?? '',
-        })),
-      })),
-      megaCta: {
-        text: navSrc.megaCta?.text ?? '需要专业场景建议？',
-        linkText: navSrc.megaCta?.linkText ?? '联系技术专家',
-      },
-    }
-    if (drafts.NAVIGATION.items.length === 0) {
-      drafts.NAVIGATION.items = [
-        { label: '首页', enabled: true, sortOrder: 10, link: { type: 'PAGE', pageCode: 'HOME' }, children: [] },
-        { label: '产品及解决方案', enabled: true, sortOrder: 20, link: { type: 'PAGE', pageCode: 'PRODUCTS' }, children: [] },
-        { label: '客户案例', enabled: true, sortOrder: 30, link: { type: 'PAGE', pageCode: 'CASES' }, children: [] },
-        { label: '新闻中心', enabled: true, sortOrder: 40, link: { type: 'PAGE', pageCode: 'NEWS' }, children: [] },
-        { label: '关于我们', enabled: true, sortOrder: 50, link: { type: 'PAGE', pageCode: 'ABOUT' }, children: [] },
-      ]
-    }
+    })),
+    megaCta: {
+      text: c.megaCta?.text ?? '需要专业场景建议？',
+      linkText: c.megaCta?.linkText ?? '联系技术专家',
+    },
   }
+}
 
-  const homeSrc = (usePublished ? configViews.HOME?.published : configViews.HOME?.draft) as Partial<HomeDraft> | null
-  if (homeSrc) {
-    drafts.HOME = {
-      sectionOrder: normalizeSectionOrder((homeSrc as Record<string, unknown>).sectionOrder),
-      hero: {
-        items: (homeSrc.hero?.items ?? []).map((h) => ({
-          key: h.key,
-          enabled: h.enabled ?? true,
-          sortOrder: h.sortOrder ?? 100,
-          title: h.title ?? '',
-          subtitle: h.subtitle ?? '',
-          desktopMediaId: h.desktopMediaId ? Number(h.desktopMediaId) : undefined,
-          mobileMediaId: h.mobileMediaId ? Number(h.mobileMediaId) : undefined,
-          imageAlt: h.imageAlt ?? '',
-          buttonText: h.buttonText ?? '',
-          link: h.link ?? { type: 'NONE' },
-          titleColor: h.titleColor,
-          subtitleColor: h.subtitleColor,
-          kickerColor: h.kickerColor,
-          buttonBgColor: h.buttonBgColor,
-          buttonTextColor: h.buttonTextColor,
-        })),
-      },
-      metrics: {
-        enabled: homeSrc.metrics?.enabled ?? true,
-        title: homeSrc.metrics?.title ?? '企业实力',
-        subtitle: homeSrc.metrics?.subtitle ?? '',
-        items: (homeSrc.metrics?.items ?? []).map((m) => ({
-          key: m.key,
-          sortOrder: m.sortOrder ?? 100,
-          displayValue: m.displayValue ?? '',
-          unit: m.unit ?? '',
-          label: m.label ?? '',
-          description: m.description ?? '',
-        })),
-      },
-      services: {
-        enabled: homeSrc.services?.enabled ?? true,
-        title: homeSrc.services?.title ?? '产品与解决方案',
-        subtitle: homeSrc.services?.subtitle ?? '',
-        groups: (homeSrc.services?.groups ?? []).map((g) => ({
+function normalizeHome(d?: Partial<HomeDraft> | null): HomeDraft {
+  const c = clone(d || {})
+  return {
+    sectionOrder: normalizeSectionOrder((c as Record<string, unknown>).sectionOrder),
+    hero: {
+      items:
+        Array.isArray(c.hero?.items) && c.hero!.items.length > 0
+          ? c.hero!.items.map((h) => ({
+              key: h.key,
+              enabled: h.enabled ?? true,
+              sortOrder: h.sortOrder ?? 100,
+              title: h.title ?? '',
+              subtitle: h.subtitle ?? '',
+              desktopMediaId: h.desktopMediaId ? Number(h.desktopMediaId) : undefined,
+              mobileMediaId: h.mobileMediaId ? Number(h.mobileMediaId) : undefined,
+              imageAlt: h.imageAlt ?? '',
+              buttonText: h.buttonText ?? '了解更多',
+              link: h.link ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
+              titleColor: h.titleColor ?? '',
+              subtitleColor: h.subtitleColor ?? '',
+              kickerColor: h.kickerColor ?? '',
+              buttonBgColor: h.buttonBgColor ?? '',
+              buttonTextColor: h.buttonTextColor ?? '',
+            }))
+          : [
+              {
+                enabled: true,
+                sortOrder: 100,
+                title: 'AI与物联网驱动企业效率变革',
+                subtitle: '连接核心业务流程，实时掌控经营关键指标',
+                imageAlt: '焦点图',
+                buttonText: '探索解决方案',
+                link: { type: 'PAGE', pageCode: 'SOLUTIONS' },
+                titleColor: '',
+                subtitleColor: '',
+                kickerColor: '',
+                buttonBgColor: '',
+                buttonTextColor: '',
+              },
+            ],
+    },
+    metrics: {
+      enabled: c.metrics?.enabled ?? false,
+      title: c.metrics?.title ?? '企业实力',
+      subtitle: c.metrics?.subtitle ?? '',
+      items: Array.isArray(c.metrics?.items) ? c.metrics!.items : [],
+    },
+    services: {
+      enabled: c.services?.enabled ?? true,
+      title: c.services?.title ?? '核心产品与行业方案',
+      subtitle: c.services?.subtitle ?? '',
+      groups: (c.services?.groups ?? []).map((g) => {
+        const hlArr = Array.isArray(g.highlights) ? g.highlights : []
+        return {
           key: g.key,
           sortOrder: g.sortOrder ?? 100,
           title: g.title ?? '',
-          tag: g.tag ?? (g.contentType === 'SOLUTION' ? '行业解决方案' : '核心产品系列'),
-          highlightsText: Array.isArray(g.highlights)
-            ? g.highlights.join(' / ')
-            : (typeof g.highlights === 'string' ? g.highlights : ''),
-          highlights: Array.isArray(g.highlights) ? g.highlights : [],
+          tag: g.tag ?? '',
+          highlights: hlArr,
+          highlightsText:
+            typeof g.highlightsText === 'string' ? g.highlightsText : hlArr.join(' / '),
           description: g.description ?? '',
+          layout: g.layout || 'auto',
           imageMediaId: g.imageMediaId ? Number(g.imageMediaId) : undefined,
           contentType: g.contentType ?? 'PRODUCT',
           contentIds: (g.contentIds ?? []).map(Number),
           moreLink: g.moreLink ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
-          layout: (g.layout as any) || 'auto',
-        })),
-      },
-      cases: {
-        enabled: homeSrc.cases?.enabled ?? true,
-        title: homeSrc.cases?.title ?? '客户案例',
-        subtitle: homeSrc.cases?.subtitle ?? '',
-        contentIds: (homeSrc.cases?.contentIds ?? []).map(Number),
-      },
-      customers: {
-        enabled: homeSrc.customers?.enabled ?? true,
-        title: homeSrc.customers?.title ?? '合作客户',
-        subtitle: homeSrc.customers?.subtitle ?? '',
-        contentIds: (homeSrc.customers?.contentIds ?? []).map(Number),
-      },
-      news: {
-        enabled: homeSrc.news?.enabled ?? true,
-        title: homeSrc.news?.title ?? '新闻动态',
-        subtitle: homeSrc.news?.subtitle ?? '',
-        mode: homeSrc.news?.mode ?? 'SELECTED',
-        limit: homeSrc.news?.limit ?? 3,
-        contentIds: (homeSrc.news?.contentIds ?? []).map(Number),
-      },
-      consultation: {
-        title: homeSrc.consultation?.title ?? '了解适合您的服务',
-        subtitle: homeSrc.consultation?.subtitle ?? '',
-        buttonText: homeSrc.consultation?.buttonText ?? '立即咨询',
-        link: homeSrc.consultation?.link ?? { type: 'CONSULT' },
-      },
-    }
-  }
-
-  const contactSrc = (usePublished ? configViews.CONTACT?.published : configViews.CONTACT?.draft) as Partial<ContactDraft> | null
-  if (contactSrc) {
-    drafts.CONTACT = {
-      title: contactSrc.title || '联系我们',
-      description: contactSrc.description ?? '',
-      successText: contactSrc.successText ?? '已收到您的咨询，我们会尽快与您联系。',
-      formEnabled: contactSrc.formEnabled ?? true,
-      phone: contactSrc.phone ?? '',
-      email: contactSrc.email ?? '',
-      address: contactSrc.address ?? '',
-      hours: contactSrc.hours ?? '',
-    }
+        }
+      }),
+    },
+    cases: {
+      enabled: c.cases?.enabled ?? true,
+      title: c.cases?.title ?? '客户案例',
+      subtitle: c.cases?.subtitle ?? '',
+      contentIds: (c.cases?.contentIds ?? []).map(Number),
+    },
+    customers: {
+      enabled: c.customers?.enabled ?? true,
+      title: c.customers?.title ?? '合作客户',
+      subtitle: c.customers?.subtitle ?? '',
+      contentIds: (c.customers?.contentIds ?? []).map(Number),
+    },
+    news: {
+      enabled: c.news?.enabled ?? true,
+      title: c.news?.title ?? '新闻动态',
+      subtitle: c.news?.subtitle ?? '',
+      mode: c.news?.mode ?? 'LATEST',
+      limit: c.news?.limit ?? 3,
+      contentIds: (c.news?.contentIds ?? []).map(Number),
+    },
+    consultation: {
+      title: c.consultation?.title ?? '了解适合您的服务',
+      subtitle: c.consultation?.subtitle ?? '',
+      buttonText: c.consultation?.buttonText ?? '立即咨询',
+      link: c.consultation?.link ?? { type: 'CONSULT' },
+    },
   }
 }
 
+function normalizeAbout(d?: Partial<AboutDraft> | null): AboutDraft {
+  const c = clone(d || {})
+  return {
+    heroTitle: c.heroTitle || '以物联网技术和软件服务改变公路货运',
+    introTitle: c.introTitle || '关于我们',
+    intro:
+      c.intro ||
+      '我们是一家领先的产业物联网科技和软件服务公司，连接业务全流程并以数据和AI驱动运营，助力企业降本增效。',
+    introImage: c.introImage || '',
+    ceoLetter: {
+      leftQuote:
+        c.ceoLetter?.leftQuote ||
+        '“我谨代表全体员工，向在这个不凡时代中努力前行的经营者致以崇高的敬意！”',
+      title: c.ceoLetter?.title || '从微不足道开始改变世界',
+      signature: c.ceoLetter?.signature || '创始人',
+      buttonText: c.ceoLetter?.buttonText || '展开全部',
+      excerpt:
+        Array.isArray(c.ceoLetter?.excerpt) && c.ceoLetter!.excerpt.length
+          ? c.ceoLetter!.excerpt
+          : clone(drafts.value.ABOUT.ceoLetter.excerpt),
+      fullParagraphs:
+        Array.isArray(c.ceoLetter?.fullParagraphs) && c.ceoLetter!.fullParagraphs.length
+          ? c.ceoLetter!.fullParagraphs
+          : clone(drafts.value.ABOUT.ceoLetter.fullParagraphs),
+    },
+    teamTitle: c.teamTitle || '管理团队',
+    teamMembers:
+      Array.isArray(c.teamMembers) && c.teamMembers.length
+        ? c.teamMembers
+        : clone(drafts.value.ABOUT.teamMembers),
+    resourcesTitle: c.resourcesTitle || '资料库',
+    resources:
+      Array.isArray(c.resources) && c.resources.length
+        ? c.resources
+        : clone(drafts.value.ABOUT.resources),
+    customerStories:
+      Array.isArray(c.customerStories) && c.customerStories.length
+        ? c.customerStories
+        : clone(drafts.value.ABOUT.customerStories),
+    mission: c.mission || '以科技创新和服务升级产业生产力，让产业参与者共享美好改变',
+    vision: c.vision || '产业最受尊重的SaaS公司',
+    values:
+      Array.isArray(c.values) && c.values.length ? c.values : clone(drafts.value.ABOUT.values),
+    joinTitle: c.joinTitle || '与我们路上见',
+    joinButtonText: c.joinButtonText || '查看职位',
+    joinUrl: c.joinUrl || '',
+    milestones:
+      Array.isArray(c.milestones) && c.milestones.length
+        ? c.milestones
+        : clone(drafts.value.ABOUT.milestones),
+    offices:
+      Array.isArray(c.offices) && c.offices.length ? c.offices : clone(drafts.value.ABOUT.offices),
+    qualifications: Array.isArray(c.qualifications) ? c.qualifications : [],
+  }
+}
+
+function normalizeContact(d?: Partial<ContactDraft> | null): ContactDraft {
+  const c = clone(d || {})
+  return {
+    title: c.title || '联系我们',
+    companyName: c.companyName || '北京汇通天下物联科技有限公司',
+    description: c.description || '感谢您的关注，我们的专家顾问随时为您提供产品演示与方案咨询。',
+    formTitle: c.formTitle || '预约产品展示',
+    successText: c.successText || '已收到您的咨询，我们会尽快与您联系。',
+    formEnabled: c.formEnabled ?? true,
+    smsVerifyEnabled: c.smsVerifyEnabled ?? true,
+    phone: c.phone || '400-888-6688',
+    email: c.email || 'connect@g7.com.cn',
+    address: c.address || '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
+    hours: c.hours || '周一至周日 09:00 - 18:00',
+    mapUrl: c.mapUrl || '',
+  }
+}
+
+function normalizePrivacy(d?: Partial<PrivacyDraft> | null): PrivacyDraft {
+  const c = clone(d || {})
+  return {
+    title: c.title || '隐私说明',
+    updatedAt: c.updatedAt || new Date().toISOString().slice(0, 10),
+    bodyHtml:
+      c.bodyHtml ||
+      '<h2>一、我们如何收集和使用您的信息</h2><p>当您在官网提交预约咨询表单时，我们会收集您的姓名、联系电话、公司名称及咨询需求，仅用于安排产品顾问与您联系提供服务。</p>',
+  }
+}
+
+// ==================== 全站数据加载 ====================
 async function loadAll() {
   loading.value = true
   try {
-    const [site, nav, home, contact] = await Promise.all([
+    const [
+      siteRes,
+      navRes,
+      homeRes,
+      aboutRes,
+      contactRes,
+      privacyRes,
+      prodCats,
+      solCats,
+      caseCats,
+      newsCats,
+      prods,
+      sols,
+      cases,
+      news,
+      custs,
+    ] = await Promise.all([
       getConfig<SiteDraft>('SITE'),
       getConfig<NavigationDraft>('NAVIGATION'),
       getConfig<HomeDraft>('HOME'),
+      getConfig<AboutDraft>('ABOUT'),
       getConfig<ContactDraft>('CONTACT'),
+      getConfig<PrivacyDraft>('PRIVACY'),
+      listCategories('PRODUCT'),
+      listCategories('SOLUTION'),
+      listCategories('CASE'),
+      listCategories('NEWS'),
+      listContents({ contentType: 'PRODUCT', page: 1, pageSize: 100 }),
+      listContents({ contentType: 'SOLUTION', page: 1, pageSize: 100 }),
+      listContents({ contentType: 'CASE', page: 1, pageSize: 100 }),
+      listContents({ contentType: 'NEWS', page: 1, pageSize: 100 }),
+      listContents({ contentType: 'CUSTOMER', page: 1, pageSize: 100 }),
     ])
-    configViews.SITE = site
-    configViews.NAVIGATION = nav
-    configViews.HOME = home
-    configViews.CONTACT = contact
 
-    applySourceData(false)
+    configViews.SITE = siteRes
+    configViews.NAVIGATION = navRes
+    configViews.HOME = homeRes
+    configViews.ABOUT = aboutRes
+    configViews.CONTACT = contactRes
+    configViews.PRIVACY = privacyRes
 
-    baselineJson.SITE = JSON.stringify(drafts.SITE)
-    baselineJson.NAVIGATION = JSON.stringify(drafts.NAVIGATION)
-    baselineJson.HOME = JSON.stringify(drafts.HOME)
-    baselineJson.CONTACT = JSON.stringify(drafts.CONTACT)
+    drafts.value.SITE = normalizeSite(siteRes.draft)
+    drafts.value.NAVIGATION = normalizeNav(navRes.draft)
+    drafts.value.HOME = normalizeHome(homeRes.draft)
+    drafts.value.ABOUT = normalizeAbout(aboutRes.draft)
+    drafts.value.CONTACT = normalizeContact(contactRes.draft)
+    drafts.value.PRIVACY = normalizePrivacy(privacyRes.draft)
+
+    for (const k of ALL_CONFIG_KEYS) {
+      baselineJson[k] = JSON.stringify(drafts.value[k])
+    }
+
+    categoriesMap.PRODUCT = prodCats.items || []
+    categoriesMap.SOLUTION = solCats.items || []
+    categoriesMap.CASE = caseCats.items || []
+    categoriesMap.NEWS = newsCats.items || []
+
+    contentsMap.PRODUCT = prods.items || []
+    contentsMap.SOLUTION = sols.items || []
+    contentsMap.CASE = cases.items || []
+    contentsMap.NEWS = news.items || []
+    contentsMap.CUSTOMER = custs.items || []
 
     historyStack.value = [JSON.stringify(drafts)]
     historyPointer.value = 0
 
-    await loadCatalogAndMedia()
-  } catch (error) {
-    ElMessage.error(error instanceof ApiError ? error.message : '加载全局配置失败')
+    await syncPageFromRoute()
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '加载全站实景工作台数据失败')
   } finally {
     loading.value = false
   }
 }
 
-function switchStudioMode(mode: 'edit' | 'preview' | 'published') {
-  if (mode === 'published') {
-    applySourceData(true)
-  } else if (studioMode.value === 'published') {
-    applySourceData(false)
-  }
-  studioMode.value = mode
+const SLUG_TO_PAGE: Record<string, StudioPageKey> = {
+  home: 'HOME',
+  products: 'PRODUCTS',
+  product: 'PRODUCTS',
+  solutions: 'SOLUTIONS',
+  solution: 'SOLUTIONS',
+  cases: 'CASES',
+  case: 'CASES',
+  news: 'NEWS',
+  about: 'ABOUT',
+  contact: 'CONTACT',
+  privacy: 'PRIVACY',
 }
 
-// ==================== 全局保存与一键发布 ====================
-async function saveAllDrafts(silent = false): Promise<boolean> {
-  const targets: Array<'SITE' | 'NAVIGATION' | 'HOME' | 'CONTACT'> =
-    dirtyKeys.value.length > 0
-      ? (dirtyKeys.value as Array<'SITE' | 'NAVIGATION' | 'HOME' | 'CONTACT'>)
-      : ['HOME']
+const PAGE_TO_CONTENT_TYPE: Partial<Record<StudioPageKey, ContentType>> = {
+  PRODUCTS: 'PRODUCT',
+  SOLUTIONS: 'SOLUTION',
+  CASES: 'CASE',
+  NEWS: 'NEWS',
+}
 
-  savingAll.value = true
+const PAGE_TO_CATEGORY_TYPE: Partial<Record<StudioPageKey, CategoryType>> = {
+  PRODUCTS: 'PRODUCT',
+  SOLUTIONS: 'SOLUTION',
+  CASES: 'CASE',
+  NEWS: 'NEWS',
+}
+
+async function syncPageFromRoute() {
+  const paramSlug = String(
+    route.params.slug || route.params.page || route.query.page || '',
+  ).toLowerCase()
+  const paramId = String(route.params.id || route.query.id || '')
+  if (paramSlug && SLUG_TO_PAGE[paramSlug]) {
+    activePage.value = SLUG_TO_PAGE[paramSlug]
+  }
+  if (paramId && PAGE_TO_CONTENT_TYPE[activePage.value]) {
+    await openContentInStudio(PAGE_TO_CONTENT_TYPE[activePage.value]!, paramId)
+  }
+}
+
+function switchStudioPage(page: StudioPageKey, keepDetail = false) {
+  activePage.value = page
+  activeCategoryFilter.value = 'ALL'
+  if (!keepDetail) {
+    activeContentId.value = ''
+    activeContentMeta.value = null
+    activeContentBaseline.value = ''
+  }
+  openMegaPreview.value = false
+}
+
+// ==================== 内容详情内嵌实景编辑（产品/方案/案例/新闻） ====================
+async function openContentInStudio(type: ContentType, id: string | number) {
+  const pageMap: Record<ContentType, StudioPageKey> = {
+    PRODUCT: 'PRODUCTS',
+    SOLUTION: 'SOLUTIONS',
+    CASE: 'CASES',
+    NEWS: 'NEWS',
+    CUSTOMER: 'HOME',
+  }
+  activePage.value = pageMap[type] || 'HOME'
+  if (type === 'CUSTOMER') return
+
+  contentDetailLoading.value = true
   try {
-    for (const key of targets) {
-      const view = configViews[key]
-      if (!view) continue
-      const payload = JSON.parse(JSON.stringify(drafts[key]))
-      if (key === 'HOME' && payload.services?.groups) {
-        payload.services.groups = payload.services.groups.map((g: any) => ({
-          ...g,
-          highlights: g.highlightsText
-            ? g.highlightsText.split('/').map((s: string) => s.trim()).filter(Boolean)
-            : (g.highlights || []),
-        }))
-      }
-      const updated = await saveConfigDraft(
-        key,
-        payload,
-        view.lockVersion,
-      )
-      ;(configViews as Record<string, unknown>)[key] = updated
-      baselineJson[key] = JSON.stringify(drafts[key])
-    }
+    const detail = await getContent(String(id))
+    const view = detail.content
+    activeContentId.value = String(view.id)
+    activeContentMeta.value = view
+    activeProductRoleIdx.value = 0
+
+    const d = (
+      studioMode.value === 'published' && detail.published ? detail.published : detail.draft || {}
+    ) as Record<string, any>
+    activeContentRawBackup.value = { ...d }
+    contentDetailsCache[String(view.id)] = d
+
+    activeContentDraft.value.title = String(d.title ?? view.title ?? '')
+    activeContentDraft.value.summary = String(d.summary ?? '')
+    activeContentDraft.value.coverMediaId = d.coverMediaId != null ? Number(d.coverMediaId) : null
+    activeContentDraft.value.coverAlt = String(d.coverAlt ?? '')
+    activeContentDraft.value.heroMediaId = d.heroMediaId != null ? Number(d.heroMediaId) : null
+    activeContentDraft.value.categoryId =
+      d.categoryId != null ? String(d.categoryId) : view.categoryId ? String(view.categoryId) : ''
+    activeContentDraft.value.sortOrder = Number(d.sortOrder ?? view.sortOrder ?? 100)
+    activeContentDraft.value.industry = String(d.industry ?? '')
+    activeContentDraft.value.customerName = String(d.customerName ?? '')
+    activeContentDraft.value.quoteText = String(d.quoteText ?? '')
+    activeContentDraft.value.quoteAuthor = String(d.quoteAuthor ?? '')
+    activeContentDraft.value.author = String(d.author ?? '')
+    activeContentDraft.value.displayTime = String(
+      d.displayTime ?? view.displayTime ?? new Date().toISOString().slice(0, 16).replace('T', ' '),
+    )
+    activeContentDraft.value.sourceName = String(d.sourceName ?? '')
+    activeContentDraft.value.sourceUrl = String(d.sourceUrl ?? '')
+    activeContentDraft.value.bodyHtml = String(d.bodyHtml ?? '')
+    activeContentDraft.value.seoTitle = String(d.seo?.title ?? d.seoTitle ?? '')
+    activeContentDraft.value.seoDescription = String(d.seo?.description ?? d.seoDescription ?? '')
+
+    activeContentDraft.value.features =
+      Array.isArray(d.features) && d.features.length
+        ? clone(d.features)
+        : [
+            { tag: '全天候感知', title: '智能算法实时识别风险', description: '7×24 小时自动监测关键节点，异常事件毫秒级预警。' },
+            { tag: '闭环协同', title: '多端联动自动派单处置', description: '打通总部看板与一线移动端，形成完整管理闭环。' },
+            { tag: '数据洞察', title: '经营指标可视化分析', description: '多维度核算单车与线路效益，辅助管理层精准决策。' },
+          ]
+    activeContentDraft.value.effectMetrics =
+      Array.isArray(d.effectMetrics) && d.effectMetrics.length
+        ? clone(d.effectMetrics)
+        : [
+            { displayValue: '75%', label: '高风险行为发生率下降' },
+            { displayValue: '30%', label: '运营管理效率提升' },
+            { displayValue: '99.2%', label: '全链路数据准确率' },
+          ]
+    activeContentDraft.value.roleTabs =
+      Array.isArray(d.roleTabs) && d.roleTabs.length
+        ? clone(
+            d.roleTabs.map((r: any) => ({
+              role: String(r.role ?? '角色'),
+              headline: String(r.headline ?? ''),
+              bullets: Array.isArray(r.bullets) ? r.bullets.map(String) : [],
+            })),
+          )
+        : [
+            { role: '企业老板', headline: '全局掌控经营利润与安全底线', bullets: ['核心经营大屏实时汇总', '异常成本波动自动归因预警', '行业对标分析辅助战略决策'] },
+            { role: '安全/运营总监', headline: '标准化流程降低一线管控成本', bullets: ['高风险事件智能分级督办', '全流程履约节点可视化追踪', '考核报表一键自动生成'] },
+            { role: '车队长/调度', headline: '移动化工具提升日常调度效率', bullets: ['车辆与人员状态实时在线', '异常情况手机端秒级接收处置'] },
+            { role: '一线司机', headline: '贴心语音提醒保障行车安全', bullets: ['实时路况与风险语音伴驾', '电子回单免纸质交接更省心'] },
+          ]
+    activeContentDraft.value.terminalTools =
+      Array.isArray(d.terminalTools) && d.terminalTools.length
+        ? clone(d.terminalTools)
+        : [
+            { name: '智能车载终端', badge: 'AI 边缘计算', description: '高清双摄+北斗高精度定位，全天候采集行车数据' },
+            { name: '移动管家小程序', badge: '轻量协同', description: '随时随地查看车辆位置、接收预警并完成闭环处理' },
+            { name: '企业管理工作台', badge: 'SaaS 看板', description: '多维数据报表与智能规则引擎，支持个性化配置' },
+          ]
+    activeContentDraft.value.pains = Array.isArray(d.pains) ? clone(d.pains) : []
+    activeContentDraft.value.benefits = Array.isArray(d.benefits) ? clone(d.benefits) : []
+    activeContentDraft.value.outcomes = Array.isArray(d.outcomes) ? clone(d.outcomes) : []
+    activeContentDraft.value.relatedCaseIds = Array.isArray(d.relatedCaseIds)
+      ? d.relatedCaseIds.map(Number)
+      : []
+    activeContentDraft.value.relatedProductIds = Array.isArray(d.relatedProductIds)
+      ? d.relatedProductIds.map(Number)
+      : []
+    activeContentDraft.value.relatedSolutionIds = Array.isArray(d.relatedSolutionIds)
+      ? d.relatedSolutionIds.map(Number)
+      : []
+
+    activeContentBaseline.value = JSON.stringify(activeContentDraft.value)
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '加载内容详情失败')
+  } finally {
+    contentDetailLoading.value = false
+  }
+}
+
+function closeContentDetail() {
+  activeContentId.value = ''
+  activeContentMeta.value = null
+  activeContentBaseline.value = ''
+}
+
+function buildContentPayload(type: ContentType): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    ...activeContentRawBackup.value,
+    title: activeContentDraft.value.title.trim() || '未命名内容',
+    summary: activeContentDraft.value.summary.trim(),
+    coverMediaId: activeContentDraft.value.coverMediaId,
+    coverAlt: activeContentDraft.value.coverAlt.trim() || activeContentDraft.value.title.trim(),
+    categoryId: activeContentDraft.value.categoryId ? Number(activeContentDraft.value.categoryId) : null,
+    sortOrder: Number(activeContentDraft.value.sortOrder || 100),
+    bodyHtml: activeContentDraft.value.bodyHtml,
+    seo: {
+      title: activeContentDraft.value.seoTitle.trim(),
+      description: activeContentDraft.value.seoDescription.trim(),
+    },
+  }
+  if (type === 'PRODUCT') {
+    base.heroMediaId = activeContentDraft.value.heroMediaId || activeContentDraft.value.coverMediaId
+    base.features = activeContentDraft.value.features
+    base.hardwareModules = activeContentDraft.value.features
+    base.effectMetrics = activeContentDraft.value.effectMetrics
+    base.roleTabs = activeContentDraft.value.roleTabs
+    base.terminalTools = activeContentDraft.value.terminalTools
+    base.relatedSolutionIds = activeContentDraft.value.relatedSolutionIds
+    base.relatedCaseIds = activeContentDraft.value.relatedCaseIds
+  } else if (type === 'SOLUTION') {
+    base.heroMediaId = activeContentDraft.value.heroMediaId || activeContentDraft.value.coverMediaId
+    base.industry = activeContentDraft.value.industry.trim()
+    base.pains = activeContentDraft.value.pains
+    base.benefits = activeContentDraft.value.benefits
+    base.relatedProductIds = activeContentDraft.value.relatedProductIds
+    base.relatedCaseIds = activeContentDraft.value.relatedCaseIds
+  } else if (type === 'CASE') {
+    base.industry = activeContentDraft.value.industry.trim()
+    base.customerName = activeContentDraft.value.customerName.trim()
+    base.quoteText = activeContentDraft.value.quoteText.trim()
+    base.quoteAuthor = activeContentDraft.value.quoteAuthor.trim()
+    base.outcomes = activeContentDraft.value.outcomes
+    base.relatedProductIds = activeContentDraft.value.relatedProductIds
+    base.relatedSolutionIds = activeContentDraft.value.relatedSolutionIds
+  } else if (type === 'NEWS') {
+    base.author = activeContentDraft.value.author.trim()
+    base.displayTime = activeContentDraft.value.displayTime.trim()
+    base.sourceName = activeContentDraft.value.sourceName.trim()
+    base.sourceUrl = activeContentDraft.value.sourceUrl.trim()
+  }
+  return base
+}
+
+async function saveActiveContentDraft(silent = false): Promise<boolean> {
+  if (!activeContentId.value || !activeContentMeta.value) return false
+  const type = activeContentMeta.value.contentType as ContentType
+  if (
+    type === 'CASE' &&
+    Boolean(activeContentDraft.value.quoteText.trim()) !== Boolean(activeContentDraft.value.quoteAuthor.trim())
+  ) {
+    ElMessage.warning('客户证言（quoteText）与证言人（quoteAuthor）需成对填写')
+    return false
+  }
+  try {
+    const payload = buildContentPayload(type)
+    const updated = await saveContentDraft(
+      activeContentId.value,
+      payload,
+      activeContentMeta.value.lockVersion,
+    )
+    activeContentMeta.value = updated.content
+    activeContentRawBackup.value = { ...updated.draft }
+    contentDetailsCache[String(updated.content.id)] = updated.draft
+    activeContentBaseline.value = JSON.stringify(activeContentDraft.value)
+
+    const list = contentsMap[type] || []
+    const idx = list.findIndex((x) => String(x.id) === String(updated.content.id))
+    if (idx >= 0) list[idx] = updated.content
     if (!silent) {
-      ElMessage.success(`已同步保存 ${targets.join(' / ')} 草稿至后台各管理模块！`)
+      ElMessage.success(`已保存「${activeContentDraft.value.title}」内容草稿`)
     }
     return true
-  } catch (error) {
-    if (error instanceof ApiError) {
-      const detail = error.fieldErrors?.map((f) => `${f.field}: ${f.message}`).join('；')
-      ElMessage.error(detail ? `${error.message}（${detail}）` : error.message)
-    } else {
-      ElMessage.error('保存草稿失败，请检查输入项')
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '保存详情草稿失败')
+    return false
+  }
+}
+
+async function publishActiveContentDraft() {
+  if (!activeContentId.value || !activeContentMeta.value) return
+  const saved = await saveActiveContentDraft(true)
+  if (!saved || !activeContentMeta.value) return
+  try {
+    const type = activeContentMeta.value.contentType as ContentType
+    if (activeContentDraft.value.categoryId && PAGE_TO_CATEGORY_TYPE[activePage.value]) {
+      const catType = PAGE_TO_CATEGORY_TYPE[activePage.value]!
+      const cat = categoriesMap[catType].find(
+        (c) => String(c.id) === String(activeContentDraft.value.categoryId),
+      )
+      if (cat && (cat.status !== 'PUBLISHED' || cat.hasUnpublishedChanges)) {
+        await publishCategory(cat.id, cat.lockVersion, cat.draftVersion)
+      }
     }
+    await publishContent(
+      activeContentMeta.value.id,
+      activeContentMeta.value.lockVersion,
+      activeContentMeta.value.draftVersion,
+    )
+    const refreshed = await getContent(activeContentMeta.value.id)
+    activeContentMeta.value = refreshed.content
+    const list = contentsMap[type] || []
+    const idx = list.findIndex((x) => String(x.id) === String(refreshed.content.id))
+    if (idx >= 0) list[idx] = refreshed.content
+    ElMessage.success(`「${activeContentDraft.value.title}」已正式发布上线`)
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '发布内容失败')
+  }
+}
+
+async function createNewContentInStudio(type: ContentType) {
+  const labelMap: Record<ContentType, string> = {
+    PRODUCT: '新产品',
+    SOLUTION: '新解决方案',
+    CASE: '新客户案例',
+    NEWS: '新新闻资讯',
+    CUSTOMER: '新合作客户',
+  }
+  try {
+    const { value: title } = await ElMessageBox.prompt(
+      `请输入${labelMap[type]}标题（创建后将直接在画布中打开实景编辑）：`,
+      `新建${labelMap[type]}`,
+      {
+        confirmButtonText: '创建并编辑',
+        cancelButtonText: '取消',
+        inputPlaceholder: '例如：智能安全管家 3.0',
+        inputValidator: (v) => (v && v.trim() ? true : '标题不能为空'),
+      },
+    )
+    const catType = type === 'CUSTOMER' ? null : (type as CategoryType)
+    const defaultCatId =
+      catType && categoriesMap[catType]?.length ? Number(categoriesMap[catType][0].id) : null
+    const draftPayload: Record<string, unknown> = {
+      title: title.trim(),
+      summary: '点击此处直接在画布中输入摘要描述...',
+      categoryId: defaultCatId,
+      sortOrder: 100,
+      bodyHtml: '<p>在此输入正文详细介绍内容...</p>',
+    }
+    if (type === 'CASE') {
+      draftPayload.customerName = title.trim()
+      draftPayload.industry = '智慧物流'
+      draftPayload.outcomes = [{ displayValue: '35%', label: '运营效率提升' }]
+    }
+    if (type === 'NEWS') {
+      draftPayload.displayTime = new Date().toISOString().slice(0, 16).replace('T', ' ')
+      draftPayload.author = '官方资讯'
+    }
+    const created = await createContent(type, draftPayload)
+    contentsMap[type].unshift(created.content)
+    contentDetailsCache[String(created.content.id)] = created.draft
+    ElMessage.success(`已创建「${title.trim()}」`)
+    if (type !== 'CUSTOMER') {
+      await openContentInStudio(type, created.content.id)
+    }
+  } catch {
+    // 用户取消
+  }
+}
+
+// ==================== 分类栏原位新建 / 改名 / 发布 ====================
+async function addCategoryInline(catType: CategoryType) {
+  try {
+    const { value: name } = await ElMessageBox.prompt(
+      '请输入新分类名称（创建后自动保存并发布上线）：',
+      '新建分类标签',
+      {
+        confirmButtonText: '立即创建并发布',
+        cancelButtonText: '取消',
+        inputValidator: (v) => (v && v.trim() ? true : '分类名称不能为空'),
+      },
+    )
+    await createCategory(catType, name.trim(), 100)
+    const refreshed = await listCategories(catType)
+    categoriesMap[catType] = refreshed.items || []
+    const newest = categoriesMap[catType].find((c) => c.name === name.trim())
+    if (newest && newest.status !== 'PUBLISHED') {
+      await publishCategory(newest.id, newest.lockVersion, newest.draftVersion)
+      const again = await listCategories(catType)
+      categoriesMap[catType] = again.items || []
+    }
+    ElMessage.success(`分类「${name.trim()}」已创建并发布`)
+  } catch {
+    // 用户取消
+  }
+}
+
+async function renameCategoryInline(catType: CategoryType, cat: CategoryView) {
+  try {
+    const { value: name } = await ElMessageBox.prompt('修改分类标签显示名称：', '重命名分类', {
+      confirmButtonText: '保存并发布',
+      cancelButtonText: '取消',
+      inputValue: cat.name,
+      inputValidator: (v) => (v && v.trim() ? true : '名称不能为空'),
+    })
+    await saveCategory(cat.id, name.trim(), cat.sortOrder ?? 100, cat.lockVersion)
+    const afterSave = await listCategories(catType)
+    const updatedCat = (afterSave.items || []).find((c) => String(c.id) === String(cat.id))
+    if (updatedCat) {
+      await publishCategory(updatedCat.id, updatedCat.lockVersion, updatedCat.draftVersion)
+    }
+    const finalRes = await listCategories(catType)
+    categoriesMap[catType] = finalRes.items || []
+    ElMessage.success(`分类已更新为「${name.trim()}」`)
+  } catch {
+    // 用户取消
+  }
+}
+
+// ==================== 媒体与内容辅助方法 ====================
+function resolveMediaUrl(mediaId?: number | string | null): string {
+  if (!mediaId) return ''
+  return `/api/admin/media/${mediaId}/file`
+}
+
+function getContentItem(type: ContentType, id: number | string): ContentView | undefined {
+  return (contentsMap[type] || []).find((x) => String(x.id) === String(id))
+}
+
+function getContentData(item?: ContentView): Record<string, any> {
+  if (!item) return {}
+  const cached = contentDetailsCache[String(item.id)] || {}
+  return {
+    ...cached,
+    id: item.id,
+    title: cached.title ?? item.title,
+    summary: cached.summary ?? '',
+    categoryId: cached.categoryId ?? item.categoryId,
+    categoryName: item.categoryName,
+    displayTime: cached.displayTime ?? item.displayTime,
+    coverMediaId: cached.coverMediaId ?? item.coverMediaId,
+    industry: cached.industry ?? item.categoryName ?? '标杆案例',
+    customerName: cached.customerName ?? item.title,
+  }
+}
+
+function getCategoryName(catType: CategoryType, catId?: number | string | null): string {
+  if (!catId) return '默认分类'
+  const found = (categoriesMap[catType] || []).find((c) => String(c.id) === String(catId))
+  return found?.name || '默认分类'
+}
+
+// 当前视图数据源（编辑/预览态使用 drafts，已发布对比态使用 published）
+const activeSite = computed<SiteDraft>(() => {
+  if (studioMode.value === 'published' && configViews.SITE?.published) {
+    return normalizeSite(configViews.SITE.published)
+  }
+  return drafts.value.SITE
+})
+
+const activeNav = computed<NavigationDraft>(() => {
+  if (studioMode.value === 'published' && configViews.NAVIGATION?.published) {
+    return normalizeNav(configViews.NAVIGATION.published)
+  }
+  return drafts.value.NAVIGATION
+})
+
+const activeHome = computed<HomeDraft>(() => {
+  if (studioMode.value === 'published' && configViews.HOME?.published) {
+    return normalizeHome(configViews.HOME.published)
+  }
+  return drafts.value.HOME
+})
+
+const activeAbout = computed<AboutDraft>(() => {
+  if (studioMode.value === 'published' && configViews.ABOUT?.published) {
+    return normalizeAbout(configViews.ABOUT.published)
+  }
+  return drafts.value.ABOUT
+})
+
+const activeContact = computed<ContactDraft>(() => {
+  if (studioMode.value === 'published' && configViews.CONTACT?.published) {
+    return normalizeContact(configViews.CONTACT.published)
+  }
+  return drafts.value.CONTACT
+})
+
+const activePrivacy = computed<PrivacyDraft>(() => {
+  if (studioMode.value === 'published' && configViews.PRIVACY?.published) {
+    return normalizePrivacy(configViews.PRIVACY.published)
+  }
+  return drafts.value.PRIVACY
+})
+
+const currentHero = computed<HeroItem | null>(() => {
+  const list = activeHome.value.hero.items
+  if (!list.length) return null
+  const idx = Math.min(heroIndex.value, list.length - 1)
+  return list[idx] || list[0]
+})
+
+const resolvedHomeNews = computed<ContentView[]>(() => {
+  const cfg = activeHome.value.news
+  if ((cfg.mode === 'MANUAL' || cfg.mode === 'SELECTED') && cfg.contentIds?.length) {
+    return cfg.contentIds
+      .map((id) => getContentItem('NEWS', id))
+      .filter((x): x is ContentView => Boolean(x))
+  }
+  return (contentsMap.NEWS || []).slice(0, cfg.limit || 3)
+})
+
+function getFilteredContents(type: ContentType): ContentView[] {
+  const list = contentsMap[type] || []
+  if (activeCategoryFilter.value === 'ALL') return list
+  return list.filter((it) => String(it.categoryId || '') === String(activeCategoryFilter.value))
+}
+
+const pinnedHeadlineNews = computed<ContentView | null>(() => {
+  const list = getFilteredContents('NEWS')
+  return list.length ? list[0] : null
+})
+
+const gridNewsItems = computed<ContentView[]>(() => {
+  const list = getFilteredContents('NEWS')
+  return list.length > 1 ? list.slice(1) : []
+})
+
+// ==================== 首页及各页面区块增删排序操作 ====================
+function moveSection(index: number, delta: number) {
+  const list = drafts.value.HOME.sectionOrder
+  const target = index + delta
+  if (target < 0 || target >= list.length) return
+  const [item] = list.splice(index, 1)
+  list.splice(target, 0, item)
+}
+
+function addHeroSlide() {
+  drafts.value.HOME.hero.items.push({
+    enabled: true,
+    sortOrder: (drafts.value.HOME.hero.items.length + 1) * 10,
+    title: '新轮播主标题',
+    subtitle: '点击文字即可直接在画布中编辑副标题描述',
+    imageAlt: '轮播背景',
+    titleColor: '',
+    subtitleColor: '',
+    kickerColor: '',
+    buttonBgColor: '',
+    buttonTextColor: '',
+    buttonText: '立即了解',
+    link: { type: 'PAGE', pageCode: 'PRODUCTS' },
+  })
+  heroIndex.value = drafts.value.HOME.hero.items.length - 1
+}
+
+function removeHeroSlide(idx: number) {
+  if (drafts.value.HOME.hero.items.length <= 1) {
+    ElMessage.warning('至少保留一张焦点图')
+    return
+  }
+  drafts.value.HOME.hero.items.splice(idx, 1)
+  if (heroIndex.value >= drafts.value.HOME.hero.items.length) {
+    heroIndex.value = drafts.value.HOME.hero.items.length - 1
+  }
+}
+
+function addServiceGroup() {
+  drafts.value.HOME.services.groups.push({
+    sortOrder: (drafts.value.HOME.services.groups.length + 1) * 10,
+    title: '新业务分组',
+    tag: 'AI + IoT 核心场景',
+    description: '在此输入该业务分组的核心场景描述',
+    highlights: ['安全可控', '降本增效'],
+    highlightsText: '安全可控 / 降本增效',
+    layout: 'auto',
+    contentType: 'PRODUCT',
+    contentIds: [],
+    moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
+  })
+}
+
+// 导航链接在画布内的实景跳转
+function navigateLinkInStudio(link?: LinkValue | null) {
+  if (!link) return
+  const rawPage = String((link as any).pageCode || (link as any).pageKey || '').toUpperCase()
+  if ((link.type === 'PAGE' || link.type === 'INTERNAL_PAGE') && rawPage) {
+    if (['HOME', 'PRODUCTS', 'SOLUTIONS', 'CASES', 'NEWS', 'ABOUT', 'CONTACT', 'PRIVACY'].includes(rawPage)) {
+      switchStudioPage(rawPage as StudioPageKey)
+      return
+    }
+  }
+  if ((link.type === 'CONTENT' || link.type === 'CONTENT_DETAIL') && link.contentType && link.contentId) {
+    openContentInStudio(link.contentType as ContentType, link.contentId)
+    return
+  }
+  if (link.type === 'CONSULT') {
+    switchStudioPage('CONTACT')
+  }
+}
+
+// ==================== 全站发布前健康巡检 ====================
+interface HealthIssue {
+  level: 'error' | 'warning'
+  module: string
+  page: StudioPageKey
+  message: string
+}
+
+const healthIssues = computed<HealthIssue[]>(() => {
+  const issues: HealthIssue[] = []
+  if (!drafts.value.SITE.siteName?.trim()) {
+    issues.push({ level: 'error', module: '站点配置', page: 'HOME', message: '站点名称不能为空' })
+  }
+  drafts.value.HOME.hero.items.forEach((h, i) => {
+    if (!h.title?.trim()) {
+      issues.push({
+        level: 'error',
+        module: `首页焦点图 #${i + 1}`,
+        page: 'HOME',
+        message: '焦点图主标题为空',
+      })
+    }
+  })
+  drafts.value.HOME.services.groups.forEach((g, i) => {
+    for (const cid of g.contentIds || []) {
+      const item = getContentItem((g.contentType as ContentType) || 'PRODUCT', cid)
+      if (!item) {
+        issues.push({
+          level: 'error',
+          module: `首页分组「${g.title || i + 1}」`,
+          page: 'HOME',
+          message: `引用的内容 #${cid} 不存在`,
+        })
+      } else if (item.status !== 'PUBLISHED') {
+        issues.push({
+          level: 'warning',
+          module: `首页分组「${g.title || i + 1}」`,
+          page: 'HOME',
+          message: `引用的「${item.title || cid}」尚未发布，一键发布时将自动同步发布`,
+        })
+      }
+    }
+  })
+  if (!drafts.value.ABOUT.intro?.trim()) {
+    issues.push({ level: 'warning', module: '关于我们', page: 'ABOUT', message: '企业简介正文为空' })
+  }
+  if (!drafts.value.CONTACT.phone?.trim() && !drafts.value.CONTACT.email?.trim()) {
+    issues.push({ level: 'warning', module: '联系我们', page: 'CONTACT', message: '联系电话与邮箱均为空' })
+  }
+  return issues
+})
+
+// ==================== 一键保存草稿 & 一键全站发布 ====================
+function buildSavePayload(key: ConfigKey) {
+  if (key === 'HOME') {
+    const h = clone(drafts.value.HOME)
+    h.services.groups = (h.services.groups || []).map((g: ServiceGroup) => {
+      const highlights = String(g.highlightsText || '')
+        .split(/[\/,，\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+      return { ...g, highlights }
+    })
+    return h
+  }
+  return clone(drafts.value[key])
+}
+
+async function saveAllDrafts(silent = false): Promise<boolean> {
+  if (totalDirtyCount.value === 0 && !silent) {
+    ElMessage.info('当前没有未保存的草稿改动')
+    return true
+  }
+  savingAll.value = true
+  try {
+    for (const key of dirtyConfigKeys.value) {
+      const view = configViews[key]
+      if (!view) continue
+      const payload = buildSavePayload(key)
+      const updated = await saveConfigDraft(key, payload, view.lockVersion)
+      ;(configViews as Record<string, unknown>)[key] = updated
+      baselineJson[key] = JSON.stringify(drafts.value[key])
+    }
+    if (isActiveContentDirty.value) {
+      const ok = await saveActiveContentDraft(true)
+      if (!ok) return false
+    }
+    if (!silent) {
+      ElMessage.success('全站草稿修改已同步保存！')
+    }
+    return true
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '保存草稿失败')
     return false
   } finally {
     savingAll.value = false
@@ -668,1805 +1752,3611 @@ async function saveAndPublishAll() {
     ElMessage.warning('当前为编辑角色，仅管理员可执行发布')
     return
   }
-  if (healthIssues.value.some((i) => i.level === 'error')) {
+  const blockingErrors = healthIssues.value.filter((i) => i.level === 'error')
+  if (blockingErrors.length > 0) {
     healthDrawerOpen.value = true
-    ElMessage.warning('存在阻塞发布的必填项缺失，请先在右侧体检面板修正')
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-      `即将把当前可视化编排的全局改动（${unpublishedKeys.value.join('、') || 'HOME'}）保存并正式发布到线上官网，确认继续？`,
-      '全局保存并发布上线',
-      { type: 'warning', confirmButtonText: '立即全局发布', cancelButtonText: '取消' },
-    )
-  } catch {
+    ElMessage.error(`发现 ${blockingErrors.length} 项阻断性问题，请先修复后再发布`)
     return
   }
 
   publishingAll.value = true
   try {
-    if (dirtyKeys.value.length > 0) {
-      const ok = await saveAllDrafts(true)
-      if (!ok) return
+    // 1. 先保存所有脏配置草稿与当前正在编辑的内容详情
+    const ok = await saveAllDrafts(true)
+    if (!ok) return
+
+    if (activeContentId.value && activeContentMeta.value && activeContentMeta.value.hasUnpublishedChanges) {
+      await publishContent(
+        activeContentMeta.value.id,
+        activeContentMeta.value.lockVersion,
+        activeContentMeta.value.draftVersion,
+      )
     }
-    const pubTargets: Array<'SITE' | 'NAVIGATION' | 'HOME' | 'CONTACT'> = [
-      'SITE',
-      'NAVIGATION',
-      'CONTACT',
-      'HOME',
-    ]
-    for (const key of pubTargets) {
-      const v = configViews[key]
-      if (v && v.hasUnpublishedChanges) {
-        await publishConfig(key, v.lockVersion, v.draftVersion)
+
+    // 2. 自动发布首页引用的未发布内容项（避免后端引用校验拦截）
+    for (const g of drafts.value.HOME.services.groups) {
+      const cType = (g.contentType as ContentType) || 'PRODUCT'
+      for (const cid of g.contentIds || []) {
+        const item = getContentItem(cType, cid)
+        if (item && (item.status !== 'PUBLISHED' || item.hasUnpublishedChanges)) {
+          await publishContent(item.id, item.lockVersion, item.draftVersion)
+        }
       }
     }
-    ElMessage.success('🎉 全局配置已成功发布上线！官网前台已实时更新')
-    await loadAll()
-  } catch (error) {
-    if (error instanceof ApiError) {
-      const detail = error.fieldErrors?.map((f) => `${f.field}: ${f.message}`).join('；')
-      ElMessage.error(detail ? `${error.message}（${detail}）` : error.message)
-    } else {
-      ElMessage.error('发布失败')
+    for (const cid of drafts.value.HOME.cases.contentIds || []) {
+      const item = getContentItem('CASE', cid)
+      if (item && (item.status !== 'PUBLISHED' || item.hasUnpublishedChanges)) {
+        await publishContent(item.id, item.lockVersion, item.draftVersion)
+      }
     }
+    for (const cid of drafts.value.HOME.customers.contentIds || []) {
+      const item = getContentItem('CUSTOMER', cid)
+      if (item && (item.status !== 'PUBLISHED' || item.hasUnpublishedChanges)) {
+        await publishContent(item.id, item.lockVersion, item.draftVersion)
+      }
+    }
+
+    // 3. 按依赖顺序发布所有有未发布改动的全局配置
+    const toPublish: ConfigKey[] = ['SITE', 'NAVIGATION', 'ABOUT', 'CONTACT', 'PRIVACY', 'HOME']
+    for (const key of toPublish) {
+      const v = configViews[key]
+      if (v && v.hasUnpublishedChanges) {
+        const res = await publishConfig(key, v.lockVersion, v.draftVersion)
+        ;(configViews as Record<string, unknown>)[key] = res
+      }
+    }
+
+    ElMessage.success('🎉 全站配置与内容已同步发布上线！')
+    await loadAll()
+  } catch (err) {
+    ElMessage.error(err instanceof ApiError ? err.message : '发布失败，请检查关联项状态')
   } finally {
     publishingAll.value = false
   }
 }
 
-// ==================== 模块排序、增删与快捷操作 ====================
-function moveSection(key: HomeSectionKey, delta: number) {
-  const list = drafts.HOME.sectionOrder
-  const idx = list.indexOf(key)
-  const target = idx + delta
-  if (idx < 0 || target < 0 || target >= list.length) return
-  const [item] = list.splice(idx, 1)
-  list.splice(target, 0, item)
-  recordSnapshot('调整模块顺序')
-}
-
-function moveItem<T extends { sortOrder?: number }>(list: T[], index: number, delta: number) {
-  const target = index + delta
-  if (target < 0 || target >= list.length) return
-  if (list[index].sortOrder !== undefined && list[target].sortOrder !== undefined) {
-    const tmp = list[index].sortOrder
-    list[index].sortOrder = list[target].sortOrder
-    list[target].sortOrder = tmp
-  }
-  const [item] = list.splice(index, 1)
-  list.splice(target, 0, item)
-  recordSnapshot('调整条目顺序')
-}
-
-const currentHero = computed<HeroItem | null>(() => {
-  return drafts.HOME.hero.items[heroIndex.value] ?? drafts.HOME.hero.items[0] ?? null
-})
-
-function addHeroSlide() {
-  if (drafts.HOME.hero.items.length >= 5) {
-    ElMessage.warning('首屏轮播最多支持 5 条')
-    return
-  }
-  const firstMediaId = drafts.HOME.hero.items[0]?.desktopMediaId
-  drafts.HOME.hero.items.push({
-    enabled: true,
-    sortOrder: (drafts.HOME.hero.items.length + 1) * 10,
-    title: '新首屏海报标题',
-    subtitle: '请在此输入副标题描述',
-    desktopMediaId: firstMediaId,
-    mobileMediaId: undefined,
-    imageAlt: '全场景AI工具',
-    buttonText: '了解详情',
-    link: { type: 'PAGE', pageCode: 'PRODUCTS' },
-    titleColor: '#FFFFFF',
-    subtitleColor: 'rgba(255, 255, 255, 0.92)',
-    buttonBgColor: '#FFFFFF',
-    buttonTextColor: '#1F2329',
-  })
-  heroIndex.value = drafts.HOME.hero.items.length - 1
-  selectedSection.value = 'hero'
-  recordSnapshot('新增首屏海报')
-}
-
-function removeHeroSlide(idx: number) {
-  drafts.HOME.hero.items.splice(idx, 1)
-  if (heroIndex.value >= drafts.HOME.hero.items.length) {
-    heroIndex.value = Math.max(0, drafts.HOME.hero.items.length - 1)
-  }
-  recordSnapshot('删除首屏海报')
-}
-
-
-
-function addServiceGroup() {
-  if (drafts.HOME.services.groups.length >= 8) {
-    ElMessage.warning('产品服务分组最多 8 组')
-    return
-  }
-  const nextIdx = drafts.HOME.services.groups.length
-  const firstProduct = Object.values(contentCatalog).find((c) => c.contentType === 'PRODUCT')
-  drafts.HOME.services.groups.push({
-    sortOrder: (nextIdx + 1) * 10,
-    title: `新业务服务分组 0${nextIdx + 1}`,
-    tag: '核心产品系列',
-    highlightsText: '工业协议全栈解析 / 毫秒级边缘缓存',
-    highlights: ['工业协议全栈解析', '毫秒级边缘缓存'],
-    description: '在此输入该业务分组的核心能力描述与适用场景说明。',
-    layout: nextIdx % 2 === 0 ? 'left' : 'right',
-    contentType: 'PRODUCT',
-    contentIds: firstProduct ? [Number(firstProduct.id)] : [],
-    moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
-  })
-  activeServiceGroup.value = drafts.HOME.services.groups.length - 1
-  selectedSection.value = 'services'
-  recordSnapshot('新增服务分组')
-}
-
-function addTopNav() {
-  if (drafts.NAVIGATION.items.length >= 8) {
-    ElMessage.warning('顶层导航最多 8 项')
-    return
-  }
-  drafts.NAVIGATION.items.push({
-    label: `新栏目${drafts.NAVIGATION.items.length + 1}`,
-    enabled: true,
-    sortOrder: (drafts.NAVIGATION.items.length + 1) * 10,
-    link: { type: 'PAGE', pageCode: 'ABOUT' },
-    children: [],
-  })
-  selectedSection.value = 'header'
-  recordSnapshot('新增顶部导航')
-}
-
-function addFooterGroup() {
-  if (drafts.SITE.footerGroups.length >= 4) {
-    ElMessage.warning('页脚分组最多 4 组')
-    return
-  }
-  drafts.SITE.footerGroups.push({
-    title: `栏目分组${drafts.SITE.footerGroups.length + 1}`,
-    links: [
-      { label: '产品中心', enabled: true, sortOrder: 10, link: { type: 'PAGE', pageCode: 'PRODUCTS' } },
-      { label: '联系我们', enabled: true, sortOrder: 20, link: { type: 'PAGE', pageCode: 'CONTACT' } },
-    ],
-  })
-  selectedSection.value = 'footer'
-  recordSnapshot('新增页脚分组')
-}
-
-// ==================== 媒体选择器弹窗绑定 ====================
-type MediaPickContext =
-  | { target: 'siteLogo' }
-  | { target: 'heroDesktop'; index: number }
-  | { target: 'heroMobile'; index: number }
-  | { target: 'serviceGroup'; index: number }
-
-const mediaPickerOpen = ref(false)
-const mediaPickCtx = ref<MediaPickContext | null>(null)
-const mediaPickerKind = computed<'IMAGE' | 'VIDEO' | 'ALL'>(() => {
-  if (!mediaPickCtx.value) return 'ALL'
-  if (mediaPickCtx.value.target === 'siteLogo' || mediaPickCtx.value.target === 'serviceGroup') {
-    return 'IMAGE'
-  }
-  return 'ALL'
-})
-
-function triggerMediaPick(ctx: MediaPickContext) {
-  mediaPickCtx.value = ctx
-  mediaPickerOpen.value = true
-}
-
-function onMediaPicked(media: MediaItem) {
-  mediaCache[Number(media.id)] = media
-  const ctx = mediaPickCtx.value
-  if (!ctx) return
-  if (ctx.target === 'siteLogo') {
-    drafts.SITE.logoMediaId = Number(media.id)
-  } else if (ctx.target === 'heroDesktop') {
-    drafts.HOME.hero.items[ctx.index].desktopMediaId = Number(media.id)
-  } else if (ctx.target === 'heroMobile') {
-    drafts.HOME.hero.items[ctx.index].mobileMediaId = Number(media.id)
-  } else if (ctx.target === 'serviceGroup') {
-    drafts.HOME.services.groups[ctx.index].imageMediaId = Number(media.id)
-  }
-  mediaPickerOpen.value = false
-  recordSnapshot('更换图片/视频素材')
-}
-
-// ==================== 链接编辑器弹窗绑定 ====================
-const linkDialogOpen = ref(false)
-const linkDialogTitle = ref('编辑跳转链接')
-const linkDialogAllowConsult = ref(false)
-const linkDialogAllowNone = ref(true)
-const tempLink = ref<LinkValue | null>(null)
-let applyLinkCallback: ((val: LinkValue | null) => void) | null = null
-
-function openLinkModal(options: {
-  title: string
-  current: LinkValue | null
-  allowConsult?: boolean
-  allowNone?: boolean
-  onConfirm: (val: LinkValue | null) => void
-}) {
-  linkDialogTitle.value = options.title
-  tempLink.value = options.current ? JSON.parse(JSON.stringify(options.current)) : { type: 'PAGE', pageCode: 'HOME' }
-  linkDialogAllowConsult.value = Boolean(options.allowConsult)
-  linkDialogAllowNone.value = options.allowNone ?? true
-  applyLinkCallback = options.onConfirm
-  linkDialogOpen.value = true
-}
-
-function confirmLinkModal() {
-  if (applyLinkCallback) {
-    applyLinkCallback(tempLink.value ? JSON.parse(JSON.stringify(tempLink.value)) : null)
-    recordSnapshot('修改跳转链接')
-  }
-  linkDialogOpen.value = false
-}
-
-function describeLink(link?: LinkValue | null): string {
-  if (!link || link.type === 'NONE') return '无链接'
-  if (link.type === 'PAGE') return `页面:${link.pageCode || 'HOME'}`
-  if (link.type === 'CONTENT') return `${link.contentType}#${link.contentId || '?'}`
-  if (link.type === 'EXTERNAL') return `外链:${link.url || ''}`
-  if (link.type === 'ANCHOR') return `锚点:#${link.anchorCode || ''}`
-  if (link.type === 'CONSULT') return '唤起咨询弹窗'
-  return link.type
-}
-
-// ==================== 内容卡片解析辅助 ====================
-function resolveCards(ids: number[]): ContentView[] {
-  return ids.map((id) => contentCatalog[String(id)]).filter((c): c is ContentView => Boolean(c))
-}
-
-const resolvedNews = computed<ContentView[]>(() => {
-  const limit = drafts.HOME.news.limit || 3
-  if (drafts.HOME.news.mode === 'LATEST') {
-    return latestNewsList.value.slice(0, limit)
-  }
-  return resolveCards(drafts.HOME.news.contentIds).slice(0, limit)
-})
-
-// ==================== 发布前智能合规体检 ====================
-interface HealthIssue {
-  level: 'error' | 'warning'
-  module: string
-  message: string
-  section: 'header' | 'hero' | HomeSectionKey | 'footer'
-}
-
-const healthIssues = computed<HealthIssue[]>(() => {
-  const list: HealthIssue[] = []
-  if (!drafts.SITE.siteName.trim()) {
-    list.push({ level: 'error', module: '全站设置', message: '站点名称不能为空', section: 'header' })
-  }
-  if (!drafts.SITE.copyrightText.trim()) {
-    list.push({ level: 'error', module: '全站设置', message: '页脚版权文案不能为空', section: 'footer' })
-  }
-  if (Boolean(drafts.SITE.icpText.trim()) !== Boolean(drafts.SITE.icpUrl.trim())) {
-    list.push({ level: 'error', module: '全站设置', message: 'ICP 备案号与备案链接需成对填写', section: 'footer' })
-  }
-  const enabledHeroes = drafts.HOME.hero.items.filter((h) => h.enabled)
-  if (enabledHeroes.length === 0) {
-    list.push({ level: 'error', module: '首页首屏', message: '至少需要启用 1 条首屏轮播', section: 'hero' })
-  }
-  enabledHeroes.forEach((h, idx) => {
-    if (!h.title.trim()) {
-      list.push({ level: 'error', module: '首页首屏', message: `第 ${idx + 1} 条首屏缺少标题`, section: 'hero' })
-    }
-    if (!h.desktopMediaId) {
-      list.push({ level: 'error', module: '首页首屏', message: `第 ${idx + 1} 条首屏未选择桌面图片或视频`, section: 'hero' })
-    }
-  })
-  drafts.HOME.services.groups.forEach((g, idx) => {
-    if (!g.title.trim()) {
-      list.push({ level: 'error', module: '产品与服务', message: `分组 ${idx + 1} 缺少标题`, section: 'services' })
-    }
-    if (!g.contentIds || g.contentIds.length === 0) {
-      list.push({ level: 'warning', module: '产品与服务', message: `分组「${g.title || idx + 1}」尚未选择关联内容`, section: 'services' })
-    }
-  })
-  if (!drafts.CONTACT.phone.trim() && !drafts.CONTACT.email.trim()) {
-    list.push({ level: 'error', module: '联系我们', message: '联系电话与邮箱至少需填写一项', section: 'footer' })
-  }
-  return list
-})
-
-function focusSection(sec: 'header' | 'hero' | HomeSectionKey | 'footer') {
-  selectedSection.value = sec
-  document.getElementById(`studio-sec-${sec}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-
-// 键盘快捷键 Ctrl+Z / Ctrl+Y / Ctrl+S
-function handleKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-    if (e.shiftKey) {
-      e.preventDefault()
-      redo()
-    } else {
-      e.preventDefault()
-      undo()
-    }
-  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
-    e.preventDefault()
-    redo()
-  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-    e.preventDefault()
-    saveAllDrafts()
-  }
-}
-
 onMounted(() => {
   loadAll()
-  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keydown', onKeyDown)
+  void openMediaPicker
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keydown', onKeyDown)
 })
 </script>
 
 <template>
-  <div v-loading="loading" class="studio">
-    <!-- ==================== 顶部全局实景工作台控制栏 ==================== -->
-    <header class="studio-bar">
-      <div class="studio-bar__left">
-        <button type="button" class="studio-back" @click="router.push('/home')">
-          ← 返回传统后台
-        </button>
-        <div class="studio-title">
-          <span class="studio-badge">🎨 实景交互编辑台</span>
-          <span class="studio-sub">所见即所得 · 全局修改自动同步至后台各板块</span>
+  <div class="live-studio" v-loading="loading">
+    <!-- ==================== 顶部第一层：全局主控工具栏 ==================== -->
+    <header class="studio-topbar">
+      <div class="studio-topbar__left">
+        <div class="studio-brand">
+          <span class="studio-brand__dot"></span>
+          <span class="studio-brand__title">全站实景交互工作台</span>
         </div>
 
-        <!-- 脏数据模块指示器 -->
-        <div class="dirty-pills">
-          <span
-            v-for="k in (['SITE', 'NAVIGATION', 'HOME', 'CONTACT'] as const)"
-            :key="k"
-            class="dirty-pill"
-            :class="{
-              'is-dirty': dirtyKeys.includes(k),
-              'is-unpub': configViews[k]?.hasUnpublishedChanges,
-            }"
-            :title="dirtyKeys.includes(k) ? '有未保存的画布修改' : configViews[k]?.hasUnpublishedChanges ? '草稿已存，待发布上线' : '已与线上同步'"
-          >
-            {{ k }}
-            <i v-if="dirtyKeys.includes(k)" class="dot dot--dirty"></i>
-            <i v-else-if="configViews[k]?.hasUnpublishedChanges" class="dot dot--unpub"></i>
-          </span>
-        </div>
-      </div>
-
-      <!-- 中部：模式切换 + 视口切换 + 撤销重做 -->
-      <div class="studio-bar__center">
-        <div class="seg-group" role="group" aria-label="编辑模式切换">
+        <div class="studio-mode-switch">
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': studioMode === 'edit' }"
-            @click="switchStudioMode('edit')"
+            class="mode-btn"
+            :class="{ active: studioMode === 'edit' }"
+            @click="studioMode = 'edit'"
           >
-            ✏️ 交互编辑
+            ✏️ 实景编辑
           </button>
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': studioMode === 'preview' }"
-            @click="switchStudioMode('preview')"
+            class="mode-btn"
+            :class="{ active: studioMode === 'preview' }"
+            @click="studioMode = 'preview'"
           >
-            👁️ 纯净预演
+            👁️ 净版预览
           </button>
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': studioMode === 'published' }"
-            @click="switchStudioMode('published')"
+            class="mode-btn"
+            :class="{ active: studioMode === 'published' }"
+            @click="studioMode = 'published'"
           >
-            🌐 线上已发布版
+            🌐 线上已发布对比
           </button>
         </div>
 
-        <div class="seg-group" role="group" aria-label="响应式视口切换">
+        <div class="studio-viewport-switch">
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': viewport === 'desktop' }"
-            title="桌面端视口 (100%)"
+            class="vp-btn"
+            :class="{ active: viewport === 'desktop' }"
             @click="viewport = 'desktop'"
+            title="桌面端 (100%)"
           >
             🖥️ 桌面
           </button>
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': viewport === 'tablet' }"
-            title="平板视口 (768px)"
+            class="vp-btn"
+            :class="{ active: viewport === 'tablet' }"
             @click="viewport = 'tablet'"
+            title="平板端 (820px)"
           >
-            📟 平板
+            📱 平板
           </button>
           <button
             type="button"
-            class="seg-btn"
-            :class="{ 'is-active': viewport === 'mobile' }"
-            title="手机端视口 (390px)"
+            class="vp-btn"
+            :class="{ active: viewport === 'mobile' }"
             @click="viewport = 'mobile'"
+            title="手机端 (414px)"
           >
-            📱 手机
+            📲 手机
           </button>
         </div>
 
-        <div class="seg-group">
-          <button type="button" class="seg-btn" :disabled="!canUndo" title="撤销 (Ctrl+Z)" @click="undo">
-            ↩ 撤销
-          </button>
-          <button type="button" class="seg-btn" :disabled="!canRedo" title="重做 (Ctrl+Y)" @click="redo">
-            ↪ 重做
-          </button>
+        <div class="studio-history-btns" v-if="studioMode === 'edit'">
+          <el-tooltip content="撤销上一步修改 (Ctrl+Z)" placement="bottom">
+            <el-button size="small" :disabled="!canUndo" @click="undo">↩ 撤销</el-button>
+          </el-tooltip>
+          <el-tooltip content="重做修改 (Ctrl+Y)" placement="bottom">
+            <el-button size="small" :disabled="!canRedo" @click="redo">↪ 重做</el-button>
+          </el-tooltip>
+          <el-button
+            size="small"
+            :type="showLeftOutline ? 'primary' : 'default'"
+            plain
+            @click="showLeftOutline = !showLeftOutline"
+          >
+            {{ showLeftOutline ? '◀ 收起大纲' : '▶ 展开大纲' }}
+          </el-button>
         </div>
       </div>
 
-      <!-- 右侧：体检、全局保存草稿、全局发布 -->
-      <div class="studio-bar__right">
-        <button
-          type="button"
-          class="health-btn"
-          :class="{ 'has-error': healthIssues.some((i) => i.level === 'error') }"
-          @click="healthDrawerOpen = true"
+      <div class="studio-topbar__right">
+        <div class="dirty-indicators">
+          <el-tag
+            v-if="totalDirtyCount > 0"
+            type="warning"
+            effect="dark"
+            size="small"
+            round
+          >
+            ● {{ totalDirtyCount }} 项未保存草稿
+          </el-tag>
+          <el-tag
+            v-else-if="unpublishedConfigKeys.length > 0"
+            type="primary"
+            effect="light"
+            size="small"
+            round
+          >
+            {{ unpublishedConfigKeys.length }} 个模块待发布上线
+          </el-tag>
+          <el-tag v-else type="success" effect="light" size="small" round>
+            ✓ 全站与线上一致
+          </el-tag>
+        </div>
+
+        <el-badge
+          :value="healthIssues.length"
+          :hidden="healthIssues.length === 0"
+          :type="hasHealthError ? 'danger' : 'warning'"
         >
-          🛡️ 体检 ({{ healthIssues.length }})
-        </button>
+          <el-button size="small" @click="healthDrawerOpen = true">🩺 发布巡检</el-button>
+        </el-badge>
+
         <el-button
+          size="small"
           type="primary"
-          size="small"
+          plain
           :loading="savingAll"
-          :disabled="studioMode === 'published'"
-          @click="saveAllDrafts(false)"
+          :disabled="totalDirtyCount === 0 || studioMode === 'published'"
+          @click="saveAllDrafts"
         >
-          💾 保存全局草稿 {{ dirtyKeys.length ? `(${dirtyKeys.length})` : '' }}
+          💾 保存全站草稿
         </el-button>
+
         <el-button
-          v-if="isAdmin"
-          type="success"
           size="small"
+          type="primary"
           :loading="publishingAll"
           :disabled="studioMode === 'published'"
           @click="saveAndPublishAll"
         >
-          🚀 一键全局发布上线
+          🚀 一键全站发布上线
         </el-button>
       </div>
     </header>
 
-    <!-- ==================== 主体三栏工作区 ==================== -->
-    <div class="studio-body">
-      <!-- 左侧：全局图层与模块摆放排序大纲树 -->
+    <!-- ==================== 顶部第二层：全站 8 大页面实景切换栏 ==================== -->
+    <nav class="studio-pagebar">
+      <div class="studio-pagebar__tabs">
+        <button
+          v-for="p in STUDIO_PAGES"
+          :key="p.key"
+          type="button"
+          class="page-tab-btn"
+          :class="{ active: activePage === p.key }"
+          @click="switchStudioPage(p.key)"
+        >
+          <span class="page-tab-btn__icon">{{ p.icon }}</span>
+          <span class="page-tab-btn__label">{{ p.label }}</span>
+          <span
+            v-if="
+              (p.key === 'HOME' && dirtyConfigKeys.includes('HOME')) ||
+              (p.key === 'ABOUT' && dirtyConfigKeys.includes('ABOUT')) ||
+              (p.key === 'CONTACT' && dirtyConfigKeys.includes('CONTACT')) ||
+              (p.key === 'PRIVACY' && dirtyConfigKeys.includes('PRIVACY'))
+            "
+            class="page-tab-btn__dirty"
+            title="有未保存修改"
+          ></span>
+        </button>
+      </div>
+
+      <div class="studio-pagebar__context">
+        <template v-if="activeContentId && activeContentMeta">
+          <span class="detail-crumb-badge">
+            📄 正在编辑详情：<strong>{{ activeContentDraft.title || '未命名' }}</strong>
+            <el-tag
+              size="small"
+              :type="activeContentMeta.status === 'PUBLISHED' && !activeContentMeta.hasUnpublishedChanges && !isActiveContentDirty ? 'success' : 'warning'"
+              style="margin-left: 6px"
+            >
+              {{
+                isActiveContentDirty
+                  ? '详情未保存'
+                  : activeContentMeta.status === 'PUBLISHED' && !activeContentMeta.hasUnpublishedChanges
+                    ? '已发布'
+                    : '草稿待发布'
+              }}
+            </el-tag>
+          </span>
+          <el-button size="small" type="primary" plain @click="saveActiveContentDraft()">
+            保存此详情
+          </el-button>
+          <el-button size="small" type="success" @click="publishActiveContentDraft()">
+            发布此详情
+          </el-button>
+          <el-button size="small" @click="closeContentDetail">← 返回列表画布</el-button>
+        </template>
+        <template v-else>
+          <span class="studio-pagebar__tip">
+            💡 提示：点击画布任意带虚线框的文字即可直接输入修改；点击卡片或顶部菜单可直接在画布内穿透跳转。
+          </span>
+        </template>
+      </div>
+    </nav>
+
+    <!-- ==================== 主体工作区：左侧动态大纲 + 中央全站实景画布 ==================== -->
+    <div class="studio-workspace">
+      <!-- 左侧动态结构大纲树（随当前页面自动切换） -->
       <aside v-if="showLeftOutline && studioMode === 'edit'" class="studio-outline">
-        <div class="outline-head">
-          <span>🗂️ 全局模块与摆放顺序</span>
-          <button type="button" class="icon-close" @click="showLeftOutline = false">✕</button>
-        </div>
-        <p class="outline-tip">点击模块定位画布，使用 ↑↓ 自由调整首页模块上下摆放位置</p>
-
-        <div class="outline-list">
-          <!-- 固定顶栏 -->
-          <div
-            class="outline-item"
-            :class="{ 'is-selected': selectedSection === 'header' }"
-            @click="focusSection('header')"
-          >
-            <span class="outline-item__icon">🌐</span>
-            <span class="outline-item__label">顶部品牌与导航栏</span>
-            <el-tag size="small" type="info">SITE/NAV</el-tag>
+        <!-- 1. 首页大纲 -->
+        <template v-if="activePage === 'HOME'">
+          <div class="outline-header">
+            <span>🏠 首页模块与顺序</span>
+            <el-checkbox v-model="showDisabledBlocks" size="small">显示已隐藏</el-checkbox>
           </div>
+          <div class="outline-list">
+            <div
+              class="outline-item"
+              :class="{ active: selectedSection === 'header' }"
+              @click="selectedSection = 'header'"
+            >
+              <span class="outline-item__icon">🧭</span>
+              <span class="outline-item__label">顶部导航与下拉大菜单</span>
+              <el-tag size="small" type="info">全局</el-tag>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: selectedSection === 'hero' }"
+              @click="selectedSection = 'hero'"
+            >
+              <span class="outline-item__icon">🎞️</span>
+              <span class="outline-item__label">Hero 焦点轮播 ({{ drafts.HOME.hero.items.length }}屏)</span>
+            </div>
 
-          <!-- 固定首屏 -->
-          <div
-            class="outline-item"
-            :class="{ 'is-selected': selectedSection === 'hero' }"
-            @click="focusSection('hero')"
-          >
-            <span class="outline-item__icon">🎬</span>
-            <span class="outline-item__label">首屏海报/视频 ({{ drafts.HOME.hero.items.length }})</span>
-            <el-tag size="small" type="primary">必显</el-tag>
-          </div>
+            <div class="outline-divider">可拖拽/上下调整模块顺序</div>
 
-          <!-- 可自由排序的 6 大模块 -->
-          <div
-            v-for="(secKey, sIdx) in drafts.HOME.sectionOrder"
-            :key="secKey"
-            class="outline-item"
-            :class="{
-              'is-selected': selectedSection === secKey,
-              'is-disabled': !drafts.HOME[secKey]?.enabled,
-            }"
-            @click="focusSection(secKey)"
-          >
-            <span class="outline-item__icon">{{ SECTION_META[secKey].icon }}</span>
-            <span class="outline-item__label">{{ SECTION_META[secKey].label }}</span>
-            <div class="outline-item__actions" @click.stop>
-              <el-switch
-                
-                v-model="drafts.HOME[secKey].enabled"
-                size="small"
-                @change="recordSnapshot('切换模块显隐')"
-              />
-              <button
-                type="button"
-                class="mini-btn"
-                :disabled="sIdx === 0"
-                title="上移模块"
-                @click="moveSection(secKey, -1)"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                class="mini-btn"
-                :disabled="sIdx === drafts.HOME.sectionOrder.length - 1"
-                title="下移模块"
-                @click="moveSection(secKey, 1)"
-              >
-                ↓
-              </button>
+            <div
+              v-for="(secKey, idx) in drafts.HOME.sectionOrder"
+              :key="secKey"
+              class="outline-item"
+              :class="{
+                active: selectedSection === secKey,
+                'is-disabled': !drafts.HOME[secKey].enabled,
+              }"
+              @click="selectedSection = secKey"
+            >
+              <span class="outline-item__icon">{{ SECTION_META[secKey].icon }}</span>
+              <span class="outline-item__label">{{ SECTION_META[secKey].label }}</span>
+              <div class="outline-item__actions" @click.stop>
+                <el-switch v-model="drafts.HOME[secKey].enabled" size="small" />
+                <button
+                  type="button"
+                  class="mini-arrow"
+                  :disabled="idx === 0"
+                  @click="moveSection(idx, -1)"
+                  title="上移模块"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  class="mini-arrow"
+                  :disabled="idx === drafts.HOME.sectionOrder.length - 1"
+                  @click="moveSection(idx, 1)"
+                  title="下移模块"
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="outline-item"
+              :class="{ active: selectedSection === 'footer' }"
+              @click="selectedSection = 'footer'"
+            >
+              <span class="outline-item__icon">⚓</span>
+              <span class="outline-item__label">底部深色页脚与版权</span>
+              <el-tag size="small" type="info">全局</el-tag>
             </div>
           </div>
+        </template>
 
-          <!-- 固定页脚 -->
-          <div
-            class="outline-item"
-            :class="{ 'is-selected': selectedSection === 'footer' }"
-            @click="focusSection('footer')"
-          >
-            <span class="outline-item__icon">📞</span>
-            <span class="outline-item__label">页脚与全站联系方式</span>
-            <el-tag size="small" type="info">SITE/CONTACT</el-tag>
+        <!-- 2. 产品 / 方案 / 案例 / 新闻 列表与详情大纲 -->
+        <template
+          v-else-if="
+            activePage === 'PRODUCTS' ||
+            activePage === 'SOLUTIONS' ||
+            activePage === 'CASES' ||
+            activePage === 'NEWS'
+          "
+        >
+          <div class="outline-header">
+            <span>
+              {{ activePageInfo?.icon }}
+              {{ activePageInfo?.label }}管理
+            </span>
+            <el-button
+              size="small"
+              type="primary"
+              link
+              @click="createNewContentInStudio(currentContentType)"
+            >
+              + 新建
+            </el-button>
           </div>
-        </div>
 
-        <div class="outline-foot">
-          <label class="outline-check">
-            <input v-model="showDisabledBlocks" type="checkbox" />
-            <span>在编辑态显示已关闭模块（半透明）</span>
-          </label>
-        </div>
+          <div class="outline-list">
+            <div class="outline-divider">
+              <span>分类筛选栏</span>
+              <el-button
+                size="small"
+                type="primary"
+                link
+                @click="addCategoryInline(currentCategoryType)"
+              >
+                + 新增分类
+              </el-button>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: activeCategoryFilter === 'ALL' && !activeContentId }"
+              @click="
+                closeContentDetail();
+                activeCategoryFilter = 'ALL'
+              "
+            >
+              <span class="outline-item__icon">📂</span>
+              <span class="outline-item__label">全部 ({{ currentContents.length }})</span>
+            </div>
+            <div
+              v-for="cat in currentCategories"
+              :key="cat.id"
+              class="outline-item"
+              :class="{ active: String(activeCategoryFilter) === String(cat.id) && !activeContentId }"
+              @click="
+                closeContentDetail();
+                activeCategoryFilter = String(cat.id)
+              "
+            >
+              <span class="outline-item__icon">🏷️</span>
+              <span class="outline-item__label">{{ cat.name }}</span>
+              <div class="outline-item__actions" @click.stop>
+                <button
+                  type="button"
+                  class="mini-arrow"
+                  title="修改分类名"
+                  @click="renameCategoryInline(currentCategoryType, cat)"
+                >
+                  ✏️
+                </button>
+              </div>
+            </div>
+
+            <div class="outline-divider">
+              <span>点击条目进入详情实景编辑</span>
+            </div>
+            <div
+              v-for="item in getFilteredContents(currentContentType)"
+              :key="item.id"
+              class="outline-item"
+              :class="{ active: String(activeContentId) === String(item.id) }"
+              @click="openContentInStudio(currentContentType, item.id)"
+            >
+              <span
+                class="status-dot"
+                :class="item.status === 'PUBLISHED' && !item.hasUnpublishedChanges ? 'is-pub' : 'is-draft'"
+              ></span>
+              <span class="outline-item__label">{{ item.title || '未命名' }}</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- 3. 关于我们 5 大子页签与弹窗大纲 -->
+        <template v-else-if="activePage === 'ABOUT'">
+          <div class="outline-header">
+            <span>🏢 关于我们 · 5大子页签</span>
+          </div>
+          <div class="outline-list">
+            <div
+              class="outline-item"
+              :class="{ active: aboutSubTab === 'intro' }"
+              @click="aboutSubTab = 'intro'"
+            >
+              <span class="outline-item__icon">📖</span>
+              <span class="outline-item__label">1. 企业简介 & CEO信 & 地图</span>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: aboutSubTab === 'team' }"
+              @click="aboutSubTab = 'team'"
+            >
+              <span class="outline-item__icon">👔</span>
+              <span class="outline-item__label">2. 管理团队 ({{ drafts.ABOUT.teamMembers.length }}人)</span>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: aboutSubTab === 'media' }"
+              @click="aboutSubTab = 'media'"
+            >
+              <span class="outline-item__icon">🎬</span>
+              <span class="outline-item__label">3. 媒体中心</span>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: aboutSubTab === 'resources' }"
+              @click="aboutSubTab = 'resources'"
+            >
+              <span class="outline-item__icon">📚</span>
+              <span class="outline-item__label">4. 资料共享 ({{ drafts.ABOUT.resources.length }}份)</span>
+            </div>
+            <div
+              class="outline-item"
+              :class="{ active: aboutSubTab === 'join' }"
+              @click="aboutSubTab = 'join'"
+            >
+              <span class="outline-item__icon">🚀</span>
+              <span class="outline-item__label">5. 加入我们 & 使命价值观</span>
+            </div>
+
+            <div class="outline-divider">快捷弹窗与子项操作</div>
+            <div class="outline-item" @click="ceoModalOpen = true">
+              <span class="outline-item__icon">✉️</span>
+              <span class="outline-item__label">打开 CEO 致信全文弹窗编辑</span>
+            </div>
+            <div
+              class="outline-item"
+              @click="
+                aboutSubTab = 'team';
+                drafts.ABOUT.teamMembers.push({
+                  name: '新高管姓名',
+                  role: '职位头衔',
+                  avatar: '',
+                  bio: ['在此输入高管履历介绍...'],
+                })
+              "
+            >
+              <span class="outline-item__icon">➕</span>
+              <span class="outline-item__label">新增管理团队成员</span>
+            </div>
+            <div
+              class="outline-item"
+              @click="
+                aboutSubTab = 'intro';
+                drafts.ABOUT.milestones.push({
+                  year: '2026',
+                  title: '新里程碑节点',
+                  description: '在此输入里程碑事件描述',
+                });
+                aboutMilestoneIdx = drafts.ABOUT.milestones.length - 1
+              "
+            >
+              <span class="outline-item__icon">➕</span>
+              <span class="outline-item__label">新增发展历程年份节点</span>
+            </div>
+            <div
+              class="outline-item"
+              @click="
+                aboutSubTab = 'intro';
+                drafts.ABOUT.offices.push({
+                  city: '新城市',
+                  phone: '010-88888888',
+                  address: '请输入详细办公地址',
+                  mapX: 65,
+                  mapY: 55,
+                });
+                aboutOfficeIdx = drafts.ABOUT.offices.length - 1
+              "
+            >
+              <span class="outline-item__icon">📍</span>
+              <span class="outline-item__label">新增全国办公网点城市</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- 4. 联系我们 / 隐私说明大纲 -->
+        <template v-else>
+          <div class="outline-header">
+            <span>{{ activePage === 'CONTACT' ? '📞 联系我们设置' : '🛡️ 隐私说明设置' }}</span>
+          </div>
+          <div class="outline-list" v-if="activePage === 'CONTACT'">
+            <div class="outline-item">
+              <span class="outline-item__label">启用右侧预约表单</span>
+              <el-switch v-model="drafts.CONTACT.formEnabled" size="small" />
+            </div>
+            <div class="outline-item">
+              <span class="outline-item__label">启用短信验证码行</span>
+              <el-switch v-model="drafts.CONTACT.smsVerifyEnabled" size="small" />
+            </div>
+          </div>
+          <div class="outline-list" v-else>
+            <div class="outline-item">
+              <span class="outline-item__label">支持在画布中直接编写 HTML 隐私条款并实时预览排版</span>
+            </div>
+          </div>
+        </template>
       </aside>
 
-      <!-- 折叠态展开悬浮钮 -->
-      <button
-        v-if="!showLeftOutline && studioMode === 'edit'"
-        type="button"
-        class="drawer-toggle drawer-toggle--left"
-        @click="showLeftOutline = true"
-      >
-        🗂️ 模块树
-      </button>
-
-      <!-- ==================== 中央：可交互实景画布 ==================== -->
+      <!-- ==================== 中央全站实景交互画布 ==================== -->
       <main class="studio-canvas-wrap">
-        <div class="studio-canvas" :class="[`viewport--${viewport}`, `mode--${studioMode}`]">
-          <!-- 1. 顶部品牌与导航实景交互区 (SITE + NAVIGATION) -->
+        <div class="studio-canvas" :class="[`vp-${viewport}`, `mode-${studioMode}`]">
+          <!-- ==================== 全局公共顶栏：Header + 产品与解决方案下拉大菜单 ==================== -->
           <header
-            id="studio-sec-header"
-            class="canvas-header"
-            :class="{ 'is-focused': studioMode === 'edit' && selectedSection === 'header' }"
+            class="canvas-header editable-zone"
+            :class="{ 'is-selected': selectedSection === 'header' && studioMode === 'edit' }"
             @click="selectedSection = 'header'"
           >
-            <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-              <span class="sec-tag">🌐 顶部导航与品牌 (同步至「全站设置」&「导航」)</span>
-              <button type="button" class="tb-btn" @click.stop="triggerMediaPick({ target: 'siteLogo' })">
-                🖼️ 换 Logo
-              </button>
-              <button type="button" class="tb-btn" @click.stop="addTopNav">
-                ➕ 添加导航项
-              </button>
+            <div v-if="studioMode === 'edit'" class="zone-toolbar">
+              <span class="zone-toolbar__tag">全局顶栏 & 导航 (SITE / NAVIGATION)</span>
+              <el-popover placement="bottom-start" :width="520" trigger="click">
+                <template #reference>
+                  <button type="button" class="zone-btn" @click.stop>⚙️ 配置顶栏与下拉菜单</button>
+                </template>
+                <div class="popover-form">
+                  <h4>站点标识与顶栏导航配置</h4>
+                  <el-form label-position="top" size="small">
+                    <el-row :gutter="10">
+                      <el-col :span="12">
+                        <el-form-item label="站点名称">
+                          <el-input v-model="drafts.SITE.siteName" />
+                        </el-form-item>
+                      </el-col>
+                      <el-col :span="12">
+                        <el-form-item label="品牌口号">
+                          <el-input v-model="drafts.SITE.slogan" />
+                        </el-form-item>
+                      </el-col>
+                    </el-row>
+                    <el-form-item label="Logo 媒体资源">
+                      <el-select
+                        v-model="drafts.SITE.logoMediaId"
+                        clearable
+                        placeholder="留空则显示品牌文字"
+                        style="width: 100%"
+                      >
+                        <el-option
+                          v-for="m in Object.values(mediaCache)"
+                          :key="m.id"
+                          :label="m.originalName || `#${m.id}`"
+                          :value="Number(m.id)"
+                        />
+                      </el-select>
+                    </el-form-item>
+                    <div class="popover-subtitle">
+                      <span>主导航菜单项</span>
+                      <el-button
+                        size="small"
+                        type="primary"
+                        link
+                        @click="drafts.NAVIGATION.items.push({ label: '新菜单', enabled: true, sortOrder: (drafts.NAVIGATION.items.length + 1) * 10, link: { type: 'PAGE', pageCode: 'HOME' } })"
+                      >
+                        + 添加菜单
+                      </el-button>
+                    </div>
+                    <div
+                      v-for="(navIt, nIdx) in drafts.NAVIGATION.items"
+                      :key="nIdx"
+                      class="mini-row"
+                    >
+                      <el-input v-model="navIt.label" placeholder="菜单名" style="width: 120px" />
+                      <el-select
+                        v-if="navIt.link"
+                        v-model="navIt.link.pageCode"
+                        placeholder="目标页面"
+                        style="width: 140px"
+                      >
+                        <el-option label="首页 (HOME)" value="HOME" />
+                        <el-option label="产品与方案 (PRODUCTS)" value="PRODUCTS" />
+                        <el-option label="解决方案 (SOLUTIONS)" value="SOLUTIONS" />
+                        <el-option label="客户案例 (CASES)" value="CASES" />
+                        <el-option label="新闻中心 (NEWS)" value="NEWS" />
+                        <el-option label="关于我们 (ABOUT)" value="ABOUT" />
+                        <el-option label="联系我们 (CONTACT)" value="CONTACT" />
+                      </el-select>
+                      <el-switch v-model="navIt.enabled" />
+                      <el-button
+                        type="danger"
+                        link
+                        @click="drafts.NAVIGATION.items.splice(nIdx, 1)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </el-form>
+                </div>
+              </el-popover>
               <button
                 type="button"
-                class="tb-btn"
+                class="zone-btn"
                 @click.stop="openMegaPreview = !openMegaPreview"
               >
-                {{ openMegaPreview ? '收起全景下拉菜单' : '📂 编辑5列全景菜单' }}
-              </button>
-              <button type="button" class="tb-btn tb-btn--ghost" @click.stop="router.push('/settings/navigation')">
-                去传统导航页 ↗
+                {{ openMegaPreview ? '🔼 收起下拉大菜单' : '🔽 展开编辑「产品与解决方案」下拉菜单' }}
               </button>
             </div>
 
             <div class="canvas-header__inner">
-              <!-- 品牌 Logo 与站点名称直改 -->
-              <div class="canvas-brand">
-                <div
-                  class="canvas-brand__logo-wrap"
-                  :title="studioMode === 'edit' ? '点击更换站点 Logo' : ''"
-                  @click.stop="studioMode === 'edit' && triggerMediaPick({ target: 'siteLogo' })"
-                >
-                  <img
-                    v-if="drafts.SITE.logoMediaId"
-                    :src="mediaUrl(drafts.SITE.logoMediaId)"
-                    :alt="drafts.SITE.logoAlt || drafts.SITE.siteName"
-                    class="canvas-brand__logo"
-                  />
-                  <span v-else class="canvas-brand__mark">
-                    {{ drafts.SITE.siteName.slice(0, 1) || 'G' }}
-                  </span>
-                </div>
-                <input
-                  v-if="studioMode === 'edit'"
-                  v-model="drafts.SITE.siteName"
-                  class="inline-input inline-input--brand"
-                  maxlength="60"
-                  placeholder="站点名称"
-                  @change="recordSnapshot('修改站点名称')"
+              <div class="canvas-logo" @click.stop="switchStudioPage('HOME')">
+                <img
+                  v-if="resolveMediaUrl(activeSite.logoMediaId)"
+                  :src="resolveMediaUrl(activeSite.logoMediaId)"
+                  :alt="activeSite.logoAlt || activeSite.siteName"
+                  class="canvas-logo__img"
                 />
-                <span v-else class="canvas-brand__name">{{ drafts.SITE.siteName }}</span>
+                <span
+                  v-else
+                  class="canvas-logo__text"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.SITE.siteName =
+                      ($event.target as HTMLElement).innerText.trim() || drafts.SITE.siteName
+                  "
+                  @click.stop
+                >
+                  {{ activeSite.siteName }}
+                </span>
               </div>
 
-              <!-- 导航列表直改 -->
               <nav class="canvas-nav">
-                <div
-                  v-for="(navItem, nIdx) in drafts.NAVIGATION.items"
-                  :key="navItem.key ?? `nav-${nIdx}`"
-                  class="canvas-nav__item"
-                  :class="{ 'is-disabled': !navItem.enabled }"
-                >
-                  <template v-if="studioMode === 'edit'">
-                    <input
-                      v-model="navItem.label"
-                      class="inline-input inline-input--nav"
-                      maxlength="20"
-                      placeholder="导航名"
-                      @change="recordSnapshot('修改导航名称')"
-                    />
-                    <div class="nav-item-pop">
-                      <button
-                        type="button"
-                        title="绑定跳转链接"
-                        @click.stop="
-                          openLinkModal({
-                            title: `导航「${navItem.label}」跳转目标`,
-                            current: navItem.link,
-                            allowNone: true,
-                            allowConsult: true,
-                            onConfirm: (val) => (navItem.link = val),
-                          })
-                        "
-                      >
-                        🔗 {{ describeLink(navItem.link) }}
-                      </button>
-                      <button
-                        type="button"
-                        :disabled="nIdx === 0"
-                        title="左移"
-                        @click.stop="moveItem(drafts.NAVIGATION.items, nIdx, -1)"
-                      >
-                        ←
-                      </button>
-                      <button
-                        type="button"
-                        :disabled="nIdx === drafts.NAVIGATION.items.length - 1"
-                        title="右移"
-                        @click.stop="moveItem(drafts.NAVIGATION.items, nIdx, 1)"
-                      >
-                        →
-                      </button>
-                      <button
-                        type="button"
-                        class="danger"
-                        title="删除该导航"
-                        @click.stop="drafts.NAVIGATION.items.splice(nIdx, 1); recordSnapshot('删除导航项')"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </template>
-                  <span v-else class="canvas-nav__text">{{ navItem.label }}</span>
-                </div>
+                <template v-for="(item, idx) in activeNav.items" :key="idx">
+                  <div
+                    v-if="item.enabled"
+                    class="canvas-nav__item"
+                    :class="{
+                      active:
+                        item.link?.pageCode &&
+                        activePage === item.link.pageCode.toUpperCase(),
+                    }"
+                    @click.stop="navigateLinkInStudio(item.link)"
+                  >
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.NAVIGATION.items[idx].label =
+                          ($event.target as HTMLElement).innerText.trim() ||
+                          drafts.NAVIGATION.items[idx].label
+                      "
+                      @click.stop="
+                        studioMode !== 'edit' ? navigateLinkInStudio(item.link) : undefined
+                      "
+                    >
+                      {{ item.label }}
+                    </span>
+                    <button
+                      type="button"
+                      class="canvas-nav__jump"
+                      title="在画布中切换到此页面"
+                      @click.stop="navigateLinkInStudio(item.link)"
+                    >
+                      ↗
+                    </button>
+                  </div>
+                </template>
               </nav>
 
-              <div class="canvas-header__cta">
-                <span class="cta-pill">产品试用</span>
+              <div class="canvas-header__actions">
+                <span class="canvas-lang">English</span>
+                <button
+                  type="button"
+                  class="canvas-trial-btn"
+                  @click.stop="switchStudioPage('CONTACT')"
+                >
+                  产品试用
+                </button>
               </div>
             </div>
 
-            <!-- 5 列全景下拉菜单可视化编辑弹层 -->
-            <div v-if="openMegaPreview && studioMode === 'edit'" class="mega-editor" @click.stop>
-              <div class="mega-editor__head">
-                <strong>📂 产品与解决方案 · 5 列全景下拉菜单可视化编辑 (同步至 NAVIGATION.megaColumns)</strong>
-                <div class="mega-editor__actions">
-                  <el-button
-                    size="small"
-                    @click="
-                      drafts.NAVIGATION.megaColumns = drafts.NAVIGATION.megaColumns || [];
-                      drafts.NAVIGATION.megaColumns.push({
-                        title: '新菜单列',
-                        items: [{ label: '新菜单项', path: '/products', tag: '' }],
-                      });
-                      recordSnapshot('新增全景菜单列')
-                    "
-                  >
-                    + 新增菜单列
-                  </el-button>
-                  <el-button size="small" @click="openMegaPreview = false">收起</el-button>
-                </div>
-              </div>
-              <div class="mega-editor__grid">
+            <!-- 下拉 MegaMenu 实景编辑区 -->
+            <div v-if="openMegaPreview" class="canvas-mega" @click.stop>
+              <div class="canvas-mega__grid">
                 <div
                   v-for="(col, cIdx) in drafts.NAVIGATION.megaColumns"
-                  :key="`mcol-${cIdx}`"
-                  class="mega-col-box"
+                  :key="cIdx"
+                  class="canvas-mega__col"
                 >
-                  <div class="mega-col-box__head">
-                    <input v-model="col.title" class="inline-input" placeholder="列标题" />
-                    <button
-                      type="button"
-                      class="mini-del"
-                      @click="drafts.NAVIGATION.megaColumns?.splice(cIdx, 1)"
+                  <div class="canvas-mega__col-head">
+                    <input
+                      v-model="col.title"
+                      class="inline-clean-input strong"
+                      placeholder="分栏标题（如 AI产品）"
+                    />
+                    <el-button
+                      v-if="studioMode === 'edit'"
+                      type="danger"
+                      link
+                      size="small"
+                      @click="drafts.NAVIGATION.megaColumns.splice(cIdx, 1)"
                     >
-                      删除列
-                    </button>
+                      删栏
+                    </el-button>
                   </div>
-                  <div v-for="(sub, sIdx) in col.items" :key="`msub-${sIdx}`" class="mega-sub-row">
-                    <input v-model="sub.label" class="inline-input" placeholder="名称" style="width: 90px" />
-                    <input v-model="sub.path" class="inline-input" placeholder="/products/1" style="flex: 1" />
-                    <input v-model="sub.tag" class="inline-input" placeholder="角标(如:首款)" style="width: 64px" />
-                    <button type="button" class="mini-del" @click="col.items.splice(sIdx, 1)">✕</button>
+                  <div class="canvas-mega__links">
+                    <div
+                      v-for="(lnk, lIdx) in col.items"
+                      :key="lIdx"
+                      class="canvas-mega__link-row"
+                    >
+                      <input
+                        v-model="lnk.label"
+                        class="inline-clean-input"
+                        placeholder="子项名称"
+                      />
+                      <button
+                        type="button"
+                        class="mini-jump-btn"
+                        title="在画布中打开目标"
+                        @click="navigateLinkInStudio(lnk.link)"
+                      >
+                        跳转
+                      </button>
+                      <button
+                        v-if="studioMode === 'edit'"
+                        type="button"
+                        class="mini-del-btn"
+                        @click="col.items.splice(lIdx, 1)"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <el-button
+                      v-if="studioMode === 'edit'"
+                      size="small"
+                      type="primary"
+                      link
+                      @click="
+                        col.items.push({ label: '新子项', path: '/products', desc: '', link: { type: 'PAGE', pageCode: 'PRODUCTS' } })
+                      "
+                    >
+                      + 添加子项
+                    </el-button>
                   </div>
-                  <button
-                    type="button"
-                    class="mega-add-sub"
-                    @click="col.items.push({ label: '新子项', path: '/products', tag: '' })"
+                </div>
+                <div v-if="studioMode === 'edit'" class="canvas-mega__add-col">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    plain
+                    @click="
+                      drafts.NAVIGATION.megaColumns.push({ title: '新下拉分栏', items: [{ label: '示例产品', path: '/products', desc: '', link: { type: 'PAGE', pageCode: 'PRODUCTS' } }] })
+                    "
                   >
-                    + 添加子项
-                  </button>
+                    + 新增下拉分栏
+                  </el-button>
                 </div>
               </div>
             </div>
           </header>
 
-          <!-- 2. 首屏海报/视频轮播实景交互区 (HOME.hero) -->
-          <section
-            id="studio-sec-hero"
-            class="canvas-hero"
-            :class="{ 'is-focused': studioMode === 'edit' && selectedSection === 'hero' }"
-            @click="selectedSection = 'hero'"
-          >
-            <!-- 首屏悬浮工具条 -->
-            <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-              <span class="sec-tag">🎬 首屏海报/视频 (共 {{ drafts.HOME.hero.items.length }}/5 屏)</span>
-              <button
-                v-if="currentHero"
-                type="button"
-                class="tb-btn"
-                @click.stop="triggerMediaPick({ target: 'heroDesktop', index: heroIndex })"
-              >
-                🖼️ 换桌面背景(图/视频)
-              </button>
-              <button
-                v-if="currentHero"
-                type="button"
-                class="tb-btn"
-                @click.stop="triggerMediaPick({ target: 'heroMobile', index: heroIndex })"
-              >
-                📱 换手机背景
-              </button>
-              <button type="button" class="tb-btn" @click.stop="addHeroSlide">
-                ➕ 新增一屏
-              </button>
-              <button
-                v-if="drafts.HOME.hero.items.length > 1"
-                type="button"
-                class="tb-btn"
-                :disabled="heroIndex === 0"
-                @click.stop="moveItem(drafts.HOME.hero.items, heroIndex, -1); heroIndex = Math.max(0, heroIndex - 1)"
-              >
-                ⬅ 前移本屏
-              </button>
-              <button
-                v-if="drafts.HOME.hero.items.length > 1"
-                type="button"
-                class="tb-btn"
-                :disabled="heroIndex === drafts.HOME.hero.items.length - 1"
-                @click.stop="moveItem(drafts.HOME.hero.items, heroIndex, 1); heroIndex = Math.min(drafts.HOME.hero.items.length - 1, heroIndex + 1)"
-              >
-                ➡ 后移本屏
-              </button>
-              <button
-                v-if="currentHero && drafts.HOME.hero.items.length > 1"
-                type="button"
-                class="tb-btn tb-btn--danger"
-                @click.stop="removeHeroSlide(heroIndex)"
-              >
-                🗑️ 删除本屏
-              </button>
-            </div>
-
-            <template v-if="currentHero">
-              <!-- 背景媒体（自动按桌面/手机视口切换并支持 MP4/WebM 视频） -->
-              <div class="canvas-hero__media">
-                <template v-if="viewport === 'mobile' && currentHero.mobileMediaId">
-                  <video
-                    v-if="isVideoMedia(currentHero.mobileMediaId)"
-                    :key="`mvid-${currentHero.mobileMediaId}`"
-                    :src="mediaUrl(currentHero.mobileMediaId)"
-                    autoplay
-                    muted
-                    loop
-                    playsinline
-                  ></video>
-                  <img v-else :src="mediaUrl(currentHero.mobileMediaId)" :alt="currentHero.imageAlt || currentHero.title" />
-                </template>
-                <template v-else-if="currentHero.desktopMediaId">
-                  <video
-                    v-if="isVideoMedia(currentHero.desktopMediaId)"
-                    :key="`dvid-${currentHero.desktopMediaId}`"
-                    :src="mediaUrl(currentHero.desktopMediaId)"
-                    autoplay
-                    muted
-                    loop
-                    playsinline
-                  ></video>
-                  <img v-else :src="mediaUrl(currentHero.desktopMediaId)" :alt="currentHero.imageAlt || currentHero.title" />
-                </template>
-                <div v-else class="canvas-hero__empty-media">
-                  <p>尚未选择首屏背景图片或视频</p>
-                  <el-button
-                    v-if="studioMode === 'edit'"
-                    type="primary"
-                    @click.stop="triggerMediaPick({ target: 'heroDesktop', index: heroIndex })"
-                  >
-                    点击选择首屏图片 / 视频
-                  </el-button>
-                </div>
-                <div class="canvas-hero__mask"></div>
+          <!-- =========================================================================
+               页面 1：首页 (activePage === 'HOME') —— 严格对齐最新 GitHub main 分支
+               ========================================================================= -->
+          <template v-if="activePage === 'HOME'">
+            <!-- Hero 焦点轮播区 -->
+            <section
+              class="canvas-hero editable-zone"
+              :class="{ 'is-selected': selectedSection === 'hero' && studioMode === 'edit' }"
+              :style="
+                currentHero && resolveMediaUrl(currentHero.desktopMediaId)
+                  ? {
+                      backgroundImage: `linear-gradient(90deg, rgba(11,15,25,0.82) 0%, rgba(11,15,25,0.45) 100%), url(${resolveMediaUrl(currentHero.desktopMediaId)})`,
+                    }
+                  : undefined
+              "
+              @click="selectedSection = 'hero'"
+            >
+              <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                <span class="zone-toolbar__tag">
+                  首页 Hero 焦点图 ({{ heroIndex + 1 }} / {{ drafts.HOME.hero.items.length }})
+                </span>
+                <button type="button" class="zone-btn" @click.stop="addHeroSlide">
+                  + 新增轮播屏
+                </button>
+                <button
+                  v-if="activeHome.hero.items.length > 1"
+                  type="button"
+                  class="zone-btn danger"
+                  @click.stop="removeHeroSlide(heroIndex)"
+                >
+                  🗑️ 删除当前屏
+                </button>
+                <el-popover
+                  v-if="currentHero"
+                  placement="bottom-start"
+                  :width="440"
+                  trigger="click"
+                >
+                  <template #reference>
+                    <button type="button" class="zone-btn" @click.stop>
+                      🎨 背景图 / 视频 / 颜色设置
+                    </button>
+                  </template>
+                  <div class="popover-form" v-if="currentHero">
+                    <h4>当前焦点屏样式与跳转配置</h4>
+                    <el-form label-position="top" size="small">
+                      <el-form-item label="背景图媒体">
+                        <el-select
+                          v-model="drafts.HOME.hero.items[heroIndex].desktopMediaId"
+                          clearable
+                          placeholder="选择背景大图"
+                          style="width: 100%"
+                        >
+                          <el-option
+                            v-for="m in Object.values(mediaCache)"
+                            :key="m.id"
+                            :label="m.originalName || `#${m.id}`"
+                            :value="Number(m.id)"
+                          />
+                        </el-select>
+                      </el-form-item>
+                      <el-form-item label="背景视频 URL（可选 MP4）">
+                        <el-input
+                          v-model="drafts.HOME.hero.items[heroIndex].videoUrl"
+                          placeholder="https://.../hero.mp4"
+                        />
+                      </el-form-item>
+                      <el-row :gutter="10">
+                        <el-col :span="8">
+                          <el-form-item label="眉标颜色">
+                            <el-color-picker v-model="drafts.HOME.hero.items[heroIndex].kickerColor" />
+                          </el-form-item>
+                        </el-col>
+                        <el-col :span="8">
+                          <el-form-item label="主标题颜色">
+                            <el-color-picker v-model="drafts.HOME.hero.items[heroIndex].titleColor" />
+                          </el-form-item>
+                        </el-col>
+                        <el-col :span="8">
+                          <el-form-item label="副标题颜色">
+                            <el-color-picker v-model="drafts.HOME.hero.items[heroIndex].subtitleColor" />
+                          </el-form-item>
+                        </el-col>
+                      </el-row>
+                      <el-row :gutter="10">
+                        <el-col :span="12">
+                          <el-form-item label="按钮背景色">
+                            <el-color-picker v-model="drafts.HOME.hero.items[heroIndex].buttonBgColor" />
+                          </el-form-item>
+                        </el-col>
+                        <el-col :span="12">
+                          <el-form-item label="按钮文字色">
+                            <el-color-picker v-model="drafts.HOME.hero.items[heroIndex].buttonTextColor" />
+                          </el-form-item>
+                        </el-col>
+                      </el-row>
+                    </el-form>
+                  </div>
+                </el-popover>
               </div>
 
-              <!-- 首屏前景文案直改区 -->
-              <div class="canvas-hero__content">
-                <p class="canvas-hero__kicker">INDUSTRIAL IOT · ENERGY INTELLIGENCE</p>
-                <template v-if="studioMode === 'edit'">
-                  <div class="hero-color-row">
-                    <span class="color-tip">标题颜色:</span>
-                    <el-color-picker v-model="currentHero.titleColor" size="small" @change="recordSnapshot('修改首屏标题颜色')" />
-                    <span class="color-tip" style="margin-left: 10px">副标题:</span>
-                    <el-color-picker v-model="currentHero.subtitleColor" size="small" @change="recordSnapshot('修改首屏副标题颜色')" />
-                    <span class="color-tip" style="margin-left: 10px">按钮背景:</span>
-                    <el-color-picker v-model="currentHero.buttonBgColor" size="small" @change="recordSnapshot('修改按钮背景色')" />
-                    <span class="color-tip" style="margin-left: 10px">按钮文字:</span>
-                    <el-color-picker v-model="currentHero.buttonTextColor" size="small" @change="recordSnapshot('修改按钮文字颜色')" />
-                  </div>
-                  <textarea
-                    v-model="currentHero.title"
-                    class="inline-textarea inline-textarea--hero-title"
-                    :style="{ color: currentHero.titleColor || '#ffffff' }"
-                    rows="2"
-                    maxlength="40"
-                    placeholder="在此直接输入首屏大标题（支持换行）"
-                    @change="recordSnapshot('修改首屏标题')"
-                  ></textarea>
-                  <textarea
-                    v-model="currentHero.subtitle"
-                    class="inline-textarea inline-textarea--hero-sub"
-                    :style="{ color: currentHero.subtitleColor || 'rgba(255, 255, 255, 0.88)' }"
-                    rows="2"
-                    maxlength="100"
-                    placeholder="在此输入首屏副标题说明..."
-                    @change="recordSnapshot('修改首屏副标题')"
-                  ></textarea>
-                  <div class="canvas-hero__btn-edit">
-                    <input
-                      v-model="currentHero.buttonText"
-                      class="inline-input inline-input--hero-btn"
-                      :style="{
-                        backgroundColor: currentHero.buttonBgColor || '#e5e7eb',
-                        color: currentHero.buttonTextColor || '#1f2329'
-                      }"
-                      maxlength="12"
-                      placeholder="按钮文字(如:了解详情)"
-                      @change="recordSnapshot('修改首屏按钮文字')"
-                    />
-                    <button
-                      type="button"
-                      class="link-badge-btn"
-                      @click.stop="
-                        openLinkModal({
-                          title: '首屏主按钮跳转目标',
-                          current: currentHero.link,
-                          allowNone: true,
-                          allowConsult: true,
-                          onConfirm: (val) => {
-                            if (currentHero) currentHero.link = val
-                          },
-                        })
+              <div v-if="currentHero" class="canvas-hero__content">
+                <p
+                  class="canvas-hero__kicker"
+                  :style="currentHero.kickerColor ? { color: currentHero.kickerColor } : undefined"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.HOME.hero.items[heroIndex].kicker =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ currentHero.kicker || '数智化核心能力 · 驱动产业升级' }}
+                </p>
+                <h1
+                  class="canvas-hero__title"
+                  :style="currentHero.titleColor ? { color: currentHero.titleColor } : undefined"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.HOME.hero.items[heroIndex].title =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ currentHero.title }}
+                </h1>
+                <p
+                  class="canvas-hero__subtitle"
+                  :style="currentHero.subtitleColor ? { color: currentHero.subtitleColor } : undefined"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.HOME.hero.items[heroIndex].subtitle =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ currentHero.subtitle }}
+                </p>
+                <div class="canvas-hero__actions">
+                  <button
+                    type="button"
+                    class="canvas-hero__btn"
+                    :style="{
+                      backgroundColor: currentHero.buttonBgColor || '#4c2ce6',
+                      color: currentHero.buttonTextColor || '#ffffff',
+                    }"
+                    @click.stop="
+                      studioMode !== 'edit' ? navigateLinkInStudio(currentHero.link) : undefined
+                    "
+                  >
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.HOME.hero.items[heroIndex].buttonText =
+                          ($event.target as HTMLElement).innerText.trim()
                       "
                     >
-                      🔗 {{ describeLink(currentHero.link) }}
-                    </button>
-                  </div>
-                </template>
-                <template v-else>
-                  <h1 class="canvas-hero__title" :style="{ color: currentHero.titleColor || '#ffffff' }">{{ currentHero.title }}</h1>
-                  <p v-if="currentHero.subtitle" class="canvas-hero__sub" :style="{ color: currentHero.subtitleColor || 'rgba(255, 255, 255, 0.88)' }">{{ currentHero.subtitle }}</p>
-                  <span
-                    v-if="currentHero.buttonText"
-                    class="canvas-hero__cta"
-                    :style="{
-                      backgroundColor: currentHero.buttonBgColor || '#e5e7eb',
-                      color: currentHero.buttonTextColor || '#1f2329'
-                    }"
-                  >
-                    {{ currentHero.buttonText }} →
-                  </span>
-                </template>
-
-                <!-- 底部轮播指示条（1:1 对齐前台左下角极简指示条） -->
-                <div v-if="drafts.HOME.hero.items.length > 1" class="canvas-hero__bars">
-                  <button
-                    v-for="(hItem, hIdx) in drafts.HOME.hero.items"
-                    :key="hItem.key ?? `bar-${hIdx}`"
-                    type="button"
-                    class="canvas-hero__bar"
-                    :class="{ 'is-active': hIdx === heroIndex }"
-                    :title="`切换到第 ${hIdx + 1} 屏：${hItem.title || '未命名'}`"
-                    @click.stop="heroIndex = hIdx"
-                  >
-                    <span class="canvas-hero__bar-fill"></span>
+                      {{ currentHero.buttonText || '了解更多' }}
+                    </span>
                   </button>
                 </div>
               </div>
-            </template>
-          </section>
 
-          <!-- ==================== 3. 动态可自由排序的 6 大业务模块 ==================== -->
-          <div class="canvas-sections">
-            <template v-for="(secKey, orderIdx) in drafts.HOME.sectionOrder" :key="secKey">
-              <!-- (B) 产品与解决方案模块 services -->
+              <div v-if="activeHome.hero.items.length > 1" class="canvas-hero__bars">
+                <button
+                  v-for="(_, idx) in activeHome.hero.items"
+                  :key="idx"
+                  type="button"
+                  class="canvas-hero__bar"
+                  :class="{ active: heroIndex === idx }"
+                  @click.stop="heroIndex = idx"
+                ></button>
+              </div>
+            </section>
+
+            <!-- 首页可排序四大业务模块：services / cases / customers / news -->
+            <template v-for="(secKey, sIdx) in activeHome.sectionOrder" :key="secKey">
+              <!-- 1. 核心产品与行业解决方案分组 (services) -->
               <section
-                v-if="secKey === 'services' && (drafts.HOME.services.enabled || (studioMode === 'edit' && showDisabledBlocks))"
-                id="studio-sec-services"
-                class="canvas-block canvas-block--alt"
+                v-if="
+                  secKey === 'services' &&
+                  (activeHome.services.enabled || (studioMode === 'edit' && showDisabledBlocks))
+                "
+                class="canvas-section editable-zone"
                 :class="{
-                  'is-focused': studioMode === 'edit' && selectedSection === 'services',
-                  'is-disabled-block': !drafts.HOME.services.enabled,
+                  'is-selected': selectedSection === 'services' && studioMode === 'edit',
+                  'is-hidden-block': !activeHome.services.enabled,
                 }"
                 @click="selectedSection = 'services'"
               >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">📦 产品与解决方案 (排序 #{{ orderIdx + 1 }})</span>
-                  <el-switch v-model="drafts.HOME.services.enabled" size="small" active-text="显示" />
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('services', -1)">
-                    ⬆️ 上移模块
+                <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                  <span class="zone-toolbar__tag">产品与解决方案分组 (HOME.services)</span>
+                  <button type="button" class="zone-btn" @click.stop="addServiceGroup">
+                    + 新增业务分组
                   </button>
                   <button
                     type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('services', 1)"
+                    class="zone-btn"
+                    :disabled="sIdx === 0"
+                    @click.stop="moveSection(sIdx, -1)"
                   >
-                    ⬇️ 下移模块
+                    ↑ 上移
                   </button>
-                  <button type="button" class="tb-btn" @click.stop="addServiceGroup">
-                    ➕ 新增服务分组
+                  <button
+                    type="button"
+                    class="zone-btn"
+                    :disabled="sIdx === activeHome.sectionOrder.length - 1"
+                    @click.stop="moveSection(sIdx, 1)"
+                  >
+                    ↓ 下移
                   </button>
                 </div>
 
-                <div class="canvas-wrap">
-                  <div class="sec-header-center">
-                    <template v-if="studioMode === 'edit'">
-                      <input
-                        v-model="drafts.HOME.services.title"
-                        class="inline-input inline-input--sec-title"
-                        maxlength="40"
-                        placeholder="模块标题（如：产品与解决方案）"
-                      />
-                      <input
-                        v-model="drafts.HOME.services.subtitle"
-                        class="inline-input inline-input--sec-sub"
-                        maxlength="200"
-                        placeholder="模块副标题..."
-                      />
-                    </template>
-                    <template v-else>
-                      <h2 class="sec-title">{{ drafts.HOME.services.title }}</h2>
-                      <p v-if="drafts.HOME.services.subtitle" class="sec-sub">{{ drafts.HOME.services.subtitle }}</p>
-                    </template>
-                  </div>
+                <div class="canvas-section__head">
+                  <h2
+                    class="canvas-section__title"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.services.title =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeHome.services.title }}
+                  </h2>
+                  <p
+                    class="canvas-section__subtitle"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.services.subtitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeHome.services.subtitle || '围绕核心业务场景构建软硬一体数字化能力' }}
+                  </p>
+                </div>
 
+                <div class="service-groups-wrap">
                   <div
-                    v-for="(grp, gIdx) in drafts.HOME.services.groups"
-                    :key="grp.key ?? `grp-${gIdx}`"
+                    v-for="(grp, gIdx) in activeHome.services.groups"
+                    :key="gIdx"
                     class="service-group-stage"
-                    :class="{ 'is-reversed': grp.layout === 'right' || (grp.layout !== 'left' && gIdx % 2 === 1) }"
+                    :class="{
+                      'is-reversed':
+                        grp.layout === 'right' || (grp.layout !== 'left' && gIdx % 2 === 1),
+                    }"
                   >
                     <div class="service-group-stage__info">
-                      <template v-if="studioMode === 'edit'">
-                        <div class="grp-toolbar">
-                          <el-tag size="small">分组 0{{ gIdx + 1 }}</el-tag>
-                          <el-select
-                            v-model="grp.contentType"
-                            size="small"
-                            style="width: 110px"
-                            @change="grp.contentIds = []"
-                          >
-                            <el-option label="关联产品" value="PRODUCT" />
-                            <el-option label="关联方案" value="SOLUTION" />
-                          </el-select>
-                          <el-select
-                            v-model="grp.layout"
-                            size="small"
-                            style="width: 130px"
-                            placeholder="排版布局"
-                            @change="recordSnapshot('切换分组对齐布局')"
-                          >
-                            <el-option label="左右交替(灵动)" value="auto" />
-                            <el-option label="左文右卡" value="left" />
-                            <el-option label="左卡右文" value="right" />
-                          </el-select>
-                          <button type="button" class="mini-btn" :disabled="gIdx === 0" @click.stop="moveItem(drafts.HOME.services.groups, gIdx, -1)">↑</button>
-                          <button type="button" class="mini-btn" :disabled="gIdx === drafts.HOME.services.groups.length - 1" @click.stop="moveItem(drafts.HOME.services.groups, gIdx, 1)">↓</button>
-                          <button type="button" class="mini-del" @click.stop="drafts.HOME.services.groups.splice(gIdx, 1)">删除分组</button>
-                        </div>
-                        <div style="margin-bottom: 6px;">
-                          <input
-                            v-model="grp.tag"
-                            class="inline-input"
-                            style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.08); border: 1px solid #c7d2fe; color: #4338ca; width: 220px;"
-                            maxlength="30"
-                            placeholder="🏷️ 分组胶囊标识（如：IoT硬件与边缘网关）"
-                            @change="recordSnapshot('修改分组标识')"
-                          />
-                        </div>
-                        <input
-                          v-model="grp.title"
-                          class="inline-input inline-input--grp-title"
-                          maxlength="30"
-                          placeholder="分组名称（如：设备接入）"
-                          @change="recordSnapshot('修改分组标题')"
+                      <span
+                        class="service-group-stage__tag"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.HOME.services.groups[gIdx].tag =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ grp.tag || `0${gIdx + 1} · 核心业务场景` }}
+                      </span>
+                      <h3
+                        class="service-group-stage__title"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.HOME.services.groups[gIdx].title =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ grp.title }}
+                      </h3>
+                      <p
+                        class="service-group-stage__desc"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.HOME.services.groups[gIdx].description =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ grp.description }}
+                      </p>
+                      <div v-if="studioMode === 'edit'" class="service-group-stage__hl-edit">
+                        <el-input
+                          v-model="drafts.HOME.services.groups[gIdx].highlightsText"
+                          size="small"
+                          placeholder="亮点标签（用 / 分隔，如：7×24安全托管 / 毫秒级预警）"
                         />
-                        <textarea
-                          v-model="grp.description"
-                          class="inline-textarea"
-                          rows="2"
-                          maxlength="200"
-                          placeholder="分组业务场景描述..."
-                          @change="recordSnapshot('修改分组描述')"
-                        ></textarea>
-                        <div style="margin: 6px 0 10px;">
-                          <input
-                            v-model="grp.highlightsText"
-                            class="inline-input"
-                            style="font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #faf5ff; border: 1px dashed #d8b4fe; color: #6b21a8; width: 100%; box-sizing: border-box;"
-                            maxlength="120"
-                            placeholder="✨ 亮点标签（斜杠分隔，如：工业协议全栈解析 / 毫秒级边缘缓存）"
-                            @change="recordSnapshot('修改亮点标签')"
-                          />
-                        </div>
-                        <div class="grp-picker-wrap" @click.stop>
-                          <p class="grp-picker-label">已关联的线上卡片（可上下调整顺序或增删）：</p>
-                          <ContentPicker v-model="grp.contentIds" :content-type="grp.contentType" :max="6" />
-                        </div>
-                        <div class="grp-link-row">
-                          <button
-                            type="button"
-                            class="link-badge-btn"
-                            @click.stop="
-                              openLinkModal({
-                                title: `分组「${grp.title}」更多跳转链接`,
-                                current: grp.moreLink,
-                                allowNone: true,
-                                onConfirm: (val) => (grp.moreLink = val),
-                              })
-                            "
-                          >
-                            🔗 更多链接: {{ describeLink(grp.moreLink) }}
-                          </button>
-                        </div>
-                      </template>
-                      <template v-else>
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                          <span style="font-size: 13px; font-weight: 700; color: #6366f1;">0{{ gIdx + 1 }}</span>
-                          <span style="font-size: 11.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: #e0e7ff; color: #4338ca;">{{ grp.tag || '核心产品系列' }}</span>
-                        </div>
-                        <h3 class="grp-title">{{ grp.title }}</h3>
-                        <p class="grp-desc">{{ grp.description }}</p>
-                        <div v-if="grp.highlightsText || (grp.highlights && grp.highlights.length)" style="display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px;">
-                          <span
-                            v-for="(chip, cIdx) in (grp.highlightsText ? grp.highlightsText.split('/').map(s => s.trim()).filter(Boolean) : (grp.highlights || []))"
-                            :key="cIdx"
-                            style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 8px; border-radius: 4px;"
-                          >
-                            <span style="width: 4px; height: 4px; border-radius: 50%; background: #6366f1;"></span>
-                            {{ chip }}
-                          </span>
-                        </div>
-                      </template>
+                      </div>
+                      <div v-else-if="grp.highlights?.length" class="service-group-stage__pills">
+                        <span v-for="(hl, hIdx) in grp.highlights" :key="hIdx" class="hl-pill">
+                          {{ hl }}
+                        </span>
+                      </div>
 
-                      <!-- 关联内容卡片实时渲染 -->
-                      <div class="cards-grid">
-                        <div v-for="card in resolveCards(grp.contentIds)" :key="card.id" class="live-card">
-                          <img
-                            v-if="card.coverMediaId"
-                            :src="mediaUrl(card.coverMediaId)"
-                            :alt="card.title"
-                            class="live-card__img"
+                      <div v-if="studioMode === 'edit'" class="service-group-stage__controls">
+                        <el-select
+                          v-model="drafts.HOME.services.groups[gIdx].layout"
+                          size="small"
+                          style="width: 110px"
+                        >
+                          <el-option label="自动交替" value="auto" />
+                          <el-option label="左文右卡" value="left" />
+                          <el-option label="右文左卡" value="right" />
+                        </el-select>
+                        <el-select
+                          v-model="drafts.HOME.services.groups[gIdx].contentType"
+                          size="small"
+                          style="width: 110px"
+                        >
+                          <el-option label="关联产品" value="PRODUCT" />
+                          <el-option label="关联方案" value="SOLUTION" />
+                        </el-select>
+                        <el-select
+                          v-model="drafts.HOME.services.groups[gIdx].contentIds"
+                          multiple
+                          collapse-tags
+                          size="small"
+                          placeholder="选择展示卡片"
+                          style="width: 210px"
+                        >
+                          <el-option
+                            v-for="c in contentsMap[(grp.contentType as ContentType) || 'PRODUCT']"
+                            :key="c.id"
+                            :label="c.title || `#${c.id}`"
+                            :value="Number(c.id)"
                           />
-                          <div class="live-card__body">
-                            <h4>{{ card.title }}</h4>
-                            <span class="live-card__go">查看详情 →</span>
-                          </div>
-                        </div>
+                        </el-select>
+                        <el-button
+                          type="danger"
+                          link
+                          size="small"
+                          @click="drafts.HOME.services.groups.splice(gIdx, 1)"
+                        >
+                          删除分组
+                        </el-button>
                       </div>
                     </div>
 
-
+                    <div class="service-group-stage__cards">
+                      <div
+                        v-for="cid in grp.contentIds"
+                        :key="cid"
+                        class="canvas-card"
+                        @click.stop="
+                          openContentInStudio(
+                            (grp.contentType as ContentType) || 'PRODUCT',
+                            cid,
+                          )
+                        "
+                      >
+                        <div class="canvas-card__body">
+                          <h4>
+                            {{
+                              getContentData(
+                                getContentItem(
+                                  (grp.contentType as ContentType) || 'PRODUCT',
+                                  cid,
+                                ),
+                              ).title || `内容 #${cid}`
+                            }}
+                          </h4>
+                          <p>
+                            {{
+                              getContentData(
+                                getContentItem(
+                                  (grp.contentType as ContentType) || 'PRODUCT',
+                                  cid,
+                                ),
+                              ).summary || '点击卡片直接进入该详情画布编辑'
+                            }}
+                          </p>
+                          <span class="canvas-card__link">
+                            {{ studioMode === 'edit' ? '✏️ 点击进入详情画布编辑 →' : '了解详情 →' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              <!-- (C) 客户案例模块 cases -->
+              <!-- 2. 标杆客户案例 (cases) -->
               <section
-                v-if="secKey === 'cases' && (drafts.HOME.cases.enabled || (studioMode === 'edit' && showDisabledBlocks))"
-                id="studio-sec-cases"
-                class="canvas-block"
+                v-if="
+                  secKey === 'cases' &&
+                  (activeHome.cases.enabled || (studioMode === 'edit' && showDisabledBlocks))
+                "
+                class="canvas-section canvas-section--gray editable-zone"
                 :class="{
-                  'is-focused': studioMode === 'edit' && selectedSection === 'cases',
-                  'is-disabled-block': !drafts.HOME.cases.enabled,
+                  'is-selected': selectedSection === 'cases' && studioMode === 'edit',
+                  'is-hidden-block': !activeHome.cases.enabled,
                 }"
                 @click="selectedSection = 'cases'"
               >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">🏆 客户案例 (排序 #{{ orderIdx + 1 }})</span>
-                  <el-switch v-model="drafts.HOME.cases.enabled" size="small" active-text="显示" />
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('cases', -1)">
-                    ⬆️ 上移模块
-                  </button>
+                <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                  <span class="zone-toolbar__tag">首页标杆客户案例 (HOME.cases)</span>
+                  <el-select
+                    v-model="drafts.HOME.cases.contentIds"
+                    multiple
+                    collapse-tags
+                    size="small"
+                    placeholder="勾选首页展示的案例"
+                    style="width: 240px"
+                  >
+                    <el-option
+                      v-for="c in contentsMap.CASE"
+                      :key="c.id"
+                      :label="c.title || `#${c.id}`"
+                      :value="Number(c.id)"
+                    />
+                  </el-select>
                   <button
                     type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('cases', 1)"
+                    class="zone-btn"
+                    @click.stop="switchStudioPage('CASES')"
                   >
-                    ⬇️ 下移模块
-                  </button>
-                  <button type="button" class="tb-btn tb-btn--ghost" @click.stop="router.push('/contents/cases')">
-                    管理案例库 ↗
+                    🏆 前往客户案例完整页 →
                   </button>
                 </div>
 
-                <div class="canvas-wrap">
-                  <div class="sec-header-center">
-                    <template v-if="studioMode === 'edit'">
-                      <input
-                        v-model="drafts.HOME.cases.title"
-                        class="inline-input inline-input--sec-title"
-                        maxlength="40"
-                        placeholder="模块标题（如：携手行业标杆客户）"
-                      />
-                      <input
-                        v-model="drafts.HOME.cases.subtitle"
-                        class="inline-input inline-input--sec-sub"
-                        maxlength="200"
-                        placeholder="模块副标题..."
-                      />
-                    </template>
-                    <template v-else>
-                      <h2 class="sec-title">{{ drafts.HOME.cases.title }}</h2>
-                      <p v-if="drafts.HOME.cases.subtitle" class="sec-sub">{{ drafts.HOME.cases.subtitle }}</p>
-                    </template>
-                  </div>
+                <div class="canvas-section__head">
+                  <h2
+                    class="canvas-section__title"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.cases.title = ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeHome.cases.title }}
+                  </h2>
+                  <p
+                    class="canvas-section__subtitle"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.cases.subtitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeHome.cases.subtitle || '与行业领军企业携手共建数字化生产力' }}
+                  </p>
+                </div>
 
-                  <div v-if="studioMode === 'edit'" class="inline-picker-panel" @click.stop>
-                    <ContentPicker v-model="drafts.HOME.cases.contentIds" content-type="CASE" :max="6" />
-                  </div>
-
-                  <div class="cards-grid cards-grid--3">
-                    <div v-for="cItem in resolveCards(drafts.HOME.cases.contentIds)" :key="cItem.id" class="live-card">
-                      <img
-                        v-if="cItem.coverMediaId"
-                        :src="mediaUrl(cItem.coverMediaId)"
-                        :alt="cItem.title"
-                        class="live-card__img"
-                      />
-                      <div class="live-card__body">
-                        <span v-if="cItem.categoryName" class="live-card__tag">{{ cItem.categoryName }}</span>
-                        <h4>{{ cItem.title }}</h4>
-                      </div>
+                <div class="canvas-grid-3">
+                  <div
+                    v-for="cid in activeHome.cases.contentIds"
+                    :key="cid"
+                    class="canvas-case-card"
+                    @click.stop="openContentInStudio('CASE', cid)"
+                  >
+                    <div class="canvas-case-card__tag">
+                      {{ getContentData(getContentItem('CASE', cid)).industry || '标杆案例' }}
                     </div>
+                    <h3>{{ getContentData(getContentItem('CASE', cid)).title || `案例 #${cid}` }}</h3>
+                    <p>{{ getContentData(getContentItem('CASE', cid)).summary }}</p>
+                    <span class="canvas-card__link">
+                      {{ studioMode === 'edit' ? '✏️ 点击在画布中编辑此案例 →' : '阅读案例 →' }}
+                    </span>
                   </div>
                 </div>
               </section>
 
-              <!-- (D) 客户标识墙模块 customers -->
+              <!-- 3. 合作客户标识墙 (customers) -->
               <section
-                v-if="secKey === 'customers' && (drafts.HOME.customers.enabled || (studioMode === 'edit' && showDisabledBlocks))"
-                id="studio-sec-customers"
-                class="canvas-block canvas-block--alt"
+                v-if="
+                  secKey === 'customers' &&
+                  (activeHome.customers.enabled || (studioMode === 'edit' && showDisabledBlocks))
+                "
+                class="canvas-section editable-zone"
                 :class="{
-                  'is-focused': studioMode === 'edit' && selectedSection === 'customers',
-                  'is-disabled-block': !drafts.HOME.customers.enabled,
+                  'is-selected': selectedSection === 'customers' && studioMode === 'edit',
+                  'is-hidden-block': !activeHome.customers.enabled,
                 }"
                 @click="selectedSection = 'customers'"
               >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">🤝 客户标识墙 (排序 #{{ orderIdx + 1 }})</span>
-                  <el-switch v-model="drafts.HOME.customers.enabled" size="small" active-text="显示" />
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('customers', -1)">
-                    ⬆️ 上移模块
-                  </button>
+                <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                  <span class="zone-toolbar__tag">合作客户标识墙 (HOME.customers)</span>
+                  <el-select
+                    v-model="drafts.HOME.customers.contentIds"
+                    multiple
+                    collapse-tags
+                    size="small"
+                    placeholder="选择展示的客户 Logo"
+                    style="width: 240px"
+                  >
+                    <el-option
+                      v-for="c in contentsMap.CUSTOMER"
+                      :key="c.id"
+                      :label="c.title || `#${c.id}`"
+                      :value="Number(c.id)"
+                    />
+                  </el-select>
                   <button
                     type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('customers', 1)"
+                    class="zone-btn"
+                    @click.stop="createNewContentInStudio('CUSTOMER')"
                   >
-                    ⬇️ 下移模块
-                  </button>
-                  <button type="button" class="tb-btn tb-btn--ghost" @click.stop="router.push('/contents/customers')">
-                    管理客户标识库 ↗
+                    + 新增合作客户
                   </button>
                 </div>
 
-                <div class="canvas-wrap">
-                  <div class="sec-header-center">
-                    <template v-if="studioMode === 'edit'">
-                      <input
-                        v-model="drafts.HOME.customers.title"
-                        class="inline-input inline-input--sec-title"
-                        maxlength="40"
-                        placeholder="模块标题（如：合作客户）"
-                      />
-                    </template>
-                    <template v-else>
-                      <h2 class="sec-title">{{ drafts.HOME.customers.title || '合作客户' }}</h2>
-                    </template>
-                  </div>
+                <div class="canvas-section__head">
+                  <h2
+                    class="canvas-section__title"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.customers.title =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeHome.customers.title }}
+                  </h2>
+                </div>
 
-                  <div v-if="studioMode === 'edit'" class="inline-picker-panel" @click.stop>
-                    <ContentPicker v-model="drafts.HOME.customers.contentIds" content-type="CUSTOMER" :max="30" />
-                  </div>
-
-                  <div class="logo-wall">
-                    <div
-                      v-for="cust in resolveCards(drafts.HOME.customers.contentIds)"
-                      :key="cust.id"
-                      class="logo-wall__item"
-                    >
-                      <img v-if="cust.coverMediaId" :src="mediaUrl(cust.coverMediaId)" :alt="cust.title" />
-                      <span>{{ cust.title }}</span>
-                    </div>
+                <div class="customer-logo-wall">
+                  <div
+                    v-for="cid in activeHome.customers.contentIds"
+                    :key="cid"
+                    class="customer-logo-pill"
+                  >
+                    <span>
+                      {{ getContentData(getContentItem('CUSTOMER', cid)).title || `#${cid}` }}
+                    </span>
                   </div>
                 </div>
               </section>
 
-              <!-- (E) 新闻动态模块 news -->
+              <!-- 4. 新闻动态资讯 (news) -->
               <section
-                v-if="secKey === 'news' && (drafts.HOME.news.enabled || (studioMode === 'edit' && showDisabledBlocks))"
-                id="studio-sec-news"
-                class="canvas-block"
+                v-if="
+                  secKey === 'news' &&
+                  (activeHome.news.enabled || (studioMode === 'edit' && showDisabledBlocks))
+                "
+                class="canvas-section canvas-section--gray editable-zone"
                 :class="{
-                  'is-focused': studioMode === 'edit' && selectedSection === 'news',
-                  'is-disabled-block': !drafts.HOME.news.enabled,
+                  'is-selected': selectedSection === 'news' && studioMode === 'edit',
+                  'is-hidden-block': !activeHome.news.enabled,
                 }"
                 @click="selectedSection = 'news'"
               >
-                <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-                  <span class="sec-tag">📰 新闻动态 (排序 #{{ orderIdx + 1 }})</span>
-                  <el-switch v-model="drafts.HOME.news.enabled" size="small" active-text="显示" />
-                  <el-radio-group v-model="drafts.HOME.news.mode" size="small" @click.stop>
-                    <el-radio-button value="SELECTED">手选推荐</el-radio-button>
-                    <el-radio-button value="LATEST">最新时间倒序</el-radio-button>
+                <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                  <span class="zone-toolbar__tag">首页新闻动态 (HOME.news)</span>
+                  <el-radio-group v-model="drafts.HOME.news.mode" size="small">
+                    <el-radio-button value="LATEST">自动最新</el-radio-button>
+                    <el-radio-button value="MANUAL">手动精选</el-radio-button>
                   </el-radio-group>
-                  <el-input-number
-                    v-model="drafts.HOME.news.limit"
-                    size="small"
-                    :min="1"
-                    :max="6"
-                    style="width: 96px"
-                    @click.stop
-                  />
-                  <button type="button" class="tb-btn" :disabled="orderIdx === 0" @click.stop="moveSection('news', -1)">
-                    ⬆️ 上移
-                  </button>
                   <button
                     type="button"
-                    class="tb-btn"
-                    :disabled="orderIdx === drafts.HOME.sectionOrder.length - 1"
-                    @click.stop="moveSection('news', 1)"
+                    class="zone-btn"
+                    @click.stop="switchStudioPage('NEWS')"
                   >
-                    ⬇️ 下移
+                    📰 前往新闻中心完整页 →
                   </button>
                 </div>
 
-                <div class="canvas-wrap">
-                  <div class="sec-header-center">
-                    <template v-if="studioMode === 'edit'">
-                      <input
-                        v-model="drafts.HOME.news.title"
-                        class="inline-input inline-input--sec-title"
-                        maxlength="40"
-                        placeholder="模块标题（如：最新动态）"
-                      />
-                    </template>
-                    <template v-else>
-                      <h2 class="sec-title">{{ drafts.HOME.news.title || '新闻动态' }}</h2>
-                    </template>
-                  </div>
-
-                  <div
-                    v-if="studioMode === 'edit' && drafts.HOME.news.mode === 'SELECTED'"
-                    class="inline-picker-panel"
-                    @click.stop
+                <div class="canvas-section__head">
+                  <h2
+                    class="canvas-section__title"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.news.title = ($event.target as HTMLElement).innerText.trim()
+                    "
                   >
-                    <ContentPicker v-model="drafts.HOME.news.contentIds" content-type="NEWS" :max="6" />
+                    {{ activeHome.news.title }}
+                  </h2>
+                </div>
+
+                <div class="canvas-grid-3">
+                  <div
+                    v-for="nItem in resolvedHomeNews"
+                    :key="nItem.id"
+                    class="canvas-news-card"
+                    @click.stop="openContentInStudio('NEWS', nItem.id)"
+                  >
+                    <div class="canvas-news-card__meta">
+                      {{ getContentData(nItem).displayTime || '最新资讯' }}
+                    </div>
+                    <h3>{{ getContentData(nItem).title }}</h3>
+                    <p>{{ getContentData(nItem).summary }}</p>
+                    <span class="canvas-card__link">
+                      {{ studioMode === 'edit' ? '✏️ 点击在画布中编辑此新闻 →' : '阅读全文 →' }}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            </template>
+          </template>
+
+          <!-- =========================================================================
+               页面 2 / 3 / 4 / 5：产品中心 / 解决方案 / 客户案例 / 新闻中心（列表态 + 详情态）
+               ========================================================================= -->
+          <template
+            v-else-if="
+              activePage === 'PRODUCTS' ||
+              activePage === 'SOLUTIONS' ||
+              activePage === 'CASES' ||
+              activePage === 'NEWS'
+            "
+          >
+            <!-- A. 列表画布视图（当未打开具体某篇详情时） -->
+            <template v-if="!activeContentId">
+              <section class="subpage-hero">
+                <div class="subpage-hero__inner">
+                  <span class="subpage-hero__kicker">
+                    {{ activePageInfo?.icon }}
+                    {{ activePageInfo?.label }} · 实景画布
+                  </span>
+                  <h1>{{ activePageInfo?.label }}</h1>
+                  <p>
+                    点击下方分类标签可切换或直接重命名分类；点击任意内容卡片即可在画布内进入完整详情页实景编辑。
+                  </p>
+                </div>
+              </section>
+
+              <!-- 分类胶囊筛选与原位管理栏 -->
+              <section class="category-bar-section">
+                <div class="category-pills">
+                  <button
+                    type="button"
+                    class="cat-pill"
+                    :class="{ active: activeCategoryFilter === 'ALL' }"
+                    @click="activeCategoryFilter = 'ALL'"
+                  >
+                    全部 ({{ currentContents.length }})
+                  </button>
+                  <div
+                    v-for="cat in currentCategories"
+                    :key="cat.id"
+                    class="cat-pill-wrap"
+                  >
+                    <button
+                      type="button"
+                      class="cat-pill"
+                      :class="{ active: String(activeCategoryFilter) === String(cat.id) }"
+                      @click="activeCategoryFilter = String(cat.id)"
+                    >
+                      {{ cat.name }}
+                    </button>
+                    <button
+                      v-if="studioMode === 'edit'"
+                      type="button"
+                      class="cat-pill-edit"
+                      title="重命名并发布此分类"
+                      @click.stop="renameCategoryInline(currentCategoryType, cat)"
+                    >
+                      ✏️
+                    </button>
+                  </div>
+                  <button
+                    v-if="studioMode === 'edit'"
+                    type="button"
+                    class="cat-pill cat-pill--add"
+                    @click="addCategoryInline(currentCategoryType)"
+                  >
+                    + 新建分类标签
+                  </button>
+                  <button
+                    v-if="studioMode === 'edit'"
+                    type="button"
+                    class="cat-pill cat-pill--primary"
+                    @click="createNewContentInStudio(currentContentType)"
+                  >
+                    + 新建{{ activePageInfo?.label }}条目
+                  </button>
+                </div>
+              </section>
+
+              <!-- 新闻中心专属：顶部置顶大头条卡片（还原《新闻中心.mp4》） -->
+              <section
+                v-if="activePage === 'NEWS' && pinnedHeadlineNews"
+                class="news-pinned-section"
+              >
+                <div
+                  class="news-pinned-card"
+                  @click="openContentInStudio('NEWS', pinnedHeadlineNews.id)"
+                >
+                  <div class="news-pinned-card__info">
+                    <div class="news-pinned-card__badges">
+                      <span class="badge-top">置顶头条</span>
+                      <span class="badge-cat">
+                        {{
+                          getCategoryName(
+                            'NEWS',
+                            getContentData(pinnedHeadlineNews).categoryId,
+                          )
+                        }}
+                      </span>
+                      <span class="badge-date">
+                        {{ getContentData(pinnedHeadlineNews).displayTime }}
+                      </span>
+                    </div>
+                    <h2>{{ getContentData(pinnedHeadlineNews).title }}</h2>
+                    <p>{{ getContentData(pinnedHeadlineNews).summary }}</p>
+                    <span class="canvas-card__link">
+                      {{ studioMode === 'edit' ? '✏️ 点击进入头条新闻正文实景编辑 →' : '阅读全文 →' }}
+                    </span>
+                  </div>
+                  <div class="news-pinned-card__cover">
+                    <img
+                      v-if="resolveMediaUrl(getContentData(pinnedHeadlineNews).coverMediaId)"
+                      :src="resolveMediaUrl(getContentData(pinnedHeadlineNews).coverMediaId)"
+                      alt="头条配图"
+                    />
+                    <div v-else class="cover-placeholder">📰 头条新闻配图</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 列表卡片网格 -->
+              <section class="canvas-section">
+                <div class="canvas-grid-3">
+                  <div
+                    v-for="item in activePage === 'NEWS'
+                      ? gridNewsItems
+                      : getFilteredContents(currentContentType)"
+                    :key="item.id"
+                    class="canvas-list-card"
+                    @click="openContentInStudio(currentContentType, item.id)"
+                  >
+                    <div class="canvas-list-card__top">
+                      <span class="canvas-list-card__cat">
+                        {{
+                          getCategoryName(
+                            currentCategoryType,
+                            getContentData(item).categoryId,
+                          )
+                        }}
+                      </span>
+                      <el-tag
+                        size="small"
+                        :type="
+                          item.status === 'PUBLISHED' && !item.hasUnpublishedChanges
+                            ? 'success'
+                            : 'warning'
+                        "
+                      >
+                        {{
+                          item.status === 'PUBLISHED' && !item.hasUnpublishedChanges
+                            ? '已发布'
+                            : '草稿'
+                        }}
+                      </el-tag>
+                    </div>
+                    <h3>{{ getContentData(item).title || '未命名内容' }}</h3>
+                    <p>{{ getContentData(item).summary || '点击进入详情画布编辑摘要与正文...' }}</p>
+                    <div class="canvas-list-card__foot">
+                      <span v-if="activePage === 'CASES' && getContentData(item).customerName">
+                        🏢 {{ getContentData(item).customerName }}
+                      </span>
+                      <span v-else-if="activePage === 'NEWS'">
+                        🕒 {{ getContentData(item).displayTime }}
+                      </span>
+                      <span class="canvas-card__link">
+                        {{ studioMode === 'edit' ? '✏️ 实景编辑详情 →' : '查看详情 →' }}
+                      </span>
+                    </div>
                   </div>
 
-                  <div class="news-list-preview">
-                    <div v-for="nItem in resolvedNews" :key="nItem.id" class="news-row-preview">
-                      <span class="news-row-preview__date">{{ nItem.displayTime?.slice(0, 10) || '最新' }}</span>
-                      <strong class="news-row-preview__title">{{ nItem.title }}</strong>
-                      <span class="news-row-preview__arrow">阅读全文 →</span>
+                  <!-- 原位新建卡片 -->
+                  <div
+                    v-if="studioMode === 'edit'"
+                    class="canvas-list-card canvas-list-card--add"
+                    @click="createNewContentInStudio(currentContentType)"
+                  >
+                    <div class="add-card-inner">
+                      <span class="add-card-icon">＋</span>
+                      <strong>
+                        新建{{ activePageInfo?.label }}
+                      </strong>
+                      <span>创建后直接在画布中实景编辑详情</span>
                     </div>
                   </div>
                 </div>
               </section>
 
-            </template>
-          </div>
-
-          <!-- ==================== 4. 底部页脚与全站联系方式实景交互区 (SITE + CONTACT) ==================== -->
-          <footer
-            id="studio-sec-footer"
-            class="canvas-footer"
-            :class="{ 'is-focused': studioMode === 'edit' && selectedSection === 'footer' }"
-            @click="selectedSection = 'footer'"
-          >
-            <div v-if="studioMode === 'edit'" class="sec-floating-bar">
-              <span class="sec-tag">📞 页脚分组与全站联系方式 (同步至「全站设置」&「联系我们」)</span>
-              <el-switch v-model="drafts.CONTACT.formEnabled" size="small" active-text="开启全站咨询表单" />
-              <button type="button" class="tb-btn" @click.stop="addFooterGroup">
-                ➕ 添加页脚分组
-              </button>
-              <button type="button" class="tb-btn tb-btn--ghost" @click.stop="router.push('/pages/contact')">
-                去联系我们页 ↗
-              </button>
-            </div>
-
-            <div class="canvas-wrap canvas-footer__grid">
-              <!-- 品牌与标语 -->
-              <div class="footer-col">
-                <strong>{{ drafts.SITE.siteName }}</strong>
-                <textarea
-                  v-if="studioMode === 'edit'"
-                  v-model="drafts.SITE.slogan"
-                  class="inline-textarea inline-textarea--dark"
-                  rows="2"
-                  maxlength="100"
-                  placeholder="一句话品牌标语..."
-                ></textarea>
-                <p v-else>{{ drafts.SITE.slogan }}</p>
-              </div>
-
-              <!-- 页脚分组链接直改 -->
-              <div
-                v-for="(fGrp, fgIdx) in drafts.SITE.footerGroups"
-                :key="`fg-${fgIdx}`"
-                class="footer-col"
+              <!-- 客户案例页专属：底部「客户成功故事」高管证言模块（还原《客户案例.mp4》） -->
+              <section
+                v-if="activePage === 'CASES'"
+                class="canvas-section canvas-section--gray editable-zone"
               >
-                <template v-if="studioMode === 'edit'">
-                  <div class="fg-head">
-                    <input v-model="fGrp.title" class="inline-input inline-input--dark" maxlength="20" placeholder="分组名" />
-                    <button type="button" class="mini-del" @click.stop="drafts.SITE.footerGroups.splice(fgIdx, 1)">✕</button>
-                  </div>
-                  <div v-for="(fLnk, flIdx) in fGrp.links" :key="fLnk.key ?? `fl-${flIdx}`" class="fg-link-row">
-                    <input v-model="fLnk.label" class="inline-input inline-input--dark" maxlength="20" placeholder="链接名" />
-                    <button
-                      type="button"
-                      class="mini-btn"
-                      title="修改链接"
-                      @click.stop="
-                        openLinkModal({
-                          title: `页脚链接「${fLnk.label}」`,
-                          current: fLnk.link,
-                          allowNone: false,
-                          allowConsult: true,
-                          onConfirm: (val) => (fLnk.link = val),
-                        })
-                      "
-                    >
-                      🔗
-                    </button>
-                    <button type="button" class="mini-del" @click.stop="fGrp.links.splice(flIdx, 1)">✕</button>
-                  </div>
+                <div v-if="studioMode === 'edit'" class="zone-toolbar">
+                  <span class="zone-toolbar__tag">
+                    客户案例页 · 客户成功故事证言 (ABOUT.customerStories)
+                  </span>
                   <button
                     type="button"
-                    class="mega-add-sub"
-                    @click.stop="
-                      fGrp.links.push({
-                        label: '新链接',
-                        enabled: true,
-                        sortOrder: (fGrp.links.length + 1) * 10,
-                        link: { type: 'PAGE', pageCode: 'ABOUT' },
+                    class="zone-btn"
+                    @click="
+                      drafts.ABOUT.customerStories.push({
+                        quote: '“在此输入客户高管证言金句...”',
+                        author: '高管姓名与职务',
+                        company: '客户企业名称',
+                        logoText: '企业 LOGO 标识',
+                        videoUrl: '',
                       })
                     "
                   >
-                    + 添加链接
+                    + 新增客户成功故事
                   </button>
+                </div>
+
+                <div class="canvas-section__head">
+                  <h2 class="canvas-section__title">客户成功故事</h2>
+                  <p class="canvas-section__subtitle">
+                    听听行业领军企业掌舵人如何评价数字化转型带来的经营改变
+                  </p>
+                </div>
+
+                <div class="canvas-grid-2">
+                  <div
+                    v-for="(st, stIdx) in activeAbout.customerStories"
+                    :key="stIdx"
+                    class="story-quote-card"
+                  >
+                    <blockquote
+                      class="story-quote-card__text"
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.customerStories[stIdx].quote =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ st.quote }}
+                    </blockquote>
+                    <div class="story-quote-card__footer">
+                      <div>
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            drafts.ABOUT.customerStories[stIdx].author =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ st.author }}
+                        </strong>
+                        <span
+                          class="story-quote-card__company"
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            drafts.ABOUT.customerStories[stIdx].logoText =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ st.logoText || st.company }}
+                        </span>
+                      </div>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        type="danger"
+                        link
+                        size="small"
+                        @click="drafts.ABOUT.customerStories.splice(stIdx, 1)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <!-- B. 详情页内嵌实景编辑视图（当点击某张产品/方案/案例/新闻卡片进入详情时） -->
+            <template v-else>
+              <div class="detail-studio-canvas" v-loading="contentDetailLoading">
+                <!-- 详情页顶部实景 Hero 横幅 -->
+                <section class="detail-hero">
+                  <div class="detail-hero__bar">
+                    <el-button size="small" @click="closeContentDetail">
+                      ← 返回{{ activePageInfo?.label }}列表
+                    </el-button>
+                    <div v-if="studioMode === 'edit'" class="detail-hero__meta-controls">
+                      <span>所属分类：</span>
+                      <el-select
+                        v-model="activeContentDraft.categoryId"
+                        size="small"
+                        placeholder="选择分类"
+                        style="width: 150px"
+                      >
+                        <el-option
+                          v-for="cat in currentCategories"
+                          :key="cat.id"
+                          :label="cat.name"
+                          :value="String(cat.id)"
+                        />
+                      </el-select>
+                      <span>封面/头图：</span>
+                      <el-select
+                        v-model="activeContentDraft.coverMediaId"
+                        clearable
+                        size="small"
+                        placeholder="选择配图"
+                        style="width: 160px"
+                      >
+                        <el-option
+                          v-for="m in Object.values(mediaCache)"
+                          :key="m.id"
+                          :label="m.originalName || `#${m.id}`"
+                          :value="Number(m.id)"
+                        />
+                      </el-select>
+                      <el-button size="small" type="primary" @click="saveActiveContentDraft()">
+                        💾 保存详情草稿
+                      </el-button>
+                      <el-button size="small" type="success" @click="publishActiveContentDraft()">
+                        🚀 发布此内容
+                      </el-button>
+                    </div>
+                  </div>
+
+                  <div class="detail-hero__body">
+                    <h1
+                      class="detail-hero__title"
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        activeContentDraft.title =
+                          ($event.target as HTMLElement).innerText.trim() ||
+                          activeContentDraft.title
+                      "
+                    >
+                      {{ activeContentDraft.title }}
+                    </h1>
+                    <p
+                      class="detail-hero__summary"
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        activeContentDraft.summary =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeContentDraft.summary || '点击此处直接输入一句话核心摘要...' }}
+                    </p>
+                  </div>
+                </section>
+
+                <!-- 1) 产品详情 7 段式实景画布 (activePage === 'PRODUCTS') -->
+                <template v-if="activePage === 'PRODUCTS'">
+                  <!-- 段 2：三大核心产品特性卡 -->
+                  <section class="canvas-section">
+                    <div class="canvas-section__head-inline">
+                      <h2>核心产品特性</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.features.push({
+                            tag: '新特性',
+                            title: '输入特性标题',
+                            description: '输入特性详细描述',
+                          })
+                        "
+                      >
+                        + 添加特性卡
+                      </el-button>
+                    </div>
+                    <div class="canvas-grid-3">
+                      <div
+                        v-for="(ft, fIdx) in activeContentDraft.features"
+                        :key="fIdx"
+                        class="canvas-card"
+                      >
+                        <span
+                          class="hl-pill"
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.features[fIdx].tag =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ ft.tag || '核心能力' }}
+                        </span>
+                        <h3
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.features[fIdx].title =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ ft.title }}
+                        </h3>
+                        <p
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.features[fIdx].description =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ ft.description }}
+                        </p>
+                        <el-button
+                          v-if="studioMode === 'edit'"
+                          type="danger"
+                          link
+                          size="small"
+                          @click="activeContentDraft.features.splice(fIdx, 1)"
+                        >
+                          删除
+                        </el-button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <!-- 段 3：应用效果量化指标卡 -->
+                  <section class="canvas-section canvas-section--gray">
+                    <div class="canvas-section__head-inline">
+                      <h2>应用效果指标</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.effectMetrics.push({
+                            displayValue: '50%',
+                            label: '关键业务指标提升',
+                          })
+                        "
+                      >
+                        + 添加效果指标
+                      </el-button>
+                    </div>
+                    <div class="canvas-grid-3">
+                      <div
+                        v-for="(em, eIdx) in activeContentDraft.effectMetrics"
+                        :key="eIdx"
+                        class="metric-stat-card"
+                      >
+                        <div
+                          class="metric-stat-card__val"
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.effectMetrics[eIdx].displayValue =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ em.displayValue }}
+                        </div>
+                        <div
+                          class="metric-stat-card__label"
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.effectMetrics[eIdx].label =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ em.label }}
+                        </div>
+                        <el-button
+                          v-if="studioMode === 'edit'"
+                          type="danger"
+                          link
+                          size="small"
+                          @click="activeContentDraft.effectMetrics.splice(eIdx, 1)"
+                        >
+                          删除
+                        </el-button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <!-- 段 4：典型角色使用场景页签 -->
+                  <section class="canvas-section">
+                    <div class="canvas-section__head-inline">
+                      <h2>典型角色使用场景</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.roleTabs.push({
+                            role: '新角色',
+                            headline: '输入该角色的核心赋能价值',
+                            bullets: ['价值要点 1', '价值要点 2'],
+                          });
+                          activeProductRoleIdx = activeContentDraft.roleTabs.length - 1
+                        "
+                      >
+                        + 添加角色页签
+                      </el-button>
+                    </div>
+
+                    <div class="role-tabs-bar">
+                      <button
+                        v-for="(rt, rIdx) in activeContentDraft.roleTabs"
+                        :key="rIdx"
+                        type="button"
+                        class="cat-pill"
+                        :class="{ active: activeProductRoleIdx === rIdx }"
+                        @click="activeProductRoleIdx = rIdx"
+                      >
+                        <span
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.roleTabs[rIdx].role =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ rt.role }}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div
+                      v-if="activeProductRole"
+                      class="role-tab-panel"
+                    >
+                      <h3
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          activeContentDraft.roleTabs[activeProductRoleIdx].headline =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ activeContentDraft.roleTabs[activeProductRoleIdx].headline }}
+                      </h3>
+                      <ul class="role-bullet-list">
+                        <li
+                          v-for="(bText, bIdx) in activeContentDraft.roleTabs[activeProductRoleIdx]
+                            .bullets"
+                          :key="bIdx"
+                        >
+                          <span
+                            :contenteditable="studioMode === 'edit'"
+                            @blur="
+                              activeContentDraft.roleTabs[activeProductRoleIdx].bullets[bIdx] =
+                                ($event.target as HTMLElement).innerText.trim()
+                            "
+                          >
+                            {{ bText }}
+                          </span>
+                          <el-button
+                            v-if="studioMode === 'edit'"
+                            type="danger"
+                            link
+                            size="small"
+                            @click="
+                              activeContentDraft.roleTabs[activeProductRoleIdx].bullets.splice(
+                                bIdx,
+                                1,
+                              )
+                            "
+                          >
+                            ×
+                          </el-button>
+                        </li>
+                      </ul>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        link
+                        @click="
+                          activeContentDraft.roleTabs[activeProductRoleIdx].bullets.push(
+                            '新场景价值要点',
+                          )
+                        "
+                      >
+                        + 添加要点
+                      </el-button>
+                    </div>
+                  </section>
+
+                  <!-- 段 5：终端与工具组合卡 -->
+                  <section class="canvas-section canvas-section--gray">
+                    <div class="canvas-section__head-inline">
+                      <h2>智能终端与配套工具</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.terminalTools.push({
+                            name: '新智能终端',
+                            badge: 'IoT 硬件',
+                            description: '输入终端功能说明',
+                          })
+                        "
+                      >
+                        + 添加终端卡片
+                      </el-button>
+                    </div>
+                    <div class="canvas-grid-3">
+                      <div
+                        v-for="(tt, tIdx) in activeContentDraft.terminalTools"
+                        :key="tIdx"
+                        class="canvas-card"
+                      >
+                        <span
+                          class="hl-pill"
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.terminalTools[tIdx].badge =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ tt.badge }}
+                        </span>
+                        <h3
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.terminalTools[tIdx].name =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ tt.name }}
+                        </h3>
+                        <p
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.terminalTools[tIdx].description =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ tt.description }}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
                 </template>
-                <template v-else>
-                  <h4>{{ fGrp.title }}</h4>
-                  <ul>
-                    <li v-for="(fLnk, flIdx) in fGrp.links" :key="`flv-${flIdx}`">{{ fLnk.label }}</li>
-                  </ul>
+
+                <!-- 2) 解决方案详情专属：行业痛点 & 方案价值 (activePage === 'SOLUTIONS') -->
+                <template v-else-if="activePage === 'SOLUTIONS'">
+                  <section class="canvas-section">
+                    <div class="canvas-section__head-inline">
+                      <h2>核心行业痛点</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.pains.push({
+                            title: '新行业痛点',
+                            description: '在此输入客户面临的典型痛点描述',
+                          })
+                        "
+                      >
+                        + 添加痛点
+                      </el-button>
+                    </div>
+                    <div class="canvas-grid-3">
+                      <div
+                        v-for="(pn, pIdx) in activeContentDraft.pains"
+                        :key="pIdx"
+                        class="canvas-card"
+                      >
+                        <h3
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.pains[pIdx].title =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ pn.title }}
+                        </h3>
+                        <p
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.pains[pIdx].description =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ pn.description }}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="canvas-section canvas-section--gray">
+                    <div class="canvas-section__head-inline">
+                      <h2>方案核心收益</h2>
+                      <el-button
+                        v-if="studioMode === 'edit'"
+                        size="small"
+                        type="primary"
+                        plain
+                        @click="
+                          activeContentDraft.benefits.push({
+                            title: '新方案收益',
+                            description: '在此输入方案带来的核心价值',
+                          })
+                        "
+                      >
+                        + 添加收益
+                      </el-button>
+                    </div>
+                    <div class="canvas-grid-3">
+                      <div
+                        v-for="(bf, bIdx) in activeContentDraft.benefits"
+                        :key="bIdx"
+                        class="canvas-card"
+                      >
+                        <h3
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.benefits[bIdx].title =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ bf.title }}
+                        </h3>
+                        <p
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.benefits[bIdx].description =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ bf.description }}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
                 </template>
+
+                <!-- 3) 客户案例详情专属：客户信息、高管证言、量化成效 (activePage === 'CASES') -->
+                <template v-else-if="activePage === 'CASES'">
+                  <section class="canvas-section">
+                    <div class="case-meta-banner">
+                      <div>
+                        <span class="meta-label">所属行业：</span>
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.industry =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ activeContentDraft.industry || '智慧物流' }}
+                        </strong>
+                      </div>
+                      <div>
+                        <span class="meta-label">客户名称：</span>
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.customerName =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ activeContentDraft.customerName || '标杆客户' }}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div class="story-quote-card" style="margin-top: 20px">
+                      <blockquote
+                        class="story-quote-card__text"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          activeContentDraft.quoteText =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ activeContentDraft.quoteText || '“在此直接输入客户高管证言引语...”' }}
+                      </blockquote>
+                      <div class="story-quote-card__footer">
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.quoteAuthor =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          — {{ activeContentDraft.quoteAuthor || '客户高管姓名与职务' }}
+                        </strong>
+                      </div>
+                    </div>
+                  </section>
+                </template>
+
+                <!-- 4) 新闻详情专属：作者、时间、来源栏 (activePage === 'NEWS') -->
+                <template v-else-if="activePage === 'NEWS'">
+                  <section class="canvas-section" style="padding-bottom: 0">
+                    <div class="case-meta-banner">
+                      <div>
+                        <span class="meta-label">发布时间：</span>
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.displayTime =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ activeContentDraft.displayTime }}
+                        </strong>
+                      </div>
+                      <div>
+                        <span class="meta-label">作者/来源：</span>
+                        <strong
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            activeContentDraft.author =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ activeContentDraft.author || '官方发布' }}
+                        </strong>
+                      </div>
+                    </div>
+                  </section>
+                </template>
+
+                <!-- 通用富文本正文实景编辑与预览区 -->
+                <section class="canvas-section">
+                  <div class="canvas-section__head-inline">
+                    <h2>详情图文正文 (bodyHtml)</h2>
+                  </div>
+                  <div v-if="studioMode === 'edit'" class="rich-body-split">
+                    <el-input
+                      v-model="activeContentDraft.bodyHtml"
+                      type="textarea"
+                      :rows="8"
+                      placeholder="支持直接输入 HTML 或段落文本，右侧/下方实时渲染前台视觉效果"
+                    />
+                    <div class="rich-body-preview" v-html="activeContentDraft.bodyHtml"></div>
+                  </div>
+                  <div v-else class="rich-body-preview" v-html="activeContentDraft.bodyHtml"></div>
+                </section>
+              </div>
+            </template>
+          </template>
+
+          <!-- =========================================================================
+               页面 6：关于我们 (activePage === 'ABOUT') —— 完整 5 大子页签 + 双弹窗 + 7城地图
+               ========================================================================= -->
+          <template v-else-if="activePage === 'ABOUT'">
+            <section class="about-hero editable-zone">
+              <div class="about-hero__inner">
+                <h1
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.ABOUT.heroTitle =
+                      ($event.target as HTMLElement).innerText.trim() ||
+                      drafts.ABOUT.heroTitle
+                  "
+                >
+                  {{ activeAbout.heroTitle }}
+                </h1>
               </div>
 
-              <!-- 联系我们直改列 (同步至 CONTACT) -->
-              <div class="footer-col footer-col--contact">
-                <h4>联系我们 (全站共用)</h4>
-                <template v-if="studioMode === 'edit'">
-                  <label class="dark-field">
-                    <span>全国热线电话</span>
-                    <input v-model="drafts.CONTACT.phone" class="inline-input inline-input--dark-lg" placeholder="400-888-6688" />
-                  </label>
-                  <label class="dark-field">
-                    <span>服务时间</span>
-                    <input v-model="drafts.CONTACT.hours" class="inline-input inline-input--dark" placeholder="周一至周日 9:00-18:00" />
-                  </label>
-                  <label class="dark-field">
-                    <span>商务邮箱</span>
-                    <input v-model="drafts.CONTACT.email" class="inline-input inline-input--dark" placeholder="connect@company.com" />
-                  </label>
-                  <label class="dark-field">
-                    <span>公司地址</span>
-                    <input v-model="drafts.CONTACT.address" class="inline-input inline-input--dark" placeholder="详细办公地址" />
-                  </label>
-                </template>
-                <template v-else>
-                  <p class="footer-phone">{{ drafts.CONTACT.phone }}</p>
-                  <p>{{ drafts.CONTACT.hours }}</p>
-                  <p>{{ drafts.CONTACT.email }}</p>
-                  <p>{{ drafts.CONTACT.address }}</p>
-                </template>
+              <!-- 悬浮白卡 5 大子页签导航 -->
+              <div class="about-subtabs">
+                <button
+                  type="button"
+                  class="about-subtab-btn"
+                  :class="{ active: aboutSubTab === 'intro' }"
+                  @click="aboutSubTab = 'intro'"
+                >
+                  企业简介
+                </button>
+                <button
+                  type="button"
+                  class="about-subtab-btn"
+                  :class="{ active: aboutSubTab === 'team' }"
+                  @click="aboutSubTab = 'team'"
+                >
+                  管理团队
+                </button>
+                <button
+                  type="button"
+                  class="about-subtab-btn"
+                  :class="{ active: aboutSubTab === 'media' }"
+                  @click="aboutSubTab = 'media'"
+                >
+                  媒体中心
+                </button>
+                <button
+                  type="button"
+                  class="about-subtab-btn"
+                  :class="{ active: aboutSubTab === 'resources' }"
+                  @click="aboutSubTab = 'resources'"
+                >
+                  资料共享
+                </button>
+                <button
+                  type="button"
+                  class="about-subtab-btn"
+                  :class="{ active: aboutSubTab === 'join' }"
+                  @click="aboutSubTab = 'join'"
+                >
+                  加入我们
+                </button>
+              </div>
+            </section>
+
+            <!-- 子页签 1：企业简介 + CEO 的信 + 发展历程时间轴 + 7 城地图 + 荣誉资质 -->
+            <template v-if="aboutSubTab === 'intro'">
+              <!-- 企业简介左文右图 -->
+              <section class="canvas-section">
+                <div class="about-intro-grid">
+                  <div class="about-intro-grid__text">
+                    <h2
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.introTitle =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.introTitle }}
+                    </h2>
+                    <p
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.intro = ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.intro }}
+                    </p>
+                  </div>
+                  <div class="about-intro-grid__media">
+                    <img
+                      v-if="activeAbout.introImage"
+                      :src="activeAbout.introImage"
+                      alt="企业简介配图"
+                    />
+                    <div v-else class="cover-placeholder">🏢 企业形象展示大图</div>
+                    <el-input
+                      v-if="studioMode === 'edit'"
+                      v-model="drafts.ABOUT.introImage"
+                      size="small"
+                      placeholder="输入企业简介配图 URL..."
+                      style="margin-top: 8px"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <!-- CEO 的信紫底双栏卡片 + 展开全文弹窗 -->
+              <section class="canvas-section" style="padding-top: 0">
+                <div class="ceo-letter-card">
+                  <div class="ceo-letter-card__left">
+                    <blockquote
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.ceoLetter.leftQuote =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.ceoLetter.leftQuote }}
+                    </blockquote>
+                  </div>
+                  <div class="ceo-letter-card__right">
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.ceoLetter.title =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.ceoLetter.title }}
+                    </h3>
+                    <p
+                      v-for="(ex, exIdx) in activeAbout.ceoLetter.excerpt"
+                      :key="exIdx"
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.ceoLetter.excerpt[exIdx] =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ ex }}
+                    </p>
+                    <div class="ceo-letter-card__foot">
+                      <span
+                        class="ceo-sig"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.ABOUT.ceoLetter.signature =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        — {{ activeAbout.ceoLetter.signature }}
+                      </span>
+                      <button
+                        type="button"
+                        class="ceo-expand-btn"
+                        @click="ceoModalOpen = true"
+                      >
+                        {{
+                          studioMode === 'edit'
+                            ? '✏️ 展开全部 / 编辑弹窗全文'
+                            : activeAbout.ceoLetter.buttonText || '展开全部'
+                        }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 发展历程交互时间轴 -->
+              <section class="canvas-section canvas-section--gray">
+                <div class="canvas-section__head-inline">
+                  <h2>发展历程</h2>
+                  <el-button
+                    v-if="studioMode === 'edit'"
+                    size="small"
+                    type="primary"
+                    plain
+                    @click="
+                      drafts.ABOUT.milestones.push({
+                        year: '2026',
+                        title: '新发展里程碑',
+                        description: '输入该年份关键突破事件',
+                      });
+                      aboutMilestoneIdx = drafts.ABOUT.milestones.length - 1
+                    "
+                  >
+                    + 新增年份节点
+                  </el-button>
+                </div>
+
+                <div class="milestone-years-bar">
+                  <button
+                    v-for="(ms, mIdx) in activeAbout.milestones"
+                    :key="mIdx"
+                    type="button"
+                    class="cat-pill"
+                    :class="{ active: aboutMilestoneIdx === mIdx }"
+                    @click="aboutMilestoneIdx = mIdx"
+                  >
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.milestones[mIdx].year =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ ms.year }}
+                    </span>
+                  </button>
+                </div>
+
+                <div
+                  v-if="activeAbout.milestones[aboutMilestoneIdx]"
+                  class="milestone-active-card"
+                >
+                  <div class="milestone-active-card__year">
+                    {{ activeAbout.milestones[aboutMilestoneIdx].year }}
+                  </div>
+                  <div class="milestone-active-card__body">
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.milestones[aboutMilestoneIdx].title =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.milestones[aboutMilestoneIdx].title }}
+                    </h3>
+                    <p
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.milestones[aboutMilestoneIdx].description =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.milestones[aboutMilestoneIdx].description }}
+                    </p>
+                  </div>
+                  <el-button
+                    v-if="studioMode === 'edit' && activeAbout.milestones.length > 1"
+                    type="danger"
+                    link
+                    size="small"
+                    @click="
+                      drafts.ABOUT.milestones.splice(aboutMilestoneIdx, 1);
+                      aboutMilestoneIdx = 0
+                    "
+                  >
+                    删除此节点
+                  </el-button>
+                </div>
+              </section>
+
+              <!-- 7 大城市办公网点与地图坐标联动编辑 -->
+              <section class="canvas-section">
+                <div class="canvas-section__head-inline">
+                  <h2>全国分支机构与联系网点</h2>
+                  <el-button
+                    v-if="studioMode === 'edit'"
+                    size="small"
+                    type="primary"
+                    plain
+                    @click="
+                      drafts.ABOUT.offices.push({
+                        city: '新城市',
+                        phone: '010-88888888',
+                        address: '请输入详细办公地址',
+                        mapX: 65,
+                        mapY: 55,
+                      });
+                      aboutOfficeIdx = drafts.ABOUT.offices.length - 1
+                    "
+                  >
+                    + 新增城市网点
+                  </el-button>
+                </div>
+
+                <div class="office-city-tabs">
+                  <button
+                    v-for="(ofc, oIdx) in activeAbout.offices"
+                    :key="oIdx"
+                    type="button"
+                    class="cat-pill"
+                    :class="{ active: aboutOfficeIdx === oIdx }"
+                    @click="aboutOfficeIdx = oIdx"
+                  >
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.offices[oIdx].city =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ ofc.city }}
+                    </span>
+                  </button>
+                </div>
+
+                <div
+                  v-if="activeAbout.offices[aboutOfficeIdx]"
+                  class="office-map-stage"
+                >
+                  <div class="office-map-stage__card">
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.offices[aboutOfficeIdx].city =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      📍 {{ activeAbout.offices[aboutOfficeIdx].city }}
+                    </h3>
+                    <p>
+                      <strong>电话：</strong>
+                      <span
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.ABOUT.offices[aboutOfficeIdx].phone =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ activeAbout.offices[aboutOfficeIdx].phone || '暂无直线电话' }}
+                      </span>
+                    </p>
+                    <p>
+                      <strong>地址：</strong>
+                      <span
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.ABOUT.offices[aboutOfficeIdx].address =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ activeAbout.offices[aboutOfficeIdx].address }}
+                      </span>
+                    </p>
+                    <div v-if="studioMode === 'edit'" class="office-coord-inputs">
+                      <span>地图 X%：</span>
+                      <el-input-number
+                        v-model="drafts.ABOUT.offices[aboutOfficeIdx].mapX"
+                        :min="5"
+                        :max="95"
+                        size="small"
+                      />
+                      <span>地图 Y%：</span>
+                      <el-input-number
+                        v-model="drafts.ABOUT.offices[aboutOfficeIdx].mapY"
+                        :min="5"
+                        :max="95"
+                        size="small"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="office-map-stage__board">
+                    <div
+                      v-for="(ofc, oIdx) in activeAbout.offices"
+                      :key="oIdx"
+                      class="map-pin-dot"
+                      :class="{ active: aboutOfficeIdx === oIdx }"
+                      :style="{
+                        left: `${ofc.mapX ?? 68}%`,
+                        top: `${ofc.mapY ?? 45}%`,
+                      }"
+                      @click="aboutOfficeIdx = oIdx"
+                    >
+                      <span class="map-pin-dot__pulse"></span>
+                      <span class="map-pin-dot__label">{{ ofc.city }}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <!-- 子页签 2：管理团队 + 高管履历弹窗 -->
+            <template v-else-if="aboutSubTab === 'team'">
+              <section class="canvas-section">
+                <div class="canvas-section__head-inline">
+                  <h2
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.ABOUT.teamTitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeAbout.teamTitle }}
+                  </h2>
+                  <el-button
+                    v-if="studioMode === 'edit'"
+                    size="small"
+                    type="primary"
+                    plain
+                    @click="
+                      drafts.ABOUT.teamMembers.push({
+                        name: '新高管姓名',
+                        role: '职位头衔',
+                        avatar: '',
+                        bio: ['在此输入高管详细履历...'],
+                      })
+                    "
+                  >
+                    + 新增高管成员
+                  </el-button>
+                </div>
+
+                <div class="canvas-grid-4">
+                  <div
+                    v-for="(tm, tIdx) in activeAbout.teamMembers"
+                    :key="tIdx"
+                    class="team-member-card"
+                    @click="activeTeamIdx = tIdx"
+                  >
+                    <div class="team-member-card__avatar">
+                      <img v-if="tm.avatar" :src="tm.avatar" :alt="tm.name" />
+                      <span v-else class="avatar-letter">{{ tm.name.slice(0, 1) }}</span>
+                    </div>
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @click.stop
+                      @blur="
+                        drafts.ABOUT.teamMembers[tIdx].name =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ tm.name }}
+                    </h3>
+                    <p
+                      :contenteditable="studioMode === 'edit'"
+                      @click.stop
+                      @blur="
+                        drafts.ABOUT.teamMembers[tIdx].role =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ tm.role }}
+                    </p>
+                    <span class="canvas-card__link">
+                      {{ studioMode === 'edit' ? '✏️ 点击打开高管履历弹窗编辑 →' : '查看履历 →' }}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <!-- 子页签 3：媒体中心 -->
+            <template v-else-if="aboutSubTab === 'media'">
+              <section class="canvas-section">
+                <div class="canvas-section__head-inline">
+                  <h2>媒体报道与官方动态</h2>
+                  <el-button size="small" type="primary" plain @click="switchStudioPage('NEWS')">
+                    前往新闻中心管理全部稿件 →
+                  </el-button>
+                </div>
+                <div class="canvas-grid-3">
+                  <div
+                    v-for="nItem in aboutMediaNews"
+                    :key="nItem.id"
+                    class="canvas-news-card"
+                    @click="openContentInStudio('NEWS', nItem.id)"
+                  >
+                    <div class="canvas-news-card__meta">
+                      {{ getContentData(nItem).displayTime }}
+                    </div>
+                    <h3>{{ getContentData(nItem).title }}</h3>
+                    <p>{{ getContentData(nItem).summary }}</p>
+                    <span class="canvas-card__link">✏️ 点击在画布中编辑此稿件 →</span>
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <!-- 子页签 4：资料共享（4 大资料分类切换 + 原位编辑） -->
+            <template v-else-if="aboutSubTab === 'resources'">
+              <section class="canvas-section">
+                <div class="canvas-section__head-inline">
+                  <h2
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.ABOUT.resourcesTitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeAbout.resourcesTitle }}
+                  </h2>
+                  <div class="category-pills">
+                    <button
+                      v-for="cName in ['企业资料', '客户视频', '行业报告', 'ESG']"
+                      :key="cName"
+                      type="button"
+                      class="cat-pill"
+                      :class="{ active: aboutResourceCat === cName }"
+                      @click="aboutResourceCat = cName"
+                    >
+                      {{ cName }}
+                    </button>
+                    <el-button
+                      v-if="studioMode === 'edit'"
+                      size="small"
+                      type="primary"
+                      plain
+                      @click="
+                        drafts.ABOUT.resources.push({
+                          category: aboutResourceCat,
+                          title: '新资料手册',
+                          logoText: '白皮书/手册封面标题',
+                          logoColor: '#4c2ce6',
+                          url: '',
+                        })
+                      "
+                    >
+                      + 新增「{{ aboutResourceCat }}」卡片
+                    </el-button>
+                  </div>
+                </div>
+
+                <div class="canvas-grid-3" style="margin-top: 20px">
+                  <template v-for="(resIt, rIdx) in activeAbout.resources" :key="rIdx">
+                    <div
+                      v-if="resIt.category === aboutResourceCat"
+                      class="resource-card"
+                    >
+                      <div
+                        class="resource-card__banner"
+                        :style="{ backgroundColor: resIt.logoColor || '#4c2ce6' }"
+                      >
+                        <span
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            drafts.ABOUT.resources[rIdx].logoText =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ resIt.logoText }}
+                        </span>
+                      </div>
+                      <div class="resource-card__body">
+                        <h3
+                          :contenteditable="studioMode === 'edit'"
+                          @blur="
+                            drafts.ABOUT.resources[rIdx].title =
+                              ($event.target as HTMLElement).innerText.trim()
+                          "
+                        >
+                          {{ resIt.title }}
+                        </h3>
+                        <el-input
+                          v-if="studioMode === 'edit'"
+                          v-model="drafts.ABOUT.resources[rIdx].url"
+                          size="small"
+                          placeholder="下载或播放链接 URL"
+                        />
+                        <div class="resource-card__foot">
+                          <span>{{ resIt.isVideo ? '🎬 观看视频' : '📥 下载资料' }}</span>
+                          <el-button
+                            v-if="studioMode === 'edit'"
+                            type="danger"
+                            link
+                            size="small"
+                            @click="drafts.ABOUT.resources.splice(rIdx, 1)"
+                          >
+                            删除
+                          </el-button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </section>
+            </template>
+
+            <!-- 子页签 5：加入我们（使命 / 愿景 / 5大价值观列表 + 招聘横幅） -->
+            <template v-else-if="aboutSubTab === 'join'">
+              <section class="canvas-section">
+                <div class="mv-banner-grid">
+                  <div class="mv-box">
+                    <span class="mv-box__label">企业使命 (MISSION)</span>
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.mission =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.mission }}
+                    </h3>
+                  </div>
+                  <div class="mv-box">
+                    <span class="mv-box__label">企业愿景 (VISION)</span>
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.vision =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.vision }}
+                    </h3>
+                  </div>
+                </div>
+
+                <div class="values-list-wrap" style="margin-top: 32px">
+                  <div class="canvas-section__head-inline">
+                    <h2>核心价值观</h2>
+                    <el-button
+                      v-if="studioMode === 'edit'"
+                      size="small"
+                      type="primary"
+                      plain
+                      @click="
+                        drafts.ABOUT.values.push({
+                          title: '新价值观',
+                          lines: ['价值观行为准则描述 1'],
+                        })
+                      "
+                    >
+                      + 新增价值观条目
+                    </el-button>
+                  </div>
+                  <div
+                    v-for="(valIt, vIdx) in activeAbout.values"
+                    :key="vIdx"
+                    class="value-row-item"
+                  >
+                    <h4
+                      class="value-row-item__title"
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.values[vIdx].title =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ valIt.title }}
+                    </h4>
+                    <div class="value-row-item__lines">
+                      <p
+                        v-for="(ln, lIdx) in valIt.lines"
+                        :key="lIdx"
+                        :contenteditable="studioMode === 'edit'"
+                        @blur="
+                          drafts.ABOUT.values[vIdx].lines[lIdx] =
+                            ($event.target as HTMLElement).innerText.trim()
+                        "
+                      >
+                        {{ ln }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="join-cta-banner" style="margin-top: 32px">
+                  <h2
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.ABOUT.joinTitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeAbout.joinTitle }}
+                  </h2>
+                  <button type="button" class="canvas-hero__btn">
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.ABOUT.joinButtonText =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeAbout.joinButtonText || '查看职位' }}
+                    </span>
+                  </button>
+                </div>
+              </section>
+            </template>
+
+            <!-- 关于我们弹窗 1：CEO 的信全文实景编辑弹窗 -->
+            <el-dialog
+              v-model="ceoModalOpen"
+              title="CEO 致信全文弹窗（实景编辑）"
+              width="680px"
+              append-to-body
+            >
+              <div class="ceo-modal-body">
+                <h3
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.ABOUT.ceoLetter.title =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ activeAbout.ceoLetter.title }}
+                </h3>
+                <div
+                  v-for="(para, pIdx) in activeAbout.ceoLetter.fullParagraphs"
+                  :key="pIdx"
+                  class="ceo-modal-para"
+                >
+                  <p
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.ABOUT.ceoLetter.fullParagraphs[pIdx] =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ para }}
+                  </p>
+                  <el-button
+                    v-if="studioMode === 'edit'"
+                    type="danger"
+                    link
+                    size="small"
+                    @click="drafts.ABOUT.ceoLetter.fullParagraphs.splice(pIdx, 1)"
+                  >
+                    删除此段
+                  </el-button>
+                </div>
+                <el-button
+                  v-if="studioMode === 'edit'"
+                  size="small"
+                  type="primary"
+                  plain
+                  @click="drafts.ABOUT.ceoLetter.fullParagraphs.push('在此输入新段落正文...')"
+                >
+                  + 新增正文段落
+                </el-button>
+              </div>
+            </el-dialog>
+
+            <!-- 关于我们弹窗 2：高管个人履历实景编辑弹窗 -->
+            <el-dialog
+              :model-value="activeTeamIdx !== null"
+              title="管理团队高管履历弹窗（实景编辑）"
+              width="580px"
+              append-to-body
+              @close="activeTeamIdx = null"
+            >
+              <div
+                v-if="activeTeamIdx !== null"
+                class="team-modal-body"
+              >
+                <el-form label-position="top" size="small">
+                  <el-row :gutter="12">
+                    <el-col :span="12">
+                      <el-form-item label="高管姓名">
+                        <el-input v-model="activeTeamMember.name" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="职位头衔">
+                        <el-input v-model="activeTeamMember.role" />
+                      </el-form-item>
+                    </el-col>
+                  </el-row>
+                  <el-form-item label="头像图片 URL">
+                    <el-input
+                      v-model="activeTeamMember.avatar"
+                      placeholder="https://..."
+                    />
+                  </el-form-item>
+                  <div class="popover-subtitle">
+                    <span>个人履历介绍段落</span>
+                    <el-button
+                      size="small"
+                      type="primary"
+                      link
+                      @click="activeTeamMember.bio.push('新履历段落...')"
+                    >
+                      + 添加段落
+                    </el-button>
+                  </div>
+                  <div
+                    v-for="(_, bIdx) in activeTeamMember.bio"
+                    :key="bIdx"
+                    class="mini-row"
+                    style="margin-bottom: 8px"
+                  >
+                    <el-input
+                      v-model="activeTeamMember.bio[bIdx]"
+                      type="textarea"
+                      :rows="2"
+                    />
+                    <el-button
+                      type="danger"
+                      link
+                      @click="activeTeamMember.bio.splice(bIdx, 1)"
+                    >
+                      删除
+                    </el-button>
+                  </div>
+                </el-form>
+              </div>
+            </el-dialog>
+          </template>
+
+          <!-- =========================================================================
+               页面 7：联系我们与预约产品展示 (activePage === 'CONTACT')
+               ========================================================================= -->
+          <template v-else-if="activePage === 'CONTACT'">
+            <section class="subpage-hero">
+              <div class="subpage-hero__inner">
+                <h1
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.CONTACT.title =
+                      ($event.target as HTMLElement).innerText.trim() || drafts.CONTACT.title
+                  "
+                >
+                  {{ activeContact.title }}
+                </h1>
+                <p
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.CONTACT.description =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ activeContact.description }}
+                </p>
+              </div>
+            </section>
+
+            <section class="canvas-section">
+              <div class="contact-studio-grid">
+                <!-- 左侧企业联系信息卡 -->
+                <div class="contact-info-card">
+                  <h2
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.CONTACT.companyName =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeContact.companyName }}
+                  </h2>
+                  <div class="contact-field-row">
+                    <span class="contact-field-label">📞 咨询热线：</span>
+                    <strong
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.CONTACT.phone =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeContact.phone }}
+                    </strong>
+                  </div>
+                  <div class="contact-field-row">
+                    <span class="contact-field-label">✉️ 商务邮箱：</span>
+                    <strong
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.CONTACT.email =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeContact.email }}
+                    </strong>
+                  </div>
+                  <div class="contact-field-row">
+                    <span class="contact-field-label">📍 总部地址：</span>
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.CONTACT.address =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeContact.address }}
+                    </span>
+                  </div>
+                  <div class="contact-field-row">
+                    <span class="contact-field-label">🕒 服务时间：</span>
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.CONTACT.hours =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ activeContact.hours }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 右侧「预约产品展示」表单实景卡片（1:1 对齐《预约产品展示.png》） -->
+                <div v-if="activeContact.formEnabled" class="consult-form-card">
+                  <h2
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.CONTACT.formTitle =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeContact.formTitle || '预约产品展示' }}
+                  </h2>
+                  <p
+                    class="consult-form-card__sub"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.CONTACT.successText =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activeContact.successText }}
+                  </p>
+
+                  <div class="mock-form-field">
+                    <label>姓名（必填）</label>
+                    <input type="text" disabled placeholder="您的姓名..." />
+                  </div>
+                  <div class="mock-form-field">
+                    <label>手机（必填）</label>
+                    <input type="text" disabled placeholder="您的手机号码..." />
+                  </div>
+                  <div v-if="activeContact.smsVerifyEnabled" class="mock-form-field">
+                    <label>短信验证码（必填）</label>
+                    <div class="mock-sms-row">
+                      <input type="text" disabled placeholder="您的短信验证码..." />
+                      <button type="button" class="mock-sms-btn">点击获取验证码</button>
+                    </div>
+                  </div>
+                  <div class="mock-form-field">
+                    <label>公司名称（必填）</label>
+                    <input type="text" disabled placeholder="您的公司名称..." />
+                  </div>
+                  <div class="mock-form-field">
+                    <label>如果您有想了解的产品或方案，欢迎给我们留言（必填）</label>
+                    <textarea
+                      rows="3"
+                      disabled
+                      placeholder="您可以写下您的需求，我们会在第一时间为您解答..."
+                    ></textarea>
+                  </div>
+                  <button type="button" class="mock-submit-btn">立即预约</button>
+                </div>
+              </div>
+            </section>
+          </template>
+
+          <!-- =========================================================================
+               页面 8：隐私说明 (activePage === 'PRIVACY')
+               ========================================================================= -->
+          <template v-else-if="activePage === 'PRIVACY'">
+            <section class="subpage-hero">
+              <div class="subpage-hero__inner">
+                <h1
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.PRIVACY.title =
+                      ($event.target as HTMLElement).innerText.trim() || drafts.PRIVACY.title
+                  "
+                >
+                  {{ activePrivacy.title }}
+                </h1>
+                <p>
+                  最近更新日期：
+                  <span
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.PRIVACY.updatedAt =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ activePrivacy.updatedAt }}
+                  </span>
+                </p>
+              </div>
+            </section>
+
+            <section class="canvas-section">
+              <div v-if="studioMode === 'edit'" class="rich-body-split">
+                <el-input
+                  v-model="drafts.PRIVACY.bodyHtml"
+                  type="textarea"
+                  :rows="10"
+                  placeholder="直接输入或修改隐私说明 HTML 内容"
+                />
+                <div class="rich-body-preview" v-html="activePrivacy.bodyHtml"></div>
+              </div>
+              <div v-else class="rich-body-preview" v-html="activePrivacy.bodyHtml"></div>
+            </section>
+          </template>
+
+          <!-- ==================== 全局公共底栏：深色多栏 Footer ==================== -->
+          <footer
+            class="canvas-footer editable-zone"
+            :class="{ 'is-selected': selectedSection === 'footer' && studioMode === 'edit' }"
+            @click="selectedSection = 'footer'"
+          >
+            <div v-if="studioMode === 'edit'" class="zone-toolbar">
+              <span class="zone-toolbar__tag">全局页脚与版权备案 (SITE)</span>
+              <button
+                type="button"
+                class="zone-btn"
+                @click.stop="
+                  drafts.SITE.footerGroups.push({
+                    title: '新页脚分栏',
+                    links: [{ label: '链接项', enabled: true, sortOrder: 100, link: { type: 'PAGE', pageCode: 'ABOUT' } }],
+                  })
+                "
+              >
+                + 新增页脚栏目
+              </button>
+            </div>
+
+            <div class="canvas-footer__grid">
+              <div class="canvas-footer__brand">
+                <h3
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.SITE.siteName =
+                      ($event.target as HTMLElement).innerText.trim() || drafts.SITE.siteName
+                  "
+                >
+                  {{ activeSite.siteName }}
+                </h3>
+                <p
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.SITE.slogan = ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ activeSite.slogan }}
+                </p>
+                <div class="footer-emails">
+                  <div
+                    v-for="(em, eIdx) in activeSite.contactEmails"
+                    :key="eIdx"
+                    class="footer-email-item"
+                  >
+                    <strong
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.SITE.contactEmails[eIdx].email =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ em.email }}
+                    </strong>
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.SITE.contactEmails[eIdx].desc =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ em.desc }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-for="(fg, fgIdx) in activeSite.footerGroups"
+                :key="fgIdx"
+                class="canvas-footer__col"
+              >
+                <h4
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="
+                    drafts.SITE.footerGroups[fgIdx].title =
+                      ($event.target as HTMLElement).innerText.trim()
+                  "
+                >
+                  {{ fg.title }}
+                </h4>
+                <ul>
+                  <li v-for="(fl, flIdx) in fg.links" :key="flIdx">
+                    <span
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="
+                        drafts.SITE.footerGroups[fgIdx].links[flIdx].label =
+                          ($event.target as HTMLElement).innerText.trim()
+                      "
+                    >
+                      {{ fl.label }}
+                    </span>
+                  </li>
+                </ul>
               </div>
             </div>
 
-            <!-- 版权与备案直改条 -->
-            <div class="canvas-wrap canvas-footer__bottom">
-              <template v-if="studioMode === 'edit'">
-                <input v-model="drafts.SITE.copyrightText" class="inline-input inline-input--dark" style="width: 260px" placeholder="版权文案(必填)" />
-                <input v-model="drafts.SITE.icpText" class="inline-input inline-input--dark" style="width: 180px" placeholder="ICP备案号" />
-                <input v-model="drafts.SITE.icpUrl" class="inline-input inline-input--dark" style="width: 220px" placeholder="https://beian.miit.gov.cn/" />
-              </template>
-              <template v-else>
-                <span>{{ drafts.SITE.copyrightText }}</span>
-                <span v-if="drafts.SITE.icpText">{{ drafts.SITE.icpText }}</span>
-              </template>
+            <div class="canvas-footer__bottom">
+              <span
+                :contenteditable="studioMode === 'edit'"
+                @blur="
+                  drafts.SITE.copyrightText =
+                    ($event.target as HTMLElement).innerText.trim()
+                "
+              >
+                {{ activeSite.copyrightText }}
+              </span>
+              <span
+                :contenteditable="studioMode === 'edit'"
+                @blur="
+                  drafts.SITE.icpText = ($event.target as HTMLElement).innerText.trim()
+                "
+              >
+                {{ activeSite.icpText }}
+              </span>
+              <button
+                type="button"
+                class="footer-privacy-link"
+                @click.stop="switchStudioPage('PRIVACY')"
+              >
+                隐私说明
+              </button>
             </div>
           </footer>
         </div>
       </main>
     </div>
 
-    <!-- ==================== 媒体选择器弹窗 ==================== -->
-    <MediaPicker
-      v-model="mediaPickerOpen"
-      :selected-id="null"
-      :kind="mediaPickerKind"
-      @select="onMediaPicked"
-    />
-
-    <!-- ==================== 链接绑定器弹窗 ==================== -->
-    <el-dialog v-model="linkDialogOpen" :title="linkDialogTitle" width="620px">
-      <p style="margin-bottom: 12px; font-size: 13px; color: #5f6470">
-        选择点击该按钮或菜单后的目标动作（支持站内页面、具体内容详情、外部链接、首页锚点或打开咨询弹窗）：
-      </p>
-      <LinkEditor
-        v-model="tempLink"
-        :allow-none="linkDialogAllowNone"
-        :allow-consult="linkDialogAllowConsult"
-      />
-      <template #footer>
-        <el-button @click="linkDialogOpen = false">取消</el-button>
-        <el-button type="primary" @click="confirmLinkModal">确定绑定</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- ==================== 发布前智能体检抽屉 ==================== -->
-    <el-drawer v-model="healthDrawerOpen" title="🛡️ 全局发布前智能合规体检" size="400px">
-      <el-alert
-        v-if="healthIssues.length === 0"
-        type="success"
-        :closable="false"
-        show-icon
-        title="所有模块均已通过合规检查，可以随时安全发布！"
-      />
+    <!-- ==================== 全站发布前健康巡检抽屉 ==================== -->
+    <el-drawer v-model="healthDrawerOpen" title="🩺 全站发布前健康巡检报告" size="420px">
+      <div v-if="healthIssues.length === 0" class="health-empty">
+        <el-result
+          icon="success"
+          title="全站配置与引用状态健康"
+          sub-title="所有必填项与关联内容均完整，可随时安全发布上线"
+        />
+      </div>
       <div v-else class="health-list">
         <div
           v-for="(iss, idx) in healthIssues"
           :key="idx"
           class="health-item"
           :class="`is-${iss.level}`"
-          @click="healthDrawerOpen = false; focusSection(iss.section)"
+          @click="
+            switchStudioPage(iss.page);
+            healthDrawerOpen = false
+          "
         >
           <div class="health-item__head">
-            <el-tag size="small" :type="iss.level === 'error' ? 'danger' : 'warning'">
-              {{ iss.level === 'error' ? '阻塞项' : '建议优化' }}
+            <el-tag :type="iss.level === 'error' ? 'danger' : 'warning'" size="small">
+              {{ iss.level === 'error' ? '阻断项' : '提示项' }}
             </el-tag>
             <strong>{{ iss.module }}</strong>
           </div>
-          <p class="health-item__msg">{{ iss.message }}</p>
-          <span class="health-item__go">点击定位至画布该模块 →</span>
+          <p>{{ iss.message }}</p>
+          <span class="health-item__jump">点击定位到该页面 →</span>
         </div>
       </div>
     </el-drawer>
+    <!-- 通用受控素材选择器 -->
+    <MediaPicker v-model="pickerOpen" :kind="pickerKind" @select="onMediaPicked" />
   </div>
 </template>
 
 <style scoped>
-.studio {
+.live-studio {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
+  height: calc(100vh - 60px);
+  background: #0f172a;
+  color: #1e293b;
   overflow: hidden;
-  background: #0f1117;
-  color: #101014;
 }
 
-/* 顶部全局控制栏 */
-.studio-bar {
-  height: 58px;
-  background: #161923;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0 18px;
+/* 顶部主工具栏 */
+.studio-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 8px 16px;
+  background: #0b1120;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
   gap: 12px;
-  color: #ffffff;
-  flex: none;
-  z-index: 50;
+  flex-wrap: wrap;
 }
-
-.studio-bar__left,
-.studio-bar__center,
-.studio-bar__right {
+.studio-topbar__left,
+.studio-topbar__right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
-
-.studio-back {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-
-.studio-back:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.studio-title {
+.studio-brand {
   display: flex;
-  flex-direction: column;
-}
-
-.studio-badge {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.studio-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.dirty-pills {
-  display: flex;
-  gap: 6px;
-  margin-left: 6px;
-}
-
-.dirty-pill {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.65);
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
 }
-
-.dirty-pill.is-dirty {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
-  border: 1px solid rgba(245, 158, 11, 0.45);
-}
-
-.dirty-pill.is-unpub {
-  color: #a5b4fc;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
+.studio-brand__dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
 }
-
-.dot--dirty {
-  background: #f59e0b;
-}
-
-.dot--unpub {
-  background: #818cf8;
-}
-
-.seg-group {
+.studio-mode-switch,
+.studio-viewport-switch {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.07);
-  padding: 3px;
+  background: #1e293b;
   border-radius: 8px;
+  padding: 2px;
   gap: 2px;
 }
-
-.seg-btn {
+.mode-btn,
+.vp-btn {
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: #94a3b8;
   font-size: 12px;
   padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s;
 }
-
-.seg-btn:hover:not(:disabled) {
-  color: #ffffff;
-}
-
-.seg-btn.is-active {
-  background: #5b4be8;
+.mode-btn.active,
+.vp-btn.active {
+  background: #4c2ce6;
   color: #ffffff;
   font-weight: 600;
 }
 
-.seg-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.health-btn {
-  padding: 5px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.12);
-  color: #6ee7b7;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.health-btn.has-error {
-  border-color: rgba(239, 68, 68, 0.5);
-  background: rgba(239, 68, 68, 0.18);
-  color: #fca5a5;
-}
-
-/* 主体布局 */
-.studio-body {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  position: relative;
-}
-
-.studio-outline {
-  width: 280px;
-  background: #1b1f2c;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  flex: none;
-}
-
-.outline-head {
-  padding: 14px 16px 8px;
+/* 第二层：全站 8 大页面切换栏 */
+.studio-pagebar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13.5px;
-  font-weight: 700;
-}
-
-.outline-tip {
-  padding: 0 16px 12px;
-  font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.5);
+  padding: 6px 16px;
+  background: #162033;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.studio-pagebar__tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.page-tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.page-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.page-tab-btn.active {
+  background: linear-gradient(135deg, #4c2ce6 0%, #6366f1 100%);
+  border-color: #6366f1;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(76, 44, 230, 0.35);
+}
+.page-tab-btn__dirty {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+.studio-pagebar__context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.detail-crumb-badge {
+  color: #f8fafc;
+  font-size: 13px;
 }
 
-.outline-list {
+/* 主体布局：左侧大纲 + 中央画布 */
+.studio-workspace {
   flex: 1;
-  overflow-y: auto;
-  padding: 10px;
+  display: flex;
+  overflow: hidden;
+}
+.studio-outline {
+  width: 265px;
+  background: #111827;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  overflow-y: auto;
+  flex-shrink: 0;
 }
-
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.outline-list {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.outline-divider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px 4px;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+}
 .outline-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid transparent;
+  padding: 8px 10px;
+  border-radius: 7px;
   cursor: pointer;
-  font-size: 12.5px;
-  transition: all 0.15s ease;
+  font-size: 13px;
+  color: #cbd5e1;
+  transition: background 0.15s;
 }
-
 .outline-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
-
-.outline-item.is-selected {
-  border-color: #7c6df2;
-  background: rgba(91, 75, 232, 0.22);
+.outline-item.active {
+  background: rgba(99, 102, 241, 0.22);
+  color: #ffffff;
+  border-left: 3px solid #6366f1;
 }
-
 .outline-item.is-disabled {
   opacity: 0.5;
 }
-
 .outline-item__label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .outline-item__actions {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
-.outline-foot {
-  padding: 12px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.outline-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.drawer-toggle--left {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 30;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: #5b4be8;
-  color: #fff;
+.mini-arrow {
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  font-size: 12px;
+  color: #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 5px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.is-pub {
+  background: #10b981;
+}
+.status-dot.is-draft {
+  background: #f59e0b;
 }
 
 /* 中央画布容器 */
@@ -2476,859 +5366,1093 @@ onBeforeUnmount(() => {
   padding: 20px;
   display: flex;
   justify-content: center;
-  background: #0d0f14;
+  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
 }
-
 .studio-canvas {
   width: 100%;
+  max-width: 1360px;
   background: #ffffff;
   border-radius: 12px;
-  overflow-x: hidden;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  transition: max-width 0.3s ease;
-  height: fit-content;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  transition: width 0.25s ease;
+  align-self: flex-start;
+}
+.studio-canvas.vp-tablet {
+  max-width: 820px;
+}
+.studio-canvas.vp-mobile {
+  max-width: 414px;
 }
 
-.studio-canvas.viewport--desktop {
-  max-width: 1440px;
+/* 实景可编辑热区高亮与悬浮工具条 */
+.editable-zone {
+  position: relative;
+}
+.mode-edit .editable-zone:hover {
+  outline: 2px dashed rgba(76, 44, 230, 0.55);
+  outline-offset: -2px;
+}
+.mode-edit .editable-zone.is-selected {
+  outline: 2px solid #4c2ce6;
+  outline-offset: -2px;
+}
+.mode-edit [contenteditable='true'] {
+  cursor: text;
+  border-radius: 4px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.mode-edit [contenteditable='true']:hover {
+  background: rgba(76, 44, 230, 0.06);
+  box-shadow: 0 0 0 1px rgba(76, 44, 230, 0.35);
+}
+.mode-edit [contenteditable='true']:focus {
+  outline: none;
+  background: rgba(76, 44, 230, 0.1);
+  box-shadow: 0 0 0 2px #4c2ce6;
 }
 
-.studio-canvas.viewport--tablet {
-  max-width: 768px;
-}
-
-.studio-canvas.viewport--mobile {
-  max-width: 390px;
-}
-
-/* 区块悬浮工具栏 */
-.sec-floating-bar {
+.zone-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px 14px;
-  background: rgba(22, 25, 35, 0.94);
-  backdrop-filter: blur(8px);
-  color: #ffffff;
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
   font-size: 12px;
-  border-bottom: 1px solid rgba(91, 75, 232, 0.4);
+  flex-wrap: wrap;
 }
-
-.sec-tag {
+.zone-toolbar__tag {
   font-weight: 700;
-  color: #c4b5fd;
-  margin-right: 6px;
+  color: #a5b4fc;
+  margin-right: 4px;
 }
-
-.tb-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+.zone-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   color: #ffffff;
+  padding: 3px 10px;
+  border-radius: 5px;
   font-size: 12px;
   cursor: pointer;
 }
-
-.tb-btn:hover:not(:disabled) {
-  background: #5b4be8;
-  border-color: #5b4be8;
+.zone-btn:hover {
+  background: #4c2ce6;
 }
-
-.tb-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.tb-btn--danger:hover {
+.zone-btn.danger:hover {
   background: #dc2626;
-  border-color: #dc2626;
 }
 
-.tb-btn--ghost {
-  margin-left: auto;
-  color: #a5b4fc;
-}
-
-/* 顶部导航实景 */
+/* 画布公共顶栏 */
 .canvas-header {
-  position: relative;
   background: #ffffff;
-  border-bottom: 1px solid rgba(16, 16, 20, 0.08);
+  border-bottom: 1px solid #e2e8f0;
 }
-
-.canvas-header.is-focused,
-.canvas-hero.is-focused,
-.canvas-block.is-focused,
-.canvas-cta.is-focused,
-.canvas-footer.is-focused {
-  outline: 2px solid #5b4be8;
-  outline-offset: -2px;
-}
-
 .canvas-header__inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+  padding: 16px 36px;
 }
-
-.canvas-brand {
+.canvas-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.canvas-brand__logo-wrap {
   cursor: pointer;
 }
-
-.canvas-brand__logo {
-  max-height: 34px;
-  max-width: 140px;
-  object-fit: contain;
-}
-
-.canvas-brand__mark {
-  width: 34px;
+.canvas-logo__img {
   height: 34px;
-  border-radius: 9px;
-  background: #5b4be8;
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
 }
-
+.canvas-logo__text {
+  font-size: 22px;
+  font-weight: 800;
+  color: #4c2ce6;
+}
 .canvas-nav {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 24px;
   flex-wrap: wrap;
 }
-
 .canvas-nav__item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  background: #f8f9fc;
-}
-
-.nav-item-pop {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-size: 15px;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
 }
-
-.nav-item-pop button {
+.canvas-nav__item.active {
+  color: #4c2ce6;
+  font-weight: 700;
+}
+.canvas-nav__jump {
+  border: none;
+  background: #eef2ff;
+  color: #4c2ce6;
   font-size: 11px;
-  padding: 2px 5px;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.canvas-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.canvas-lang {
+  font-size: 13px;
+  color: #475569;
+}
+.canvas-trial-btn {
+  background: #0b0f19;
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.nav-item-pop button.danger {
-  color: #dc2626;
-}
-
-.canvas-header__cta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.assistant-pill {
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #eeebff;
-  color: #4636d6;
-  font-weight: 600;
-}
-
-.cta-pill {
-  font-size: 12.5px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  background: #101014;
-  color: #ffffff;
-  font-weight: 600;
-}
-
-/* 5列大菜单可视化编辑区 */
-.mega-editor {
-  background: #f8f9fc;
+/* 下拉大菜单编辑区 */
+.canvas-mega {
+  background: #f1f5f9;
   border-top: 1px solid #e2e8f0;
-  padding: 16px 24px;
+  padding: 24px 36px;
 }
-
-.mega-editor__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
-.mega-editor__grid {
+.canvas-mega__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 20px;
 }
-
-.mega-col-box {
+.canvas-mega__col {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  padding: 14px;
   border-radius: 8px;
-  padding: 10px;
+  border: 1px solid #e2e8f0;
 }
-
-.mega-col-box__head {
+.canvas-mega__col-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
 }
-
-.mega-sub-row {
+.canvas-mega__link-row {
   display: flex;
+  align-items: center;
   gap: 4px;
   margin-bottom: 6px;
 }
-
-.mega-add-sub {
+.inline-clean-input {
   width: 100%;
-  padding: 5px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 6px;
+  border: 1px dashed transparent;
   background: transparent;
+  font-size: 13px;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.inline-clean-input:hover,
+.inline-clean-input:focus {
+  border-color: #6366f1;
+  background: #f8fafc;
+  outline: none;
+}
+.inline-clean-input.strong {
+  font-weight: 700;
+  font-size: 14px;
+}
+.mini-jump-btn {
+  border: none;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mini-del-btn {
+  border: none;
+  background: #fee2e2;
+  color: #dc2626;
   font-size: 12px;
-  color: #5b4be8;
+  padding: 1px 6px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
-/* 首屏实景 */
+/* 首页 Hero 焦点图与底部极简短横条切换器 */
 .canvas-hero {
   position: relative;
-  min-height: 520px;
-  background: #08080c;
+  min-height: 400px;
+  background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 60%, #311042 100%);
+  background-size: cover;
+  background-position: center;
   color: #ffffff;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
-
-.canvas-hero__media {
-  position: relative;
-  min-height: 480px;
-  flex: 1;
-}
-
-.canvas-hero__media img,
-.canvas-hero__media video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.canvas-hero__empty-media {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.canvas-hero__mask {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(8, 8, 12, 0.88) 0%, rgba(8, 8, 12, 0.45) 55%, rgba(8, 8, 12, 0.2) 100%);
-  pointer-events: none;
-}
-
 .canvas-hero__content {
-  position: relative;
-  z-index: 5;
-  max-width: 1200px;
-  width: 100%;
-  margin: -420px auto 0;
-  padding: 40px 28px 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  padding: 64px 48px 48px;
+  max-width: 780px;
 }
-
-.hero-color-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(8px);
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  width: fit-content;
-}
-
-.hero-color-row .color-tip {
-  font-size: 11px;
-  color: #e2e8f0;
-}
-
 .canvas-hero__kicker {
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 14px;
   color: #a5b4fc;
-  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
 }
-
 .canvas-hero__title {
-  font-size: clamp(32px, 4.5vw, 54px);
-  font-weight: 700;
-  line-height: 1.15;
-  white-space: pre-line;
-}
-
-.canvas-hero__sub {
-  font-size: 17px;
-  color: rgba(255, 255, 255, 0.8);
-  max-width: 600px;
-}
-
-.canvas-hero__btn-edit {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.link-badge-btn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(91, 75, 232, 0.5);
-  background: rgba(91, 75, 232, 0.2);
-  color: #e0e7ff;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-
-.canvas-hero__bars {
-  position: absolute;
-  left: 36px;
-  bottom: 24px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.canvas-hero__bar {
-  width: 44px;
-  height: 3px;
-  border: none;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.32);
-  cursor: pointer;
-  overflow: hidden;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.canvas-hero__bar-fill {
-  display: block;
-  height: 100%;
-  width: 0%;
-  background: #ffffff;
-}
-
-.canvas-hero__bar.is-active .canvas-hero__bar-fill {
-  width: 100%;
-}
-
-/* 通用内联编辑输入框 */
-.inline-input,
-.inline-textarea {
-  font-family: inherit;
-  border: 1px dashed rgba(91, 75, 232, 0.45);
-  border-radius: 6px;
-  padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #101014;
-  transition: all 0.15s ease;
-}
-
-.inline-input:focus,
-.inline-textarea:focus {
-  outline: none;
-  border-style: solid;
-  border-color: #5b4be8;
-  box-shadow: 0 0 0 3px rgba(91, 75, 232, 0.18);
-}
-
-.inline-input--brand {
-  font-size: 16px;
-  font-weight: 700;
-  width: 120px;
-}
-
-.inline-input--nav {
-  font-size: 13.5px;
-  font-weight: 600;
-  width: 105px;
-}
-
-.inline-textarea--hero-title {
-  font-size: 36px;
-  font-weight: 700;
-  color: #ffffff;
-  background: rgba(16, 16, 24, 0.65);
-  border-color: rgba(255, 255, 255, 0.35);
-  max-width: 680px;
-}
-
-.inline-textarea--hero-sub {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(16, 16, 24, 0.55);
-  border-color: rgba(255, 255, 255, 0.25);
-  max-width: 640px;
-}
-
-.inline-input--hero-btn {
-  font-size: 14px;
-  font-weight: 600;
-  width: 150px;
-}
-
-/* 业务模块通用画布样式 */
-.canvas-block {
-  padding: 0 0 64px;
-  background: #ffffff;
-}
-
-.canvas-block--alt {
-  background: #f5f7fa;
-}
-
-.is-disabled-block {
-  opacity: 0.48;
-}
-
-.canvas-wrap {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 24px 0;
-}
-
-.sec-header-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 32px;
-  text-align: center;
-}
-
-.inline-input--sec-title {
-  font-size: 28px;
-  font-weight: 700;
-  text-align: center;
-  width: min(420px, 100%);
-}
-
-.inline-input--sec-sub {
-  font-size: 14px;
-  color: #5f6470;
-  text-align: center;
-  width: min(560px, 100%);
-}
-
-/* 指标网格 */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 20px;
-}
-
-.metric-box {
-  padding: 20px;
-  border-radius: 14px;
-  border: 1px solid rgba(16, 16, 20, 0.08);
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.metric-box__num-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.inline-input--metric-val {
-  font-size: 30px;
-  font-weight: 700;
-  color: #5b4be8;
-  width: 130px;
-}
-
-.inline-input--metric-unit {
-  font-size: 18px;
-  font-weight: 700;
-  width: 52px;
-}
-
-.metric-box__val {
   font-size: 40px;
-  font-weight: 700;
-  color: #101014;
+  font-weight: 800;
+  line-height: 1.22;
+  margin: 0 0 16px;
 }
-
-.metric-box__val span {
-  font-size: 22px;
-  color: #5b4be8;
-  margin-left: 3px;
+.canvas-hero__subtitle {
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 28px;
+  line-height: 1.6;
 }
-
-.item-mini-bar {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.item-mini-bar button,
-.mini-btn,
-.mini-del {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
-}
-
-.mini-del,
-.item-mini-bar button.danger {
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-/* 服务分组舞台 */
-.service-group-stage {
-  display: block;
-  padding: 28px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(16, 16, 20, 0.08);
-  margin-bottom: 24px;
-}
-
-@media (max-width: 860px) {
-  .service-group-stage {
-    grid-template-columns: 1fr;
-  }
-}
-
-.service-group-stage__info {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.grp-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.inline-input--grp-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.grp-picker-wrap {
-  background: #f8f9fc;
-  padding: 12px;
-  border-radius: 10px;
-}
-
-.grp-picker-label {
-  font-size: 12px;
-  color: #5f6470;
-  margin-bottom: 8px;
-}
-
-
-
-.media-placeholder {
-  color: #64748b;
-  font-size: 13px;
-}
-
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 14px;
-}
-
-.cards-grid--3 {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-
-.live-card {
-  border-radius: 12px;
-  border: 1px solid rgba(16, 16, 20, 0.08);
-  background: #ffffff;
-  overflow: hidden;
-}
-
-.live-card__img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
-.live-card__body {
-  padding: 12px;
-}
-
-.live-card__tag {
-  font-size: 11px;
-  color: #5b4be8;
-  background: #eeebff;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.live-card__body h4 {
-  margin: 6px 0;
+.canvas-hero__btn {
+  border: none;
+  padding: 12px 28px;
   font-size: 15px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #4c2ce6;
+  color: #ffffff;
 }
-
-.live-card__go {
-  font-size: 12px;
-  color: #5b4be8;
-}
-
-.inline-picker-panel {
-  max-width: 680px;
-  margin: 0 auto 24px;
-  padding: 14px;
-  background: #f8f9fc;
-  border-radius: 12px;
-  border: 1px dashed rgba(91, 75, 232, 0.35);
-}
-
-.logo-wall {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-}
-
-.logo-wall__item {
-  height: 84px;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 1px solid rgba(16, 16, 20, 0.07);
+.canvas-hero__bars {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  padding: 10px;
-  gap: 6px;
-  font-size: 12px;
+  gap: 10px;
+  padding-bottom: 22px;
+}
+.canvas-hero__bar {
+  width: 36px;
+  height: 4px;
+  border: none;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.canvas-hero__bar.active {
+  width: 52px;
+  background: #ffffff;
 }
 
-.logo-wall__item img {
-  max-height: 36px;
-  max-width: 110px;
-  object-fit: contain;
+/* 通用画布区块 */
+.canvas-section {
+  padding: 52px 44px;
+  background: #ffffff;
 }
-
-.news-list-preview {
-  display: flex;
-  flex-direction: column;
+.canvas-section--gray {
+  background: #f8fafc;
 }
-
-.news-row-preview {
+.is-hidden-block {
+  opacity: 0.45;
+}
+.canvas-section__head {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 36px;
+}
+.canvas-section__head-inline {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.canvas-section__title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+.canvas-section__subtitle {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* 首页交替式业务分组 (service-group-stage) */
+.service-groups-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.service-group-stage {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 32px;
+  align-items: center;
+  padding: 28px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.service-group-stage.is-reversed {
+  direction: rtl;
+}
+.service-group-stage.is-reversed > * {
+  direction: ltr;
+}
+.service-group-stage__tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4c2ce6;
+  background: #eef2ff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+.service-group-stage__title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+.service-group-stage__desc {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.service-group-stage__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.service-group-stage__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* 通用网格与卡片 */
+.canvas-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(16, 16, 20, 0.08);
 }
-
-.news-row-preview__date {
+.canvas-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.canvas-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.canvas-card,
+.canvas-case-card,
+.canvas-news-card,
+.canvas-list-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.canvas-card:hover,
+.canvas-case-card:hover,
+.canvas-news-card:hover,
+.canvas-list-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  border-color: #6366f1;
+}
+.canvas-card__link {
+  display: inline-block;
+  margin-top: 12px;
   font-size: 13px;
-  color: #8b90a0;
+  font-weight: 600;
+  color: #4c2ce6;
+}
+.hl-pill {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4c2ce6;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
-.news-row-preview__title {
-  flex: 1;
-  font-size: 16px;
+/* 合作客户 Logo 墙 */
+.customer-logo-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+}
+.customer-logo-pill {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
 }
 
-.news-row-preview__arrow {
-  font-size: 13px;
-  color: #5b4be8;
-}
-
-/* 底部咨询区与页脚 */
-.canvas-cta {
-  background: linear-gradient(135deg, #10121d 0%, #1c1738 100%);
+/* 子页面公共头部与分类胶囊栏 */
+.subpage-hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
   color: #ffffff;
-  padding-bottom: 56px;
+  padding: 48px 44px;
+}
+.subpage-hero__kicker {
+  font-size: 12px;
+  color: #a5b4fc;
+  letter-spacing: 1px;
+}
+.subpage-hero h1 {
+  font-size: 32px;
+  margin: 8px 0 10px;
+}
+.subpage-hero p {
+  color: #cbd5e1;
+  font-size: 14px;
+  margin: 0;
 }
 
-.canvas-cta__inner {
+.category-bar-section {
+  padding: 20px 44px 0;
+  background: #ffffff;
+}
+.category-pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cat-pill-wrap {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding-right: 6px;
+}
+.cat-pill {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cat-pill.active {
+  background: #4c2ce6;
+  border-color: #4c2ce6;
+  color: #ffffff;
+  font-weight: 600;
+}
+.cat-pill-edit {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.cat-pill--add {
+  border-style: dashed;
+  color: #4c2ce6;
+}
+.cat-pill--primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+/* 新闻中心置顶头条大卡 */
+.news-pinned-section {
+  padding: 24px 44px 0;
+}
+.news-pinned-card {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 28px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 28px;
+  cursor: pointer;
+}
+.news-pinned-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.badge-top {
+  background: #dc2626;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.badge-cat {
+  color: #4c2ce6;
+  font-weight: 600;
+}
+.cover-placeholder {
+  height: 210px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4338ca;
+  font-weight: 700;
+}
+
+.canvas-list-card__top,
+.canvas-list-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+}
+.canvas-list-card__cat {
+  color: #4c2ce6;
+  font-weight: 600;
+}
+.canvas-list-card--add {
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.add-card-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  text-align: center;
+  gap: 6px;
+  color: #475569;
 }
-
-.inline-input--cta-title {
+.add-card-icon {
   font-size: 28px;
-  font-weight: 700;
-  text-align: center;
-  width: min(480px, 100%);
+  color: #4c2ce6;
 }
 
-.inline-input--cta-sub {
-  font-size: 14px;
-  text-align: center;
-  width: min(540px, 100%);
+/* 客户成功故事证言卡 */
+.story-quote-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #4c2ce6;
+  border-radius: 10px;
+  padding: 22px;
 }
-
-.canvas-footer {
-  background: #090a0f;
-  color: #a0a4b8;
-  padding-bottom: 36px;
+.story-quote-card__text {
+  font-size: 16px;
+  font-style: italic;
+  color: #0f172a;
+  margin: 0 0 14px;
+  line-height: 1.6;
 }
-
-.canvas-footer__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 24px;
-}
-
-.footer-col {
+.story-quote-card__footer {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #475569;
+}
+.story-quote-card__company {
+  margin-left: 10px;
+  color: #4c2ce6;
+  font-weight: 700;
 }
 
-.footer-col h4,
-.footer-col strong {
+/* 详情内嵌画布 */
+.detail-hero {
+  background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 100%);
   color: #ffffff;
-  font-size: 15px;
+  padding: 24px 44px 44px;
+}
+.detail-hero__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.detail-hero__meta-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.detail-hero__title {
+  font-size: 34px;
+  margin: 0 0 12px;
+}
+.detail-hero__summary {
+  font-size: 16px;
+  color: #cbd5e1;
+  margin: 0;
+}
+.metric-stat-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+.metric-stat-card__val {
+  font-size: 36px;
+  font-weight: 800;
+  color: #4c2ce6;
+}
+.metric-stat-card__label {
+  font-size: 14px;
+  color: #475569;
+  margin-top: 6px;
+}
+.role-tabs-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.role-tab-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+}
+.role-bullet-list {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+.role-bullet-list li {
+  margin-bottom: 8px;
+}
+.case-meta-banner {
+  display: flex;
+  gap: 32px;
+  padding: 16px 22px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+.rich-body-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.rich-body-preview {
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  line-height: 1.75;
 }
 
-.fg-head,
-.fg-link-row {
+/* 关于我们 5 大子页签与组件 */
+.about-hero {
+  position: relative;
+  background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%);
+  color: #ffffff;
+  padding: 56px 44px 68px;
+  text-align: center;
+}
+.about-subtabs {
+  position: relative;
+  max-width: 760px;
+  margin: 28px auto -42px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  display: flex;
+  justify-content: space-around;
+  padding: 6px;
+}
+.about-subtab-btn {
+  border: none;
+  background: transparent;
+  padding: 12px 20px;
+  font-size: 15px;
+  color: #334155;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+}
+.about-subtab-btn.active {
+  color: #4c2ce6;
+  font-weight: 700;
+  border-bottom-color: #4c2ce6;
+}
+.about-intro-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  align-items: center;
+  margin-top: 16px;
+}
+.ceo-letter-card {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 28px;
+  background: linear-gradient(135deg, #3b1d9e 0%, #4c2ce6 100%);
+  color: #ffffff;
+  padding: 36px;
+  border-radius: 14px;
+}
+.ceo-letter-card__left blockquote {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0;
+}
+.ceo-letter-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.ceo-expand-btn {
+  background: #ffffff;
+  color: #4c2ce6;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.milestone-years-bar,
+.office-city-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.milestone-active-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+.milestone-active-card__year {
+  font-size: 36px;
+  font-weight: 800;
+  color: #4c2ce6;
+}
+.office-map-stage {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 24px;
+  align-items: stretch;
+}
+.office-map-stage__card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+}
+.office-coord-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.office-map-stage__board {
+  position: relative;
+  min-height: 260px;
+  background: radial-gradient(circle at center, #eef2ff 0%, #e0e7ff 100%);
+  border-radius: 12px;
+  border: 1px solid #c7d2fe;
+  overflow: hidden;
+}
+.map-pin-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
-.inline-input--dark,
-.inline-textarea--dark {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.22);
-  width: 100%;
+.map-pin-dot__pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #64748b;
+}
+.map-pin-dot.active .map-pin-dot__pulse {
+  width: 14px;
+  height: 14px;
+  background: #4c2ce6;
+  box-shadow: 0 0 12px #4c2ce6;
+}
+.map-pin-dot__label {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
-.inline-input--dark-lg {
-  background: rgba(255, 255, 255, 0.1);
+.team-member-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  cursor: pointer;
+}
+.team-member-card__avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  background: #4c2ce6;
   color: #ffffff;
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
   font-weight: 700;
+  overflow: hidden;
+}
+.team-member-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.dark-field {
+.resource-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.resource-card__banner {
+  height: 110px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 12px;
+  text-align: center;
+}
+.resource-card__body {
+  padding: 16px;
+}
+.resource-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #4c2ce6;
+}
+
+.mv-banner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.mv-box {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  color: #ffffff;
+  padding: 28px;
+  border-radius: 12px;
+}
+.mv-box__label {
+  font-size: 12px;
+  color: #a5b4fc;
+}
+.value-row-item {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.join-cta-banner {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 36px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+/* 联系我们与预约产品展示画布 */
+.contact-studio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 32px;
+}
+.contact-info-card,
+.consult-form-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 28px;
+}
+.contact-field-row {
+  margin-top: 14px;
+  font-size: 14px;
+}
+.contact-field-label {
+  color: #64748b;
+}
+.mock-form-field {
+  margin-bottom: 14px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 11px;
+  gap: 6px;
 }
-
-.footer-phone {
-  font-size: 22px;
-  font-weight: 700;
-  color: #ffffff;
+.mock-form-field label {
+  font-size: 13px;
+  color: #475569;
 }
-
-.canvas-footer__bottom {
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.mock-form-field input,
+.mock-form-field textarea {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.mock-sms-row {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 8px;
+}
+.mock-sms-row input {
+  flex: 1;
+}
+.mock-sms-btn {
+  background: #0b0f19;
+  color: #ffffff;
+  border: none;
+  padding: 0 14px;
+  border-radius: 6px;
   font-size: 12px;
 }
+.mock-submit-btn {
+  width: 100%;
+  background: #0b0f19;
+  color: #ffffff;
+  border: none;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 6px;
+}
 
+/* 画布公共页脚 */
+.canvas-footer {
+  background: #0b0f19;
+  color: #94a3b8;
+  padding: 48px 44px 28px;
+}
+.canvas-footer__grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(auto-fit, minmax(140px, 1fr));
+  gap: 28px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.canvas-footer__brand h3,
+.canvas-footer__col h4 {
+  color: #ffffff;
+  margin-top: 0;
+}
+.canvas-footer__col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.canvas-footer__col li {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.footer-emails {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.footer-email-item strong {
+  color: #e2e8f0;
+  margin-right: 8px;
+}
+.canvas-footer__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  font-size: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.footer-privacy-link {
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* 巡检抽屉 */
 .health-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
-
 .health-item {
-  padding: 12px;
+  padding: 14px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   cursor: pointer;
 }
-
 .health-item.is-error {
   background: #fef2f2;
   border-color: #fecaca;
 }
-
 .health-item.is-warning {
   background: #fffbeb;
   border-color: #fde68a;
 }
-
 .health-item__head {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
-
-.health-item__msg {
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.health-item__go {
+.health-item__jump {
   font-size: 12px;
-  color: #5b4be8;
+  color: #4c2ce6;
   font-weight: 600;
 }
 </style>

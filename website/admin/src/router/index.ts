@@ -16,7 +16,6 @@ import ContactPageView from '@/views/ContactPageView.vue'
 import PrivacyPageView from '@/views/PrivacyPageView.vue'
 import HomeManageView from '@/views/HomeManageView.vue'
 import LeadListView from '@/views/LeadListView.vue'
-import PreviewContentView from '@/views/PreviewContentView.vue'
 import PreviewHomeView from '@/views/PreviewHomeView.vue'
 import { useAuth } from '@/stores/auth'
 
@@ -47,16 +46,18 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
-    // 草稿预览不放在后台框架内，尽量接近官网真实观感；仍需登录会话
+    // 全站实景交互工作台（含首页与全站 8 大页面及内容详情实时交互与直改）
     {
       path: '/preview/home',
+      name: 'preview-home',
       component: PreviewHomeView,
-      meta: { title: '首页草稿预览' },
+      meta: { title: '全站实景交互工作台' },
     },
     {
       path: '/preview/:slug/:id',
-      component: PreviewContentView,
-      meta: { title: '草稿预览' },
+      name: 'preview-content',
+      component: PreviewHomeView,
+      meta: { title: '内容详情实景交互编辑' },
     },
     {
       path: '/',
