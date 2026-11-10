@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
@@ -89,8 +89,42 @@ interface ServiceGroup {
 
 const DEFAULT_ORDER = ['services', 'cases', 'customers', 'news']
 
+const SECTION_META: Record<string, { name: string; sub: string; icon: string }> = {
+  services: { name: '核心产品与解决方案 (Services)', sub: '左右交替卡片灵动排布', icon: '🧩' },
+  cases: { name: '标杆客户成功案例 (Cases)', sub: '量化成效与高管证言', icon: '🏆' },
+  customers: { name: '合作客户标识墙 (Customers)', sub: '标杆企业信任背书 Logo 矩阵', icon: '🤝' },
+  news: { name: '动态资讯与前沿观察 (News)', sub: '企业大事件与行业权威动态', icon: '📰' },
+}
+
+const route = useRoute()
 const router = useRouter()
 const activeTab = ref('hero')
+
+watch(
+  () => route.query.tab,
+  (t) => {
+    if (t && typeof t === 'string' && ['hero', 'services', 'cases', 'customers', 'news', 'order'].includes(t)) {
+      activeTab.value = t
+    }
+  },
+  { immediate: true },
+)
+
+function onTabChange(name: any) {
+  const tabName = typeof name === 'string' ? name : name?.props?.name
+  if (tabName && route.query.tab !== tabName) {
+    router.replace({ query: { ...route.query, tab: tabName } })
+  }
+}
+
+function moveSection(idx: number, dir: number) {
+  const target = idx + dir
+  if (target < 0 || target >= form.sectionOrder.length) return
+  const temp = form.sectionOrder[idx]
+  form.sectionOrder[idx] = form.sectionOrder[target]
+  form.sectionOrder[target] = temp
+}
+
 const pickerOpen = ref(false)
 const pickerKind = ref<'IMAGE' | 'VIDEO' | 'ALL'>('ALL')
 let pickerCallback: ((media: MediaItem) => void) | null = null
@@ -139,6 +173,10 @@ const DEFAULT_HOTSPOTS: HotspotItem[] = [
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
+
+  if (Array.isArray(draft.sectionOrder) && draft.sectionOrder.length > 0) {
+    form.sectionOrder = [...draft.sectionOrder]
+  }
 
   form.hero.items = (draft.hero?.items ?? []).map((item: any, idx: number) => ({
     key: item.key,
@@ -544,7 +582,7 @@ onMounted(async () => {
 
     <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" class="err" />
 
-    <el-tabs v-model="activeTab" class="home-tabs">
+    <el-tabs v-model="activeTab" class="home-tabs" @tab-change="onTabChange">
       <!-- Tab 1: 首屏 Hero -->
       <el-tab-pane label="1. 首屏 3 屏轮播 (Hero 深/浅主题与自定义配色)" name="hero">
         <p class="tab-hint">
@@ -766,6 +804,51 @@ onMounted(async () => {
         </el-form>
       </el-tab-pane>
 
+      <!-- Tab 6: 首页业务模块上下排序与显示控制 -->
+      <el-tab-pane label="6. 模块显示与排序 (Order)" name="order">
+        <p class="tab-hint">
+          灵活调整前台首页中核心业务模块的垂直展现顺序与显示/隐藏状态。保存草稿或发布后即时与实景交互工作台和官网同步。
+        </p>
+        <div class="order-list">
+          <div
+            v-for="(key, idx) in form.sectionOrder"
+            :key="key"
+            class="order-item"
+          >
+            <div class="order-item__left">
+              <span class="order-item__num">0{{ idx + 1 }}</span>
+              <span class="order-item__icon">{{ SECTION_META[key]?.icon || '📦' }}</span>
+              <div class="order-item__info">
+                <strong class="order-item__name">{{ SECTION_META[key]?.name || key }}</strong>
+                <span class="order-item__sub">{{ SECTION_META[key]?.sub }}</span>
+              </div>
+            </div>
+            <div class="order-item__right">
+              <el-switch
+                v-if="(form as any)[key]"
+                v-model="(form as any)[key].enabled"
+                active-text="启用"
+                inactive-text="隐藏"
+              />
+              <el-button
+                size="small"
+                :disabled="idx === 0"
+                @click="moveSection(idx, -1)"
+              >
+                ↑ 上移
+              </el-button>
+              <el-button
+                size="small"
+                :disabled="idx === form.sectionOrder.length - 1"
+                @click="moveSection(idx, 1)"
+              >
+                ↓ 下移
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </el-tab-pane>
+
     </el-tabs>
 
     <MediaPicker v-model="pickerOpen" :kind="pickerKind" @select="onMediaPicked" />
@@ -871,5 +954,59 @@ onMounted(async () => {
   font-size: 12.5px;
   color: #475569;
   white-space: nowrap;
+}
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 800px;
+  margin-top: 16px;
+}
+.order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.order-item:hover {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+.order-item__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.order-item__num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #64748b;
+  width: 24px;
+}
+.order-item__icon {
+  font-size: 24px;
+}
+.order-item__info {
+  display: flex;
+  flex-direction: column;
+}
+.order-item__name {
+  font-size: 15px;
+  color: #0f172a;
+}
+.order-item__sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.order-item__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 </style>

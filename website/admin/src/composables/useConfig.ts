@@ -44,6 +44,7 @@ export function useConfig<T extends Record<string, unknown>>(key: ConfigKey) {
       view.value = await saveConfigDraft<T>(key, draft, view.value.lockVersion)
       try {
         localStorage.setItem('admin_data_updated', String(Date.now()))
+        window.dispatchEvent(new CustomEvent('admin_config_changed', { detail: { key } }))
       } catch (_) {}
       ElMessage.success('草稿已保存，发布后前台生效')
       return true
@@ -71,6 +72,7 @@ export function useConfig<T extends Record<string, unknown>>(key: ConfigKey) {
       try {
         localStorage.setItem('admin_data_updated', String(Date.now()))
         localStorage.setItem('g7_last_published', String(Date.now()))
+        window.dispatchEvent(new CustomEvent('admin_config_changed', { detail: { key, published: true } }))
       } catch (_) {}
       ElMessage.success('已发布')
       await load()

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ApiError } from '@/api/http'
 import {
@@ -23,10 +24,23 @@ const types = [
   { value: 'NEWS', label: '新闻分类' },
 ]
 
+const route = useRoute()
 const loading = ref(false)
 const rows = ref<CategoryView[]>([])
 const total = ref(0)
 const query = reactive({ type: 'PRODUCT', page: 1, pageSize: 20 })
+
+watch(
+  () => route.query.type,
+  (t) => {
+    if (t && typeof t === 'string' && types.some((item) => item.value === t)) {
+      query.type = t
+      query.page = 1
+      load()
+    }
+  },
+  { immediate: true },
+)
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
