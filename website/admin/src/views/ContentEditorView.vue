@@ -276,10 +276,16 @@ async function onSaveDraft() {
       const updated = await saveDraft(id.value, payload, meta.value.lockVersion)
       meta.value = updated.content
       fillFromDraft(updated.draft)
+      try {
+        localStorage.setItem('admin_data_updated', String(Date.now()))
+      } catch (_) {}
       ElMessage.success(`草稿已保存 (v${updated.content.draftVersion})`)
     } else {
       const created = await createContent(contentType.value, payload)
       meta.value = created.content
+      try {
+        localStorage.setItem('admin_data_updated', String(Date.now()))
+      } catch (_) {}
       ElMessage.success('草稿已创建')
       await router.replace(`/contents/${slug.value}/${created.content.id}/edit`)
     }
@@ -311,6 +317,10 @@ async function onPublish() {
   publishing.value = true
   try {
     await publishContent(meta.value.id, meta.value.lockVersion, meta.value.draftVersion)
+    try {
+      localStorage.setItem('admin_data_updated', String(Date.now()))
+      localStorage.setItem('g7_last_published', String(Date.now()))
+    } catch (_) {}
     ElMessage.success('已正式发布上线')
     await load()
   } catch (error) {

@@ -1764,6 +1764,9 @@ async function saveAllDrafts(silent = false): Promise<boolean> {
       const ok = await saveActiveContentDraft(true)
       if (!ok) return false
     }
+    try {
+      localStorage.setItem('admin_data_updated', String(Date.now()))
+    } catch (_) {}
     if (!silent) {
       ElMessage.success('全站草稿修改已同步保存！')
     }
@@ -1836,6 +1839,7 @@ async function saveAndPublishAll() {
     }
 
     try {
+      localStorage.setItem('admin_data_updated', String(Date.now()))
       localStorage.setItem('g7_last_published', String(Date.now()))
       window.dispatchEvent(new CustomEvent('g7_published', { detail: { time: Date.now() } }))
     } catch (_) {}
@@ -1848,14 +1852,30 @@ async function saveAndPublishAll() {
   }
 }
 
+function onExternalDataUpdated(e?: StorageEvent) {
+  if (e && e.key !== 'admin_data_updated' && e.key !== 'g7_last_published') return
+  if (totalDirtyCount.value === 0) {
+    loadAll()
+  } else {
+    ElMessage.info('外部管理端已更新官网资料，当前实景有未保存草稿，可在保存后刷新')
+  }
+}
+
 onMounted(() => {
   loadAll()
   window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('storage', onExternalDataUpdated)
+  window.addEventListener('focus', () => {
+    if (totalDirtyCount.value === 0) {
+      loadAll()
+    }
+  })
   void openMediaPicker
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('storage', onExternalDataUpdated)
 })
 </script>
 
