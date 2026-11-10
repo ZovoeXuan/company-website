@@ -203,17 +203,21 @@ onMounted(async () => {
           <p class="kicker">DIRECT LINE</p>
           <h2 class="info__title">直接联系</h2>
           <dl class="info__list">
-            <div v-if="site?.contact.phone" class="info__row">
+            <div v-if="page?.phone || site?.contact.phone" class="info__row">
               <dt>服务热线</dt>
               <dd>
-                <a class="info__link info__link--phone" :href="`tel:${site.contact.phone.replace(/[\s-]/g, '')}`">
-                  {{ site.contact.phone }}
+                <a class="info__link info__link--phone" :href="`tel:${(page?.phone || site?.contact.phone || '').replace(/[\s-]/g, '')}`">
+                  {{ page?.phone || site?.contact.phone }}
                 </a>
               </dd>
             </div>
-            <div v-if="site?.contact.email" class="info__row">
+            <div v-if="page?.email || site?.contact.email" class="info__row">
               <dt>商务合作</dt>
-              <dd><a class="info__link" :href="`mailto:${site.contact.email}`">{{ site.contact.email }}</a></dd>
+              <dd><a class="info__link" :href="`mailto:${page?.email || site?.contact.email}`">{{ page?.email || site?.contact.email }}</a></dd>
+            </div>
+            <div v-if="page?.address" class="info__row">
+              <dt>总部地址</dt>
+              <dd>{{ page.address }}</dd>
             </div>
             <div class="info__row">
               <dt>媒体联系</dt>
@@ -223,9 +227,9 @@ onMounted(async () => {
               <dt>廉洁举报</dt>
               <dd><a class="info__link" href="mailto:jiancha@g7.com.cn">jiancha@g7.com.cn</a></dd>
             </div>
-            <div v-if="site?.contact.hours" class="info__row">
+            <div v-if="page?.hours || site?.contact.hours" class="info__row">
               <dt>服务时间</dt>
-              <dd>{{ site.contact.hours }}</dd>
+              <dd>{{ page?.hours || site?.contact.hours }}</dd>
             </div>
           </dl>
         </div>
@@ -233,10 +237,13 @@ onMounted(async () => {
         <div class="form-wrap" v-reveal="120">
           <div class="form-head">
             <p class="kicker">START A CONVERSATION</p>
-            <h2 class="form__title">预约专业方案沟通</h2>
+            <h2 class="form__title">{{ page?.formTitle || '预约专业方案沟通' }}</h2>
             <p class="form__desc">留下联系方式与业务痛点，资深行业顾问将在 4 小时内与您接洽。</p>
           </div>
-          <ConsultForm source-position="CONTACT" :success-text="page?.successText" />
+          <div v-if="page && page.formEnabled === false" class="form-closed-notice">
+            <p>在线咨询通道维护中，如有业务咨询请直接拨打上方服务热线。</p>
+          </div>
+          <ConsultForm v-else source-position="CONTACT" :success-text="page?.successText" />
         </div>
       </div>
     </section>
@@ -511,7 +518,16 @@ onMounted(async () => {
 
 .form__desc {
   font-size: 14px;
-  color: var(--c-text-muted);
-  margin: 0;
+  color: var(--c-text-subtle);
+}
+
+.form-closed-notice {
+  padding: 32px 24px;
+  background: var(--c-surface, #f8fafc);
+  border: 1px dashed var(--c-border, #e2e8f0);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--c-text-subtle);
+  font-size: 14px;
 }
 </style>

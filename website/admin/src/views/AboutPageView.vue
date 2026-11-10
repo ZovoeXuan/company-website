@@ -374,7 +374,11 @@ function fill() {
   if (Array.isArray(draft.values) && draft.values.length > 0) {
     form.values = draft.values.map((v: any) => ({
       title: v.title ?? '',
-      linesText: Array.isArray(v.lines) ? v.lines.join('\n') : '',
+      linesText: Array.isArray(v.lines)
+        ? v.lines.join('\n')
+        : typeof v.lines === 'string'
+          ? v.lines
+          : '',
     }))
   } else {
     form.values = [
@@ -428,8 +432,8 @@ function validateBeforeSave(): boolean {
   return true
 }
 
-async function onSave() {
-  if (!validateBeforeSave()) return
+async function onSave(): Promise<boolean> {
+  if (!validateBeforeSave()) return false
   const payload: Record<string, any> = {
     ...(view.value?.draft ?? {}),
     heroTitle: form.heroTitle,
@@ -483,10 +487,14 @@ async function onSave() {
     offices: form.offices.filter((o) => o.city.trim()),
     qualifications: form.qualifications,
   }
-  if (await save(payload)) fill()
+  const ok = await save(payload)
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 
@@ -746,6 +754,20 @@ onMounted(async () => {
 
       <!-- Tab 3: 资料共享 & 客户成功故事 -->
       <el-tab-pane label="3. 资料库 & 客户成功故事" name="resources">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px"
+          title="资料库与客户故事说明：资料卡片直接展示在官网「关于我们 - 资料共享」子页签；下方的 2×2 客户成功故事视频卡片展示在官网「客户案例」页底部。修改后直接点击右上角「保存草稿」或「发布上线」即可同步更新。"
+        />
+
+        <el-form label-width="120px" class="form" style="margin-bottom: 14px">
+          <el-form-item label="资料库专区大标题">
+            <el-input v-model="form.resourcesTitle" maxlength="60" style="width: 320px" placeholder="资料库" />
+          </el-form-item>
+        </el-form>
+
         <h3 class="sec-h">资料共享（支持 企业资料 / 客户视频 / 行业报告 / ESG 四分类切换）</h3>
         <div v-for="(res, rIdx) in form.resources" :key="rIdx" class="card-box">
           <div class="row-inline">
@@ -799,6 +821,13 @@ onMounted(async () => {
 
       <!-- Tab 4: 加入我们 & 使命愿景价值观 -->
       <el-tab-pane label="4. 加入我们 & 使命/愿景/5大价值观" name="join">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px"
+          title="加入我们与企业文化说明：本页配置的招聘海报、企业使命、愿景以及 5 大核心价值观，展示在官网「关于我们 - 加入我们」页面。修改后直接点击右上角「保存草稿」或「发布上线」即刻生效。"
+        />
         <el-form label-width="130px" class="form">
           <el-form-item label="招聘横幅标题">
             <el-input v-model="form.joinTitle" maxlength="60" placeholder="G7易流路上见" />
@@ -832,6 +861,13 @@ onMounted(async () => {
 
       <!-- Tab 5: 发展历程 & 7 城联系网点 -->
       <el-tab-pane label="5. 发展历程 & 7 城联系我们地图" name="milestones">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px"
+          title="发展历程与 7 城网点说明：时间轴轮播与 7 城联系地图直接展示在官网「关于我们 - 企业简介」页面下方（亦同步在关于我们底部呈现）。修改后点击右上角「保存草稿」或「发布上线」即刻生效。"
+        />
         <h3 class="sec-h">发展历程时间轴节点</h3>
         <div v-for="(item, index) in form.milestones" :key="index" class="row-inline">
           <el-input v-model="item.year" maxlength="4" placeholder="年份(2022)" style="width: 110px" />

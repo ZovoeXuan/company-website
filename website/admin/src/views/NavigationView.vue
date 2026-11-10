@@ -229,17 +229,21 @@ function validateBeforeSave(): boolean {
   return true
 }
 
-async function onSave() {
-  if (!validateBeforeSave()) return
+async function onSave(): Promise<boolean> {
+  if (!validateBeforeSave()) return false
   const payload: NavigationDraft & Record<string, unknown> = {
     items: form.items,
     megaColumns: form.megaColumns,
     megaCta: form.megaCta,
   }
-  if (await save(payload)) fill()
+  const ok = await save(payload)
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 

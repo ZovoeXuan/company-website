@@ -66,8 +66,8 @@ function validate(): boolean {
   return true
 }
 
-async function onSave() {
-  if (!validate()) return
+async function onSave(): Promise<boolean> {
+  if (!validate()) return false
   const draft = {
     ...(view.value?.draft ?? {}),
     title: form.value.title.trim() || '联系我们',
@@ -83,11 +83,14 @@ async function onSave() {
     hours: form.value.hours.trim(),
     mapUrl: form.value.mapUrl.trim(),
   } as ContactDraft & Record<string, unknown>
-  if (await save(draft)) fill()
+  const ok = await save(draft)
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
-  if (!validate()) return
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 

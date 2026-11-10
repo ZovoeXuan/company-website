@@ -51,8 +51,14 @@ function syncTabFromQuery() {
   const q = String(route.query.tab || '').toLowerCase()
   if (q === 'team' || q === 'culture') activeTab.value = 'team'
   else if (q === 'media') activeTab.value = 'media'
-  else if (q === 'resources' || q === 'milestones') activeTab.value = 'resources'
+  else if (q === 'resources') activeTab.value = 'resources'
   else if (q === 'join') activeTab.value = 'join'
+  else if (q === 'milestones') {
+    activeTab.value = 'intro'
+    setTimeout(() => {
+      document.querySelector('.about-history-sec')?.scrollIntoView({ behavior: 'smooth' })
+    }, 200)
+  }
   else activeTab.value = 'intro'
 }
 
@@ -557,15 +563,16 @@ const DEFAULT_VALUES: AboutValueItem[] = [
 ]
 
 const valuesList = computed<AboutValueItem[]>(() => {
-  if (data.value?.values && data.value.values.length >= 5) {
-    return data.value.values
-  }
-  if (data.value?.values && data.value.values.length > 0) {
-    const merged = [...data.value.values]
-    if (!merged.some((v) => v.title.includes('主人翁'))) {
-      merged.push(DEFAULT_VALUES[4])
-    }
-    return merged
+  const raw = data.value?.values
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.map((v) => ({
+      title: v.title,
+      lines: Array.isArray(v.lines)
+        ? v.lines
+        : typeof v.lines === 'string'
+          ? (v.lines as string).split('\n').map((s) => s.trim()).filter(Boolean)
+          : [],
+    }))
   }
   return DEFAULT_VALUES
 })

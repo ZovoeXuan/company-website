@@ -515,7 +515,7 @@ const DEFAULT_CALLOUT_COORDS = [
   { x: 26, y: 74 },
 ]
 
-async function onSave() {
+async function onSave(): Promise<boolean> {
   const payload = JSON.parse(JSON.stringify(form))
   payload.services.groups = form.services.groups.map((grp) => ({
     ...grp,
@@ -542,10 +542,14 @@ async function onSave() {
         : undefined,
     })),
   }))
-  if (await save(payload)) fill()
+  const ok = await save(payload)
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 

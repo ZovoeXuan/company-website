@@ -273,11 +273,15 @@ function onPicked(media: MediaItem) {
   pickerOpen.value = false
 }
 
-async function onSave() {
-  if (await save(buildPayload())) fill()
+async function onSave(): Promise<boolean> {
+  const ok = await save(buildPayload())
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 

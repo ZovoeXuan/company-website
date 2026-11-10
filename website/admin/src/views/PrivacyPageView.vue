@@ -22,16 +22,20 @@ function fill() {
   }
 }
 
-async function onSave() {
+async function onSave(): Promise<boolean> {
   const draft = {
     ...(view.value?.draft ?? {}),
     updatedAt: form.updatedAt,
     bodyHtml: form.bodyHtml,
   } as PrivacyDraft & Record<string, unknown>
-  if (await save(draft)) fill()
+  const ok = await save(draft)
+  if (ok) fill()
+  return ok
 }
 
 async function onPublish() {
+  const saved = await onSave()
+  if (saved === false) return
   if (await publish()) fill()
 }
 
