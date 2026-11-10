@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141a29"/>
+      <stop offset="50%" stop-color="#1e263d"/>
+      <stop offset="100%" stop-color="#0f131f"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#1e1b4b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="suit1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="skin1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f8d7c4"/>
+      <stop offset="100%" stop-color="#e2ab8e"/>
+    </linearGradient>
+    <linearGradient id="hair1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="500" fill="url(#bg1)"/>
+  <circle cx="200" cy="180" r="160" fill="url(#glow1)"/>
+  
+  <!-- Subtle tech grid -->
+  <g stroke="#ffffff" stroke-opacity="0.04" stroke-width="1">
+    <line x1="0" y1="120" x2="400" y2="120"/>
+    <line x1="0" y1="240" x2="400" y2="240"/>
+    <line x1="0" y1="360" x2="400" y2="360"/>
+    <line x1="100" y1="0" x2="100" y2="500"/>
+    <line x1="200" y1="0" x2="200" y2="500"/>
+    <line x1="300" y1="0" x2="300" y2="500"/>
+  </g>
+
+  <!-- Shoulders & Suit -->
+  <path d="M70,500 L110,340 L160,320 L240,320 L290,340 L330,500 Z" fill="url(#suit1)"/>
+  <!-- Lapels -->
+  <path d="M160,320 L200,430 L175,500 L110,340 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <path d="M240,320 L200,430 L225,500 L290,340 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <!-- Shirt -->
+  <polygon points="175,320 225,320 200,410" fill="#f8fafc"/>
+  <!-- Tie / Collar accent -->
+  <polygon points="193,330 207,330 204,400 196,400" fill="#2563eb"/>
+
+  <!-- Neck -->
+  <rect x="180" y="250" width="40" height="75" fill="url(#skin1)" rx="8"/>
+
+  <!-- Head Base -->
+  <ellipse cx="200" cy="190" rx="65" ry="80" fill="url(#skin1)"/>
+
+  <!-- Ears -->
+  <ellipse cx="135" cy="195" rx="10" ry="18" fill="#e2ab8e"/>
+  <ellipse cx="265" cy="195" rx="10" ry="18" fill="#e2ab8e"/>
+
+  <!-- Hair -->
+  <path d="M135,175 C135,115 160,105 200,105 C240,105 265,115 265,175 C255,145 235,130 200,132 C165,130 145,145 135,175 Z" fill="url(#hair1)"/>
+
+  <!-- Glasses -->
+  <rect x="150" y="175" width="40" height="26" rx="6" fill="none" stroke="#60a5fa" stroke-width="3"/>
+  <rect x="210" y="175" width="40" height="26" rx="6" fill="none" stroke="#60a5fa" stroke-width="3"/>
+  <line x1="190" y1="188" x2="210" y2="188" stroke="#60a5fa" stroke-width="3"/>
+  <line x1="140" y1="184" x2="150" y2="186" stroke="#60a5fa" stroke-width="2"/>
+  <line x1="250" y1="186" x2="260" y2="184" stroke="#60a5fa" stroke-width="2"/>
+
+  <!-- Eyes & Eyebrows -->
+  <ellipse cx="170" cy="188" rx="4" ry="4" fill="#1e293b"/>
+  <ellipse cx="230" cy="188" rx="4" ry="4" fill="#1e293b"/>
+  <path d="M152,168 Q170,163 186,168" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M214,168 Q230,163 248,168" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Nose & Mouth -->
+  <path d="M198,192 L196,215 L204,215" fill="none" stroke="#c48a6d" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M185,236 Q200,244 215,236" fill="none" stroke="#b07052" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Name Badge overlay at bottom -->
+  <rect x="20" y="445" width="360" height="40" rx="8" fill="#0b0f19" fill-opacity="0.8" stroke="#334155" stroke-width="1"/>
+  <text x="35" y="470" fill="#ffffff" font-family="-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif" font-size="16" font-weight="700">翟学魂</text>
+  <text x="95" y="470" fill="#94a3b8" font-family="-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif" font-size="13">G7易流首席执行官 (CEO)</text>
+</svg>

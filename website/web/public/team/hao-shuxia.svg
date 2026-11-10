@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181329"/>
+      <stop offset="50%" stop-color="#241b3d"/>
+      <stop offset="100%" stop-color="#0f0c1c"/>
+    </linearGradient>
+    <radialGradient id="glow3" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#181329" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="suit3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#2e1065"/>
+    </linearGradient>
+    <linearGradient id="skin3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fce7df"/>
+      <stop offset="100%" stop-color="#e8b9aa"/>
+    </linearGradient>
+    <linearGradient id="hair3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#271c36"/>
+      <stop offset="100%" stop-color="#120c1f"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="500" fill="url(#bg3)"/>
+  <circle cx="200" cy="180" r="160" fill="url(#glow3)"/>
+
+  <!-- Subtle tech grid -->
+  <g stroke="#ffffff" stroke-opacity="0.04" stroke-width="1">
+    <line x1="0" y1="120" x2="400" y2="120"/>
+    <line x1="0" y1="240" x2="400" y2="240"/>
+    <line x1="0" y1="360" x2="400" y2="360"/>
+    <line x1="100" y1="0" x2="100" y2="500"/>
+    <line x1="200" y1="0" x2="200" y2="500"/>
+    <line x1="300" y1="0" x2="300" y2="500"/>
+  </g>
+
+  <!-- Shoulders & Blazer -->
+  <path d="M75,500 L115,340 L165,320 L235,320 L285,340 L325,500 Z" fill="url(#suit3)"/>
+  <!-- Lapels -->
+  <path d="M165,320 L200,430 L180,500 L115,340 Z" fill="#2e1065" stroke="#6b21a8" stroke-width="1"/>
+  <path d="M235,320 L200,430 L220,500 L285,340 Z" fill="#2e1065" stroke="#6b21a8" stroke-width="1"/>
+  <!-- Blouse / Inner Top -->
+  <polygon points="180,320 220,320 200,385" fill="#f5f3ff"/>
+
+  <!-- Neck -->
+  <rect x="182" y="248" width="36" height="75" fill="url(#skin3)" rx="6"/>
+
+  <!-- Back Hair -->
+  <path d="M125,180 C120,240 125,310 145,350 L255,350 C275,310 280,240 275,180 Z" fill="url(#hair3)"/>
+
+  <!-- Head Base -->
+  <ellipse cx="200" cy="186" rx="60" ry="76" fill="url(#skin3)"/>
+
+  <!-- Ears -->
+  <ellipse cx="140" cy="190" rx="9" ry="16" fill="#e8b9aa"/>
+  <ellipse cx="260" cy="190" rx="9" ry="16" fill="#e8b9aa"/>
+  <!-- Elegant Earrings -->
+  <circle cx="138" cy="205" r="3.5" fill="#e9d5ff"/>
+  <circle cx="262" cy="205" r="3.5" fill="#e9d5ff"/>
+
+  <!-- Front Hair (Modern elegant bob/part) -->
+  <path d="M136,175 C130,105 165,95 200,95 C235,95 270,105 264,175 C255,130 230,118 200,118 C170,118 145,130 136,175 Z" fill="url(#hair3)"/>
+  <path d="M136,170 C138,205 142,230 152,245 C150,225 144,195 144,175 Z" fill="url(#hair3)"/>
+  <path d="M264,170 C262,205 258,230 248,245 C250,225 256,195 256,175 Z" fill="url(#hair3)"/>
+
+  <!-- Eyes & Eyebrows -->
+  <ellipse cx="174" cy="182" rx="4.5" ry="4" fill="#1e1b4b"/>
+  <ellipse cx="226" cy="182" rx="4.5" ry="4" fill="#1e1b4b"/>
+  <path d="M158,166 Q174,161 188,166" fill="none" stroke="#2e1065" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M212,166 Q226,161 242,166" fill="none" stroke="#2e1065" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Nose & Smile -->
+  <path d="M198,185 L197,208 L203,208" fill="none" stroke="#c99182" stroke-width="2" stroke-linecap="round"/>
+  <path d="M186,228 Q200,238 214,228" fill="none" stroke="#d946ef" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Name Badge overlay at bottom -->
+  <rect x="20" y="445" width="360" height="40" rx="8" fill="#0b0f19" fill-opacity="0.8" stroke="#3b1d5c" stroke-width="1"/>
+  <text x="35" y="470" fill="#ffffff" font-family="-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif" font-size="16" font-weight="700">郝淑霞</text>
+  <text x="95" y="470" fill="#c084fc" font-family="-apple-system,BlinkMacSystemFont,PingFang SC,Microsoft YaHei,sans-serif" font-size="13">G7易流高级副总裁</text>
+</svg>

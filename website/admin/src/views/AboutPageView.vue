@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
 import { useConfig } from '@/composables/useConfig'
+import { ApiError, upload } from '@/api/http'
 
 interface Milestone {
   year: string
@@ -165,6 +166,102 @@ function onTabChange(tabPane: any) {
   }
 }
 
+const DEFAULT_TEAM_MEMBERS: TeamMemberForm[] = [
+  {
+    name: '翟学魂',
+    role: 'G7易流首席执行官',
+    avatar: '/team/zhai-xuehun.svg',
+    bioText:
+      '翟学魂先生，现任物联网软件服务公司G7易流首席执行官。\n作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。翟学魂先生是中国物流行业的著名思想领袖之一，推动了中国物流企业的信息化和数字化进程。\n曾获得“中国物流行业十大风云人物”、“中国物流行业年度人物”、“改革开放40年物流行业企业家代表性人物”等荣誉称号。\n翟学魂先生毕业于清华大学物理系，并同期完成清华大学经管学院双学士学位学业。',
+  },
+  {
+    name: '张景涛',
+    role: 'G7易流总裁',
+    avatar: '/team/zhang-jingtao.svg',
+    bioText:
+      '张景涛先生，现任G7易流总裁，全面负责公司产品研发、冷链与大宗行业解决方案及客户成功体系建设。\n深耕供应链与物流科技领域二十余年，推动了软硬一体物联网终端与全场景SaaS平台的深度融合，助力数万家货运经营者实现安全与效率跃升。',
+  },
+  {
+    name: '郝淑霞',
+    role: 'G7易流高级副总裁',
+    avatar: '/team/hao-shuxia.svg',
+    bioText:
+      '郝淑霞女士，现任G7易流高级副总裁，负责组织发展、人才体系与大客户战略生态协同。\n长期致力于科技企业的组织创新与数字化领导力建设，打造了覆盖全国核心物流节点的高效服务团队。',
+  },
+  {
+    name: '张杰龙',
+    role: 'G7易流首席财务官',
+    avatar: '/team/zhang-jielong.svg',
+    bioText:
+      '张杰龙先生，现任G7易流首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。\n主导完成了公司多轮国际顶级投资机构战略融资及与易流科技的战略合并，推动公司构建稳健可持续的商业增长模型。',
+  },
+]
+
+const avatarFileInput = ref<HTMLInputElement>()
+const uploadingMemberIdx = ref<number | null>(null)
+const uploadingAvatar = ref(false)
+
+function triggerUploadAvatar(index: number) {
+  uploadingMemberIdx.value = index
+  avatarFileInput.value?.click()
+}
+
+async function onAvatarFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingAvatar.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await upload<{ id: number; url?: string }>('/api/admin/media', formData)
+    const avatarUrl = res.url || `/api/public/media/${res.id}`
+    if (uploadingMemberIdx.value !== null && form.teamMembers[uploadingMemberIdx.value]) {
+      form.teamMembers[uploadingMemberIdx.value].avatar = avatarUrl
+      ElMessage.success('高管头像上传成功')
+    }
+  } catch (err: any) {
+    ElMessage.error(err instanceof ApiError ? err.message : '头像上传失败，请重试')
+  } finally {
+    uploadingAvatar.value = false
+    uploadingMemberIdx.value = null
+    input.value = ''
+  }
+}
+
+function moveMember(index: number, step: number) {
+  const target = index + step
+  if (target < 0 || target >= form.teamMembers.length) return
+  const item = form.teamMembers.splice(index, 1)[0]
+  form.teamMembers.splice(target, 0, item)
+}
+
+function addTeamMember() {
+  form.teamMembers.push({
+    name: '',
+    role: '',
+    avatar: '',
+    bioText: '',
+  })
+}
+
+const previewMember = ref<TeamMemberForm | null>(null)
+const previewModalOpen = computed({
+  get: () => previewMember.value !== null,
+  set: (v) => {
+    if (!v) previewMember.value = null
+  },
+})
+
+function resolveAvatar(url?: string): string {
+  if (!url) return ''
+  if (url.startsWith('/team/')) {
+    const base = import.meta.env.BASE_URL || '/admin/'
+    return `${base.replace(/\/$/, '')}${url}`
+  }
+  return url
+}
+
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('ABOUT')
 
@@ -225,40 +322,19 @@ function fill() {
 
   form.teamTitle = draft.teamTitle ?? 'G7易流管理团队'
   if (Array.isArray(draft.teamMembers) && draft.teamMembers.length > 0) {
-    form.teamMembers = draft.teamMembers.map((m: any) => ({
-      name: m.name ?? '',
-      role: m.role ?? '',
-      avatar: m.avatar ?? '',
-      bioText: Array.isArray(m.bio) ? m.bio.join('\n') : '',
-    }))
+    form.teamMembers = draft.teamMembers.map((m: any, idx: number) => {
+      const match = DEFAULT_TEAM_MEMBERS.find((d) => d.name === m.name) || DEFAULT_TEAM_MEMBERS[idx]
+      return {
+        name: m.name ?? '',
+        role: m.role ?? '',
+        avatar: m.avatar || match?.avatar || '',
+        bioText: Array.isArray(m.bio) && m.bio.length > 0
+          ? m.bio.join('\n')
+          : (match?.bioText || ''),
+      }
+    })
   } else {
-    form.teamMembers = [
-      {
-        name: '翟学魂',
-        role: 'G7易流首席执行官',
-        avatar: '',
-        bioText:
-          '翟学魂先生，现任物联网软件服务公司G7易流首席执行官。\n作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。\n翟学魂先生毕业于清华大学物理系，并同期完成清华大学经管学院双学士学位学业。',
-      },
-      {
-        name: '张景涛',
-        role: 'G7易流总裁',
-        avatar: '',
-        bioText: '张景涛先生，现任G7易流总裁，全面负责公司产品研发、行业解决方案及客户成功体系建设。',
-      },
-      {
-        name: '郝淑霞',
-        role: 'G7易流高级副总裁',
-        avatar: '',
-        bioText: '郝淑霞女士，现任G7易流高级副总裁，负责组织发展、人才体系与大客户战略生态协同。',
-      },
-      {
-        name: '张杰龙',
-        role: 'G7易流首席财务官',
-        avatar: '',
-        bioText: '张杰龙先生，现任G7易流首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。',
-      },
-    ]
+    form.teamMembers = DEFAULT_TEAM_MEMBERS.map((m) => ({ ...m }))
   }
 
   form.resourcesTitle = draft.resourcesTitle ?? '资料库'
@@ -477,31 +553,195 @@ onMounted(async () => {
 
       <!-- Tab 2: 管理团队 -->
       <el-tab-pane label="2. 管理团队 & 详情弹窗" name="team">
-        <el-form label-width="120px" class="form">
+        <input
+          ref="avatarFileInput"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          style="display: none"
+          @change="onAvatarFileSelected"
+        />
+
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 16px"
+          title="管理团队配置说明：支持为每位高管上传真实照片、自由调整前后排序、编辑职务与详细履历。修改后点击右上角「保存草稿」并「发布上线」，前台即可实时生效。"
+        />
+
+        <el-form label-width="120px" class="form" style="margin-bottom: 16px">
           <el-form-item label="团队页面标题">
-            <el-input v-model="form.teamTitle" maxlength="60" style="width: 320px" />
+            <el-input v-model="form.teamTitle" maxlength="60" style="width: 320px" placeholder="G7易流管理团队" />
           </el-form-item>
         </el-form>
-        <div v-for="(tm, tIdx) in form.teamMembers" :key="tIdx" class="card-box">
-          <div class="card-box__head">
-            <strong>高管成员 #{{ tIdx + 1 }}</strong>
-            <el-button link type="danger" @click="form.teamMembers.splice(tIdx, 1)">删除</el-button>
+
+        <div class="team-cards-list">
+          <div v-for="(tm, tIdx) in form.teamMembers" :key="tIdx" class="team-member-edit-card">
+            <div class="team-card-header">
+              <div class="team-card-header__title">
+                <span class="badge">#{{ tIdx + 1 }}</span>
+                <strong>{{ tm.name || '未命名高管' }}</strong>
+                <span v-if="tm.role" class="sub-role">{{ tm.role }}</span>
+              </div>
+              <div class="team-card-header__actions">
+                <el-button
+                  size="small"
+                  :disabled="tIdx === 0"
+                  @click="moveMember(tIdx, -1)"
+                >
+                  上移
+                </el-button>
+                <el-button
+                  size="small"
+                  :disabled="tIdx === form.teamMembers.length - 1"
+                  @click="moveMember(tIdx, 1)"
+                >
+                  下移
+                </el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  @click="previewMember = tm"
+                >
+                  预览弹窗效果
+                </el-button>
+                <el-button
+                  size="small"
+                  link
+                  type="danger"
+                  @click="form.teamMembers.splice(tIdx, 1)"
+                >
+                  删除
+                </el-button>
+              </div>
+            </div>
+
+            <div class="team-card-body">
+              <div class="avatar-col">
+                <div class="avatar-preview-box" @click="triggerUploadAvatar(tIdx)">
+                  <img v-if="tm.avatar" :src="resolveAvatar(tm.avatar)" :alt="tm.name" class="avatar-img" />
+                  <div v-else class="avatar-placeholder">
+                    <span class="avatar-placeholder__icon">+</span>
+                    <span>点击上传照片</span>
+                  </div>
+                  <div class="avatar-hover-mask">
+                    <span>更换照片</span>
+                  </div>
+                </div>
+                <div class="avatar-actions">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    :loading="uploadingAvatar && uploadingMemberIdx === tIdx"
+                    @click="triggerUploadAvatar(tIdx)"
+                  >
+                    上传照片
+                  </el-button>
+                  <el-button
+                    v-if="tm.avatar"
+                    size="small"
+                    link
+                    type="danger"
+                    @click="tm.avatar = ''"
+                  >
+                    清除
+                  </el-button>
+                </div>
+                <div class="avatar-hint">建议 4:5 比例竖版人像，JPG/PNG/SVG</div>
+              </div>
+
+              <div class="info-col">
+                <div class="row-inline">
+                  <el-input v-model="tm.name" placeholder="姓名（如：翟学魂）" style="width: 180px">
+                    <template #prepend>姓名</template>
+                  </el-input>
+                  <el-input v-model="tm.role" placeholder="职务（如：G7易流首席执行官）" style="flex: 1">
+                    <template #prepend>职务</template>
+                  </el-input>
+                </div>
+
+                <div class="row-inline">
+                  <el-input v-model="tm.avatar" placeholder="头像图片路径或 URL（如：/team/zhai-xuehun.svg）" style="width: 100%">
+                    <template #prepend>头像URL</template>
+                  </el-input>
+                </div>
+
+                <div class="bio-box">
+                  <div class="bio-label">
+                    <span>高管履历与个人介绍（前台点击卡片弹窗展示，每行一段）</span>
+                    <el-button link type="primary" size="small" @click="previewMember = tm">查看弹窗效果</el-button>
+                  </div>
+                  <el-input
+                    v-model="tm.bioText"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="请输入高管履历介绍，支持多段落，每行一段..."
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="row-inline">
-            <el-input v-model="tm.name" placeholder="姓名（如：翟学魂）" style="width: 180px" />
-            <el-input v-model="tm.role" placeholder="职务（如：首席执行官）" style="width: 240px" />
-            <el-input v-model="tm.avatar" placeholder="头像图片 URL（选填）" style="flex: 1" />
-          </div>
-          <el-input
-            v-model="tm.bioText"
-            type="textarea"
-            :rows="3"
-            placeholder="高管履历介绍（每行一段，点击人物卡片时在左右分栏弹窗中展示）"
-          />
         </div>
-        <el-button @click="form.teamMembers.push({ name: '', role: '', avatar: '', bioText: '' })">
-          + 添加管理团队成员
-        </el-button>
+
+        <div style="margin: 16px 0 28px">
+          <el-button type="primary" plain @click="addTeamMember">
+            + 添加管理团队成员
+          </el-button>
+        </div>
+
+        <el-divider content-position="left">团队专区前台 1:1 实景预演（点击任意卡片可测试履历详情弹窗）</el-divider>
+        <div class="team-live-preview">
+          <h2 class="preview-title">{{ form.teamTitle || 'G7易流管理团队' }}</h2>
+          <div class="preview-grid">
+            <div
+              v-for="(tm, idx) in form.teamMembers"
+              :key="idx"
+              class="preview-card"
+              @click="previewMember = tm"
+            >
+              <div class="preview-card__photo">
+                <img v-if="tm.avatar" :src="resolveAvatar(tm.avatar)" :alt="tm.name" />
+                <div v-else class="preview-no-img">暂无照片</div>
+              </div>
+              <div class="preview-card__meta">
+                <div class="preview-name">{{ tm.name || '姓名' }}</div>
+                <div class="preview-role">{{ tm.role || '职务' }}</div>
+              </div>
+              <div class="preview-card__tag">点击查看履历</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 履历弹窗 1:1 预览 Dialog -->
+        <el-dialog
+          v-model="previewModalOpen"
+          :title="`高管履历详情 - ${previewMember?.name || ''}`"
+          width="680px"
+          destroy-on-close
+        >
+          <div v-if="previewMember" class="bio-modal-preview">
+            <div class="bio-modal-photo">
+              <img v-if="previewMember.avatar" :src="resolveAvatar(previewMember.avatar)" :alt="previewMember.name" />
+              <div v-else class="preview-no-img">暂无头像</div>
+            </div>
+            <div class="bio-modal-content">
+              <h3 class="bio-modal-name">{{ previewMember.name }}</h3>
+              <p class="bio-modal-role">{{ previewMember.role }}</p>
+              <div class="bio-modal-body">
+                <p
+                  v-for="(p, pIdx) in (previewMember.bioText || '').split(/\n+/).filter(Boolean)"
+                  :key="pIdx"
+                >
+                  {{ p }}
+                </p>
+                <p v-if="!(previewMember.bioText || '').trim()" style="color: #94a3b8; font-style: italic;">
+                  暂无履历介绍文案
+                </p>
+              </div>
+            </div>
+          </div>
+        </el-dialog>
       </el-tab-pane>
 
       <!-- Tab 3: 资料共享 & 客户成功故事 -->
@@ -656,5 +896,257 @@ onMounted(async () => {
   gap: 10px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+}
+
+/* Team Member Edit Cards */
+.team-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.team-member-edit-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+.team-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.team-card-header__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-card-header__title .badge {
+  background: #4f46e5;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.team-card-header__title .sub-role {
+  color: #64748b;
+  font-size: 13px;
+}
+.team-card-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.team-card-body {
+  display: flex;
+  gap: 20px;
+  padding: 16px;
+}
+.avatar-col {
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.avatar-preview-box {
+  width: 120px;
+  height: 150px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-preview-box:hover .avatar-hover-mask {
+  opacity: 1;
+}
+.avatar-hover-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #94a3b8;
+  font-size: 12px;
+  gap: 4px;
+}
+.avatar-placeholder__icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.avatar-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.avatar-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 6px;
+  line-height: 1.3;
+}
+.info-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bio-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bio-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+/* Team Live Preview */
+.team-live-preview {
+  margin-top: 16px;
+  padding: 24px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+.preview-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 24px 0;
+}
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+.preview-card {
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  border: 1px solid #e2e8f0;
+}
+.preview-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+.preview-card__photo {
+  width: 100%;
+  aspect-ratio: 4 / 4.6;
+  background: #1e293b;
+  overflow: hidden;
+}
+.preview-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.preview-no-img {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+.preview-card__meta {
+  padding: 14px;
+  text-align: center;
+}
+.preview-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.preview-role {
+  font-size: 12.5px;
+  color: #64748b;
+}
+.preview-card__tag {
+  background: #eff6ff;
+  color: #3b82f6;
+  font-size: 11px;
+  text-align: center;
+  padding: 5px 0;
+  border-top: 1px solid #e2e8f0;
+  font-weight: 500;
+}
+
+/* Bio Modal Preview */
+.bio-modal-preview {
+  display: flex;
+  gap: 24px;
+}
+.bio-modal-photo {
+  width: 180px;
+  height: 225px;
+  border-radius: 8px;
+  background: #1e293b;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.bio-modal-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bio-modal-content {
+  flex: 1;
+}
+.bio-modal-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+.bio-modal-role {
+  font-size: 14px;
+  color: #4f46e5;
+  font-weight: 500;
+  margin: 0 0 16px 0;
+}
+.bio-modal-body p {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #334155;
+  margin: 0 0 10px 0;
 }
 </style>

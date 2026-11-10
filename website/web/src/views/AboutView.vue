@@ -299,6 +299,7 @@ const DEFAULT_TEAM: AboutTeamMember[] = [
   {
     name: '翟学魂',
     role: 'G7易流首席执行官',
+    avatar: '/team/zhai-xuehun.svg',
     bio: [
       '翟学魂先生，现任物联网软件服务公司G7易流首席执行官。',
       '作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。翟学魂先生是中国物流行业的著名思想领袖之一，推动了中国物流企业的信息化和数字化进程。联合发起成立了自动驾驶重卡领域的独角兽企业嬴彻科技，以及电动重卡运营平台G7绿港，致力于积极推进物流产业的智能化和绿色化。',
@@ -309,6 +310,7 @@ const DEFAULT_TEAM: AboutTeamMember[] = [
   {
     name: '张景涛',
     role: 'G7易流总裁',
+    avatar: '/team/zhang-jingtao.svg',
     bio: [
       '张景涛先生，现任G7易流总裁，全面负责公司产品研发、冷链与大宗行业解决方案及客户成功体系建设。',
       '深耕供应链与物流科技领域二十余年，推动了软硬一体物联网终端与全场景SaaS平台的深度融合，助力数万家货运经营者实现安全与效率跃升。',
@@ -317,6 +319,7 @@ const DEFAULT_TEAM: AboutTeamMember[] = [
   {
     name: '郝淑霞',
     role: 'G7易流高级副总裁',
+    avatar: '/team/hao-shuxia.svg',
     bio: [
       '郝淑霞女士，现任G7易流高级副总裁，负责组织发展、人才体系与大客户战略生态协同。',
       '长期致力于科技企业的组织创新与数字化领导力建设，打造了覆盖全国核心物流节点的高效服务团队。',
@@ -325,6 +328,7 @@ const DEFAULT_TEAM: AboutTeamMember[] = [
   {
     name: '张杰龙',
     role: 'G7易流首席财务官',
+    avatar: '/team/zhang-jielong.svg',
     bio: [
       '张杰龙先生，现任G7易流首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。',
       '主导完成了公司多轮国际顶级投资机构战略融资及与易流科技的战略合并，推动公司构建稳健可持续的商业增长模型。',
@@ -334,7 +338,13 @@ const DEFAULT_TEAM: AboutTeamMember[] = [
 
 const teamList = computed<AboutTeamMember[]>(() => {
   if (data.value?.teamMembers && data.value.teamMembers.length > 0) {
-    return data.value.teamMembers
+    return data.value.teamMembers.map((m, idx) => {
+      const match = DEFAULT_TEAM.find((d) => d.name === m.name) || DEFAULT_TEAM[idx]
+      return {
+        ...m,
+        avatar: m.avatar || match?.avatar || '',
+      }
+    })
   }
   return DEFAULT_TEAM
 })
