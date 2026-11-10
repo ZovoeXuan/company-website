@@ -147,7 +147,7 @@ const ALL_COMMANDS: CmdAction[] = [
   { id: 'studio', title: '打开全站实景交互工作台 (Visual Live Studio)', category: '核心推荐', path: '/preview/home', keywords: 'preview studio 预演 可视化 画布 首页 实景' },
   { id: 'dash', title: '工作台概览 (Dashboard)', category: '工作台', path: '/dashboard', keywords: 'dashboard 工作台 统计' },
   // 首页模块独立直达
-  { id: 'home-hero', title: '首页: 轮播焦点图 (Hero 轮播深浅主题/配色)', category: '首页管理', path: '/home?tab=hero', keywords: 'home hero 轮播 焦点图 banner 首页' },
+  { id: 'home-hero', title: '首页: 轮播焦点图', category: '首页管理', path: '/home?tab=hero', keywords: 'home hero 轮播 焦点图 banner 首页' },
   { id: 'home-services', title: '首页: 核心产品与方案分组推荐', category: '首页管理', path: '/home?tab=services', keywords: 'home services 产品 方案 分组 首页' },
   { id: 'home-cases', title: '首页: 标杆客户成功案例精选', category: '首页管理', path: '/home?tab=cases', keywords: 'home cases 案例 首页' },
   { id: 'home-customers', title: '首页: 合作客户标识 Logo 墙', category: '首页管理', path: '/home?tab=customers', keywords: 'home customers 客户标识 首页' },
@@ -245,7 +245,7 @@ const breadcrumbs = computed(() => {
   } else if (path === '/home') {
     items.push({ title: '首页模块管理', path: '/home' })
     const tabMap: Record<string, string> = {
-      hero: '轮播焦点图 (Hero)',
+      hero: '轮播焦点图',
       services: '核心产品与方案推荐',
       cases: '客户成功案例精选',
       customers: '合作客户标识墙',
@@ -420,7 +420,7 @@ async function onLogout() {
               </el-icon>
               <span>首页模块管理</span>
             </template>
-            <el-menu-item index="/home?tab=hero">轮播焦点图 (Hero)</el-menu-item>
+            <el-menu-item index="/home?tab=hero">轮播焦点图</el-menu-item>
             <el-menu-item index="/home?tab=services">核心产品与方案</el-menu-item>
             <el-menu-item index="/home?tab=cases">标杆成功案例</el-menu-item>
             <el-menu-item index="/home?tab=customers">合作客户标识墙</el-menu-item>
@@ -543,7 +543,7 @@ async function onLogout() {
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                 </svg>
               </el-icon>
-              <span>顶栏扩展页面 ({{ customNavItems.length }})</span>
+              <span>顶栏扩展页面</span>
             </template>
             <el-menu-item
               v-for="cItem in customNavItems"
@@ -553,9 +553,6 @@ async function onLogout() {
             >
               <span class="custom-nav-label">{{ cItem.label }}</span>
               <span v-if="cItem.targetDesc && cItem.targetDesc !== 'NONE' && cItem.isExternal" class="custom-nav-badge">{{ cItem.targetDesc }}</span>
-            </el-menu-item>
-            <el-menu-item index="/settings/navigation">
-              <span style="color: #a78bfa;">配置顶栏菜单...</span>
             </el-menu-item>
           </el-sub-menu>
 

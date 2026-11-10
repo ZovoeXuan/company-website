@@ -762,13 +762,13 @@ onMounted(async () => {
           title="资料库与客户故事说明：资料卡片直接展示在官网「关于我们 - 资料共享」子页签；下方的 2×2 客户成功故事视频卡片展示在官网「客户案例」页底部。修改后直接点击右上角「保存草稿」或「发布上线」即可同步更新。"
         />
 
-        <el-form label-width="120px" class="form" style="margin-bottom: 14px">
+        <el-form label-width="140px" class="form" style="margin-bottom: 14px">
           <el-form-item label="资料库专区大标题">
             <el-input v-model="form.resourcesTitle" maxlength="60" style="width: 320px" placeholder="资料库" />
           </el-form-item>
         </el-form>
 
-        <h3 class="sec-h">资料共享（支持 企业资料 / 客户视频 / 行业报告 / ESG 四分类切换）</h3>
+        <h3 class="sec-h">资料共享</h3>
         <div v-for="(res, rIdx) in form.resources" :key="rIdx" class="card-box">
           <div class="row-inline">
             <el-select v-model="res.category" style="width: 130px">
@@ -908,6 +908,9 @@ onMounted(async () => {
 <style scoped>
 .form {
   max-width: 780px;
+}
+.form :deep(.el-form-item__label) {
+  white-space: nowrap;
 }
 .sec-h {
   font-size: 14.5px;

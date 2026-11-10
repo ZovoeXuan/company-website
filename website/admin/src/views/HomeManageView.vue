@@ -90,10 +90,10 @@ interface ServiceGroup {
 const DEFAULT_ORDER = ['services', 'cases', 'customers', 'news']
 
 const SECTION_META: Record<string, { name: string; sub: string }> = {
-  services: { name: '核心产品与解决方案 (Services)', sub: '左右交替卡片灵动排布' },
-  cases: { name: '标杆客户成功案例 (Cases)', sub: '量化成效与高管证言' },
-  customers: { name: '合作客户标识墙 (Customers)', sub: '标杆企业信任背书 Logo 矩阵' },
-  news: { name: '动态资讯与前沿观察 (News)', sub: '企业大事件与行业权威动态' },
+  services: { name: '核心产品与解决方案', sub: '左右交替卡片灵动排布' },
+  cases: { name: '标杆客户成功案例', sub: '量化成效与高管证言' },
+  customers: { name: '合作客户标识墙', sub: '标杆企业信任背书 Logo 矩阵' },
+  news: { name: '动态资讯与前沿观察', sub: '企业大事件与行业权威动态' },
 }
 
 const route = useRoute()
@@ -561,7 +561,7 @@ onMounted(async () => {
 
 <template>
   <ConfigPanel
-    title="首页管理（首屏 3 屏轮播、核心产品与方案分组左右灵动排布、标杆案例、生态伙伴、新闻动态）"
+    title="首页管理"
     :status="view?.status"
     :draft-version="view?.draftVersion"
     :published-version="view?.publishedVersion"
@@ -588,9 +588,9 @@ onMounted(async () => {
 
     <el-tabs v-model="activeTab" class="home-tabs" @tab-change="onTabChange">
       <!-- Tab 1: 首屏 Hero -->
-      <el-tab-pane label="1. 首屏 3 屏轮播 (Hero 深/浅主题与自定义配色)" name="hero">
+      <el-tab-pane label="1. 首屏轮播" name="hero">
         <p class="tab-hint">
-          支持每屏独立选择「深色背景/白色文字」或「浅色背景/渐变文字（如白皮书屏）」，未选图片时自动使用高还原度内置 3D 舞台背景。
+          支持每屏独立选择深色背景或浅色背景，未选图片时自动使用高还原度内置 3D 舞台背景。
         </p>
         <div v-for="(slide, idx) in form.hero.items" :key="slide.key ?? `hero-${idx}`" class="block-card">
           <div class="block-card__head">
@@ -601,8 +601,8 @@ onMounted(async () => {
           <el-form label-width="120px">
             <el-form-item label="文字与背景主题">
               <el-radio-group v-model="slide.theme">
-                <el-radio value="dark">深色背景（白字 + 浅灰实心按钮）</el-radio>
-                <el-radio value="light">浅色背景（蓝青渐变大标题 + 讲师署名）</el-radio>
+                <el-radio value="dark">深色背景</el-radio>
+                <el-radio value="light">浅色背景</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="文字颜色与样式">
@@ -667,8 +667,8 @@ onMounted(async () => {
         <el-button @click="addHero">+ 添加首屏轮播项</el-button>
       </el-tab-pane>
 
-      <!-- Tab 3: 核心产品与方案分组 (Services - 一个在左一个在右灵动排布) -->
-      <el-tab-pane label="2. 核心产品与方案分组 (Services - 左右交错灵动排布)" name="services">
+      <!-- Tab 2: 核心产品与方案分组 -->
+      <el-tab-pane label="2. 核心产品与方案分组" name="services">
         <div class="tab-toolbar">
           <el-switch v-model="form.services.enabled" active-text="在前台启用该模块" />
           <el-button type="primary" size="small" @click="addServiceGroup">+ 添加服务分组</el-button>
@@ -722,8 +722,8 @@ onMounted(async () => {
             </el-form-item>
             <el-form-item label="关联内容类型">
               <el-radio-group v-model="grp.contentType" @change="grp.contentIds = []">
-                <el-radio value="PRODUCT">产品 (PRODUCT)</el-radio>
-                <el-radio value="SOLUTION">解决方案 (SOLUTION)</el-radio>
+                <el-radio value="PRODUCT">产品</el-radio>
+                <el-radio value="SOLUTION">解决方案</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="已关联线上卡片">
@@ -748,8 +748,8 @@ onMounted(async () => {
         </div>
       </el-tab-pane>
 
-      <!-- Tab 4: 客户案例 -->
-      <el-tab-pane label="3. 客户成功案例 (Cases)" name="cases">
+      <!-- Tab 3: 客户案例 -->
+      <el-tab-pane label="3. 客户成功案例" name="cases">
         <div class="tab-toolbar">
           <el-switch v-model="form.cases.enabled" active-text="在前台启用该模块" />
         </div>
@@ -766,8 +766,8 @@ onMounted(async () => {
         </el-form>
       </el-tab-pane>
 
-      <!-- Tab 5: 合作客户 -->
-      <el-tab-pane label="4. 合作客户标识 (Customers)" name="customers">
+      <!-- Tab 4: 合作客户 -->
+      <el-tab-pane label="4. 合作客户标识" name="customers">
         <div class="tab-toolbar">
           <el-switch v-model="form.customers.enabled" active-text="在前台启用该模块" />
         </div>
@@ -784,8 +784,8 @@ onMounted(async () => {
         </el-form>
       </el-tab-pane>
 
-      <!-- Tab 6: 新闻动态 -->
-      <el-tab-pane label="5. 最新动态资讯 (News)" name="news">
+      <!-- Tab 5: 新闻动态 -->
+      <el-tab-pane label="5. 最新动态资讯" name="news">
         <div class="tab-toolbar">
           <el-switch v-model="form.news.enabled" active-text="在前台启用该模块" />
         </div>
@@ -795,8 +795,8 @@ onMounted(async () => {
           </el-form-item>
           <el-form-item label="展示模式">
             <el-radio-group v-model="form.news.mode">
-              <el-radio value="LATEST">按最新发布日期自动取前 N 条 (LATEST)</el-radio>
-              <el-radio value="SELECTED">人工手选指定新闻 (SELECTED)</el-radio>
+              <el-radio value="LATEST">按最新发布日期自动取前 N 条</el-radio>
+              <el-radio value="SELECTED">人工手选指定新闻</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="展示条数">
@@ -809,7 +809,7 @@ onMounted(async () => {
       </el-tab-pane>
 
       <!-- Tab 6: 首页业务模块上下排序与显示控制 -->
-      <el-tab-pane label="6. 模块显示与排序 (Order)" name="order">
+      <el-tab-pane label="6. 模块显示与排序" name="order">
         <p class="tab-hint">
           灵活调整前台首页中核心业务模块的垂直展现顺序与显示/隐藏状态。保存草稿或发布后即时与实景交互工作台和官网同步。
         </p>
