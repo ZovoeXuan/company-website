@@ -78,11 +78,11 @@ const customNavItems = computed<CustomNavItem[]>(() => {
         url = link.url || ''
         isExternal = true
       } else if (link.type === 'PAGE') {
-        targetDesc = `单页: ${link.pageCode}`
+        targetDesc = link.pageCode ? `单页: ${link.pageCode}` : ''
       } else if (link.type === 'CONTENT') {
         targetDesc = `${link.contentType} #${link.contentId}`
       } else {
-        targetDesc = link.type || '自定义目标'
+        targetDesc = ''
       }
     }
 
@@ -91,7 +91,7 @@ const customNavItems = computed<CustomNavItem[]>(() => {
         id: item.key || item.label,
         label: item.label,
         enabled: item.enabled,
-        targetDesc: targetDesc || '扩展栏目',
+        targetDesc,
         url,
         isExternal,
       })
@@ -531,7 +531,7 @@ async function onLogout() {
               @click="cItem.url ? openExternal(cItem.url) : null"
             >
               <span class="custom-nav-label">{{ cItem.label }}</span>
-              <span class="custom-nav-badge">{{ cItem.targetDesc }}</span>
+              <span v-if="cItem.targetDesc && cItem.targetDesc !== 'NONE' && cItem.isExternal" class="custom-nav-badge">{{ cItem.targetDesc }}</span>
             </el-menu-item>
             <el-menu-item index="/settings/navigation">
               <span style="color: #a78bfa;">配置顶栏菜单...</span>
