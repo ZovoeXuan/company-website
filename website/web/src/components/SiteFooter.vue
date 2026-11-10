@@ -67,15 +67,15 @@ const contactEmails = computed<ContactEmailItem[]>(() => {
   if (props.config.contactEmails && props.config.contactEmails.length > 0) {
     return props.config.contactEmails
   }
-  const primary = props.config.contact?.email || 'connect@g7.com.cn'
+  const primary = props.config.contact?.email || 'connect@example.com'
   return [
     { email: primary, desc: '媒体联系&数据合作' },
-    { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
+    { email: 'jubao@example.com', desc: '集团投诉与举报' },
   ]
 })
 
 const contactAddress = computed(
-  () => props.config.contact?.address || '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
+  () => props.config.contact?.address || '北京市海淀区中关村科技园区',
 )
 
 const qrCodes = computed<QrCodeItem[]>(() => {
@@ -92,7 +92,7 @@ const qrCodes = computed<QrCodeItem[]>(() => {
 
 const icpText = computed(() => props.config.footer?.icp || '京ICP备08004136号')
 const icpUrl = computed(() => props.config.footer?.icpUrl || 'https://beian.miit.gov.cn/')
-const copyrightText = computed(() => props.config.footer?.copyright || '© 2026 G7E6.com.cn')
+const copyrightText = computed(() => props.config.footer?.copyright || '© 2026 示例科技有限公司')
 
 function switchLang(lang: 'zh' | 'en') {
   document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
@@ -101,12 +101,12 @@ function switchLang(lang: 'zh' | 'en') {
 </script>
 
 <template>
-  <!-- 1:1 还原四段视频底部深色 6 栏页脚（双二维码上下垂直叠放、邮箱职能副标题、右侧语言与备案对齐） -->
+  <!-- 底部深色 6 栏页脚（双二维码上下垂直叠放、邮箱职能副标题、右侧语言与备案对齐） -->
   <footer class="g7-footer">
     <div class="container container--wide g7-footer__inner">
-      <!-- 左侧斜体 G 标识 -->
+      <!-- 左侧品牌标识 -->
       <div class="g7-footer__brand">
-        <RouterLink to="/" class="g7-footer__mark" aria-label="返回首页">G</RouterLink>
+        <RouterLink to="/" class="g7-footer__mark" aria-label="返回首页">{{ (props.config.siteName || '示').slice(0, 1) }}</RouterLink>
       </div>
 
       <!-- 4 列导航分组（IoT服务 / 交易服务 / 解决方案 / 关于我们） -->

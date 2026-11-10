@@ -181,8 +181,7 @@ onBeforeUnmount(() => {
       <RouterLink to="/" class="brand" :aria-label="`${props.siteName} 首页`">
         <img v-if="logoUrl" :src="logoUrl" :alt="logoAlt || siteName" class="brand__logo" />
         <template v-else>
-          <span class="brand__g7" aria-hidden="true">G7</span>
-          <span class="brand__name">{{ siteName.replace(/^G7/i, '') || '易流' }}</span>
+          <span class="brand__name">{{ siteName || '企业官网' }}</span>
         </template>
       </RouterLink>
 

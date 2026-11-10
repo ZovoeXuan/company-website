@@ -83,14 +83,14 @@ const introParagraphs = computed(() => {
     return raw.split(/\n+/).filter(Boolean)
   }
   return [
-    `北京汇通天下物联科技有限公司（${siteName.value}）是一家领先的公路货运行业物联网科技和软件服务公司。为货运经营者提供从车队管理、安全管理、货物管理到智能调度、自动结算的一体化操作平台，连接货运全流程并以数据和AI驱动运营，助力货运经营者降本增效。`,
-    `${siteName.value}的客户覆盖超80%上游头部货主以及35000+下游中小物流企业，服务网络覆盖全国核心物流节点与产业园区。`,
+    `${siteName.value}是一家领先的物联网科技和数字化软件服务公司。为客户提供从设备接入、数据智能、业务协同到运营决策的一体化数字平台，以数据和AI驱动企业运营，助力客户降本增效。`,
+    `公司的客户覆盖超80%行业头部客户以及数万家成长型企业，服务网络覆盖全国核心城市与产业园区。`,
   ]
 })
 
 // 1. CEO的一封信（1:1 还原 about_06.png & about_08.png）
 const DEFAULT_CEO_LETTER: AboutCeoLetter = {
-  leftQuote: '“我谨代表G7易流全体员工，向在这个不凡时代中努力前行的货运经营者致以崇高的敬意！”',
+  leftQuote: '“我谨代表公司全体员工，向在这个不凡时代中努力前行的经营者与合作伙伴致以崇高的敬意！”',
   title: '从微不足道开始改变世界',
   excerpt: [
     '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
@@ -100,7 +100,7 @@ const DEFAULT_CEO_LETTER: AboutCeoLetter = {
   signature: '翟学魂',
   buttonText: '展开全部',
   fullParagraphs: [
-    '我谨代表G7易流全体员工，向在这个不凡时代中努力前行的货运经营者致以崇高的敬意！',
+    '我谨代表公司全体员工，向在这个不凡时代中努力前行的经营者与合作伙伴致以崇高的敬意！',
     '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
     '公路货运是国民经济的血脉，千万名卡车司机和数万家货运经营者日夜兼程。然而在过去很长一段时间里，安全风险高、油费过路费核算难、在途货物状态黑盒，一直是压在每一位车队经营者心头的三座大山。',
     '正是从每一次毫秒级的定位、每一次防碰撞预警、每一滴油的精准计量这些看似“微不足道”的小事开始，我们将物联网感知技术与AI算法融入货运现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
@@ -304,40 +304,40 @@ const currentOffice = computed(
 const DEFAULT_TEAM: AboutTeamMember[] = [
   {
     name: '翟学魂',
-    role: 'G7易流首席执行官',
+    role: '首席执行官',
     avatar: '/team/zhai-xuehun.svg',
     bio: [
-      '翟学魂先生，现任物联网软件服务公司G7易流首席执行官。',
-      '作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。翟学魂先生是中国物流行业的著名思想领袖之一，推动了中国物流企业的信息化和数字化进程。联合发起成立了自动驾驶重卡领域的独角兽企业嬴彻科技，以及电动重卡运营平台G7绿港，致力于积极推进物流产业的智能化和绿色化。',
+      '翟学魂先生，现任公司首席执行官。',
+      '作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。翟学魂先生是中国物流行业的著名思想领袖之一，推动了中国物流企业的信息化和数字化进程。联合发起成立了自动驾驶重卡领域的独角兽企业嬴彻科技，以及电动重卡运营平台绿港，致力于积极推进物流产业的智能化和绿色化。',
       '曾获得“中国物流行业十大风云人物”、“中国物流行业年度人物”、“改革开放40年物流行业企业家代表性人物”等荣誉名称。',
       '翟学魂先生毕业于清华大学物理系，并同期完成清华大学经管学院双学士学位学业。',
     ],
   },
   {
     name: '张景涛',
-    role: 'G7易流总裁',
+    role: '总裁',
     avatar: '/team/zhang-jingtao.svg',
     bio: [
-      '张景涛先生，现任G7易流总裁，全面负责公司产品研发、冷链与大宗行业解决方案及客户成功体系建设。',
+      '张景涛先生，现任公司总裁，全面负责公司产品研发、冷链与大宗行业解决方案及客户成功体系建设。',
       '深耕供应链与物流科技领域二十余年，推动了软硬一体物联网终端与全场景SaaS平台的深度融合，助力数万家货运经营者实现安全与效率跃升。',
     ],
   },
   {
     name: '郝淑霞',
-    role: 'G7易流高级副总裁',
+    role: '高级副总裁',
     avatar: '/team/hao-shuxia.svg',
     bio: [
-      '郝淑霞女士，现任G7易流高级副总裁，负责组织发展、人才体系与大客户战略生态协同。',
+      '郝淑霞女士，现任公司高级副总裁，负责组织发展、人才体系与大客户战略生态协同。',
       '长期致力于科技企业的组织创新与数字化领导力建设，打造了覆盖全国核心物流节点的高效服务团队。',
     ],
   },
   {
     name: '张杰龙',
-    role: 'G7易流首席财务官',
+    role: '首席财务官',
     avatar: '/team/zhang-jielong.svg',
     bio: [
-      '张杰龙先生，现任G7易流首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。',
-      '主导完成了公司多轮国际顶级投资机构战略融资及与易流科技的战略合并，推动公司构建稳健可持续的商业增长模型。',
+      '张杰龙先生，现任公司首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。',
+      '主导完成了公司多轮国际顶级投资机构战略融资及战略重组合作，推动公司构建稳健可持续的商业增长模型。',
     ],
   },
 ]
@@ -359,8 +359,8 @@ const teamList = computed<AboutTeamMember[]>(() => {
 const DEFAULT_NEWS: NewsSummary[] = [
   {
     id: '1',
-    title: 'G7与E6宣布完成合并',
-    summary: '双方正式完成战略合并，共同打造公路货运行业领先的物联网与软件服务平台。',
+    title: '公司数字化服务与AI平台全新升级',
+    summary: '面向制造与物流供应链全场景，打造领先的物联网与智能软件服务平台。',
     cover: null,
     categoryId: null,
     categoryName: '企业动态',
@@ -377,7 +377,7 @@ const DEFAULT_NEWS: NewsSummary[] = [
   },
   {
     id: '3',
-    title: '走G7「新」路 马上出发！——老翟新能源车队一线探访',
+    title: '走创新之路 马上出发！——新能源车队一线探访',
     summary: '深入干线与大宗运输现场，探访新能源重卡车队真实运营效益。',
     cover: null,
     categoryId: null,
@@ -426,10 +426,10 @@ const RESOURCE_CATS = ['企业资料', '客户视频', '行业报告', 'ESG']
 
 const DEFAULT_RESOURCES: AboutResourceItem[] = [
   // 企业资料
-  { category: '企业资料', title: 'G7易流企业宣传册', logoText: 'G7易流 全栈产品手册', logoColor: '#4c2ce6' },
-  { category: '企业资料', title: '安全管家', logoText: 'G 安全管家 · 主动安全托管', logoColor: '#2563eb' },
-  { category: '企业资料', title: '财运通', logoText: 'G 财运通 · 数字化运力结算', logoColor: '#0284c7' },
-  { category: '企业资料', title: '冷链管家', logoText: 'G 冷链管家 · 全程温控可视', logoColor: '#0d9488' },
+  { category: '企业资料', title: '企业宣传册', logoText: '全栈产品手册', logoColor: '#4c2ce6' },
+  { category: '企业资料', title: '安全管家', logoText: '安全管家 · 主动安全托管', logoColor: '#2563eb' },
+  { category: '企业资料', title: '财运通', logoText: '财运通 · 数字化运力结算', logoColor: '#0284c7' },
+  { category: '企业资料', title: '冷链管家', logoText: '冷链管家 · 全程温控可视', logoColor: '#0d9488' },
   // 客户视频（1:1 还原 about_74.png：滨拓物流 / 中国华电 / 双汇物流 / 天佑物流）
   {
     category: '客户视频',
@@ -469,7 +469,7 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
   { category: '行业报告', title: '中国公路货运数字安全蓝皮书', logoText: '公路货运安全AI治理报告', logoColor: '#4f46e5' },
   { category: '行业报告', title: '大宗物流数字化转型实践指南', logoText: '大宗物流无人化协同白皮书', logoColor: '#334155' },
   // ESG
-  { category: 'ESG', title: 'G7易流环境、社会及管治（ESG）报告', logoText: 'ESG 可持续发展报告', logoColor: '#059669' },
+  { category: 'ESG', title: '环境、社会及管治（ESG）报告', logoText: 'ESG 可持续发展报告', logoColor: '#059669' },
   { category: 'ESG', title: '绿色物流与电动重卡减碳核算标准', logoText: '物流双碳与绿色运力实践', logoColor: '#10b981' },
   { category: 'ESG', title: '卡车司机安全守护与公益行动年报', logoText: '千万卡车司机安全守护计划', logoColor: '#0d9488' },
   { category: 'ESG', title: '数据安全与隐私合规治理白皮书', logoText: '信息安全与隐私保护合规', logoColor: '#0284c7' },
@@ -675,7 +675,7 @@ onBeforeUnmount(() => {
 
     <!-- ==================== 子页面 1：企业简介 (intro) ==================== -->
     <div v-if="activeTab === 'intro'" key="subpage-intro" class="about-subpage">
-      <!-- (1) 关于G7易流：左文右图 -->
+      <!-- 企业简介：左文右图 -->
       <section class="about-intro-sec">
         <div class="container about-intro-grid">
           <div v-reveal class="about-intro__text">
@@ -997,7 +997,7 @@ onBeforeUnmount(() => {
                     class="res-card__brochure"
                     :style="{ background: `linear-gradient(145deg, ${resItem.logoColor || '#4c2ce6'} 0%, #0f172a 100%)` }"
                   >
-                    <span class="res-card__brochure-brand">G7易流</span>
+                    <span class="res-card__brochure-brand">{{ siteName || '企业资料' }}</span>
                     <strong>{{ resItem.logoText || resItem.title }}</strong>
                   </div>
                 </div>
@@ -1031,12 +1031,12 @@ onBeforeUnmount(() => {
 
     <!-- ==================== 子页面 5：加入我们 (join，1:1 还原 about_84.png + 使命/愿景/5项价值观) ==================== -->
     <div v-else-if="activeTab === 'join'" key="subpage-join" class="about-subpage">
-      <!-- 顶部 G7易流路上见 海报横幅 -->
+      <!-- 顶部 招聘海报横幅 -->
       <section class="about-join-sec">
         <div class="container">
           <div v-reveal class="join-banner">
             <div class="join-banner__content">
-              <h2 class="join-banner__title">{{ data?.joinTitle || `${siteName}路上见` }}</h2>
+              <h2 class="join-banner__title">{{ data?.joinTitle || '期待您的加入' }}</h2>
               <button type="button" class="join-banner__btn" @click="handleJoinClick">
                 {{ data?.joinButtonText || '查看职位' }}
               </button>

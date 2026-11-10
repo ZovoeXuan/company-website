@@ -48,7 +48,7 @@ const DEFAULT_NEWS_POOL: EnrichedNews[] = [
     id: '1',
     title: '让你的物流AI开工！2026数字物流大会精彩日程抢先看',
     summary:
-      'G7易流数字物流大会，是一年一度属于物流人的思想聚会。每年，我们都把行业里最敢想、最敢干的一群人聚在一起，聊聊技术、算算细账，看看物流的未来到底长什么样。',
+      '数字物流大会，是一年一度属于行业数字化创新者的思想聚会。每年，我们都把行业里最敢想、最敢干的一群人聚在一起，聊聊技术、算算细账，看看产业的未来到底长什么样。',
     displayTime: '2026/10/16',
     category: '品牌活动',
     themeIdx: 0,
@@ -305,7 +305,7 @@ onMounted(async () => {
               class="news-featured-card__img"
             />
             <div v-else class="news-featured-poster" :class="`np-theme--${featuredItem.themeIdx % 4}`">
-              <div class="news-featured-poster__badge">G7易流 · {{ featuredItem.category }}</div>
+              <div class="news-featured-poster__badge">前沿动态 · {{ featuredItem.category }}</div>
               <strong class="news-featured-poster__headline">{{ featuredItem.title.slice(0, 22) }}</strong>
             </div>
           </RouterLink>

@@ -223,7 +223,7 @@ function fill() {
         title: '新能源车队管理白皮书',
         subtitle: '迈向数据驱动的「成本、效率、安全」的精细化运营新时代',
         theme: 'light',
-        kicker: '徐浪 G7易流安全专家、金牌讲师',
+        kicker: '徐浪 资深技术专家、金牌讲师',
         badgeText: '免费下载',
         watermark: '',
         desktopMediaId: null,
@@ -636,7 +636,7 @@ onMounted(async () => {
               <el-input v-model="slide.subtitle" type="textarea" :rows="2" maxlength="100" show-word-limit />
             </el-form-item>
             <el-form-item label="讲师署名行">
-              <el-input v-model="slide.kicker" maxlength="60" placeholder="例如：徐浪 G7易流安全专家、金牌讲师" />
+              <el-input v-model="slide.kicker" maxlength="60" placeholder="例如：徐浪 资深技术专家、金牌讲师" />
             </el-form-item>
             <el-form-item label="大字号提示">
               <el-input v-model="slide.badgeText" maxlength="20" style="width: 220px" placeholder="例如：免费下载" />

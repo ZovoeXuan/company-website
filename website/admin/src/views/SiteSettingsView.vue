@@ -63,9 +63,9 @@ const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('SITE')
 
 const values = ref({
-  siteName: 'G7易流',
+  siteName: '示例科技',
   slogan: '以物联网技术和软件服务改变公路货运',
-  copyrightText: '© 2026 G7E6.com.cn',
+  copyrightText: '© 2026 示例科技有限公司',
   icpText: '京ICP备08004136号',
   icpUrl: 'https://beian.miit.gov.cn/',
   policeText: '',
@@ -73,7 +73,7 @@ const values = ref({
   logoMediaId: '',
   logoAlt: '',
   faviconMediaId: '',
-  seoTitle: 'G7易流 - 公路货运行业领先的物联网与AI软件服务公司',
+  seoTitle: '示例科技 - 领先的物联网与数字化软件服务公司',
   seoDescription: '连接货运全流程并以数据和AI驱动运营，助力企业降本增效。',
   footerGroups: [] as FooterGroup[],
   qrCodes: [
@@ -81,8 +81,8 @@ const values = ref({
     { label: '视频号', mediaId: '', imageUrl: '' },
   ] as QrCodeConfig[],
   contactEmails: [
-    { email: 'connect@g7.com.cn', desc: '媒体联系&数据合作' },
-    { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
+    { email: 'connect@example.com', desc: '媒体联系&数据合作' },
+    { email: 'jubao@example.com', desc: '集团投诉与举报' },
   ] as ContactEmailConfig[],
   xiaoqi: {
     enabled: true,
@@ -90,7 +90,7 @@ const values = ref({
     roleTitle: '数字物流专家',
     headerLine1: '您好，我是您的',
     headerLine2: '数字物流专家 小鑫',
-    welcomeSubtitle: 'G7易流 物流数字化专家',
+    welcomeSubtitle: '企业数字化专家',
     certBadge: '专业认证',
     capabilitiesText: '数字化解决方案\n新能源场景分析\n运价查询\n线路智能推荐\n物流实时数据',
     questionsText:
@@ -127,9 +127,9 @@ function emptyLink(): FooterLink {
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
-  values.value.siteName = draft.siteName ?? 'G7易流'
+  values.value.siteName = (draft.siteName && !draft.siteName.includes('G7') && !draft.siteName.includes('易流')) ? draft.siteName : '示例科技'
   values.value.slogan = draft.slogan ?? ''
-  values.value.copyrightText = draft.copyrightText ?? ''
+  values.value.copyrightText = (draft.copyrightText && !draft.copyrightText.includes('G7') && !draft.copyrightText.includes('E6')) ? draft.copyrightText : '© 2026 示例科技有限公司'
   values.value.icpText = draft.icpText ?? ''
   values.value.icpUrl = draft.icpUrl ?? ''
   values.value.policeText = draft.policeText ?? ''
@@ -137,7 +137,7 @@ function fill() {
   values.value.logoMediaId = draft.logoMediaId != null ? String(draft.logoMediaId) : ''
   values.value.logoAlt = draft.logoAlt ?? ''
   values.value.faviconMediaId = draft.faviconMediaId != null ? String(draft.faviconMediaId) : ''
-  values.value.seoTitle = draft.defaultSeo?.title ?? ''
+  values.value.seoTitle = (draft.defaultSeo?.title && !draft.defaultSeo.title.includes('G7')) ? draft.defaultSeo.title : '示例科技 - 领先的物联网与数字化软件服务公司'
   values.value.seoDescription = draft.defaultSeo?.description ?? ''
 
   values.value.footerGroups = (draft.footerGroups ?? []).map((g: any) => ({
@@ -161,7 +161,7 @@ function fill() {
 
   if (Array.isArray(draft.contactEmails) && draft.contactEmails.length > 0) {
     values.value.contactEmails = draft.contactEmails.map((e: any) => ({
-      email: e.email ?? '',
+      email: (e.email ?? '').replace(/@g7\.com\.cn/g, '@example.com'),
       desc: e.desc ?? '',
     }))
   }
@@ -173,7 +173,7 @@ function fill() {
     values.value.xiaoqi.roleTitle = xq.roleTitle ?? '数字物流专家'
     values.value.xiaoqi.headerLine1 = xq.headerLine1 ?? '您好，我是您的'
     values.value.xiaoqi.headerLine2 = xq.headerLine2 ?? '数字物流专家 小鑫'
-    values.value.xiaoqi.welcomeSubtitle = xq.welcomeSubtitle ?? 'G7易流 物流数字化专家'
+    values.value.xiaoqi.welcomeSubtitle = (xq.welcomeSubtitle && !xq.welcomeSubtitle.includes('G7') && !xq.welcomeSubtitle.includes('易流')) ? xq.welcomeSubtitle : '企业数字化专家'
     values.value.xiaoqi.certBadge = xq.certBadge ?? '专业认证'
     if (Array.isArray(xq.capabilities) && xq.capabilities.length > 0) {
       values.value.xiaoqi.capabilitiesText = xq.capabilities.join('\n')
@@ -318,7 +318,7 @@ onMounted(async () => {
           </el-form-item>
           <el-form-item label="站点 Logo">
             <div class="pick-row">
-              <span class="muted">{{ values.logoMediaId ? `素材 #${values.logoMediaId}` : '默认显示斜体 G7 + 站点名' }}</span>
+              <span class="muted">{{ values.logoMediaId ? `素材 #${values.logoMediaId}` : '默认显示站点名称' }}</span>
               <el-button size="small" @click="openPicker('logo')">选择图片</el-button>
               <el-button v-if="values.logoMediaId" size="small" link type="danger" @click="values.logoMediaId = ''">
                 清除
@@ -332,7 +332,7 @@ onMounted(async () => {
             <el-input v-model="values.seoDescription" type="textarea" :rows="2" maxlength="200" show-word-limit />
           </el-form-item>
           <el-form-item label="页脚版权文案" required>
-            <el-input v-model="values.copyrightText" maxlength="120" show-word-limit placeholder="© 2026 G7E6.com.cn" />
+            <el-input v-model="values.copyrightText" maxlength="120" show-word-limit placeholder="© 2026 示例科技有限公司" />
           </el-form-item>
           <el-form-item label="ICP 备案号">
             <el-input v-model="values.icpText" maxlength="80" placeholder="京ICP备08004136号" />

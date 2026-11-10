@@ -39,7 +39,7 @@ let streamTimer: number | null = null
 const cfg = computed(() => props.site?.xiaoqiConfig ?? null)
 const botName = computed(() => cfg.value?.name || '小鑫')
 const welcomeSub = computed(
-  () => cfg.value?.welcomeSubtitle || `${props.site?.siteName || 'G7易流'} 物流数字化专家`,
+  () => cfg.value?.welcomeSubtitle || `${props.site?.siteName || '企业'} 数字化专家`,
 )
 const certBadge = computed(() => cfg.value?.certBadge || '专业认证')
 const deepModel = computed(() => cfg.value?.deepThinkModel || 'DeepSeek R1')

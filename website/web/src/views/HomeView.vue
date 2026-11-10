@@ -42,7 +42,7 @@ const DEFAULT_HEROES: HomeHeroItem[] = [
     title: '新能源车队管理白皮书',
     subtitle: '迈向数据驱动的「成本、效率、安全」的精细化运营新时代',
     theme: 'light',
-    kicker: '徐浪  G7易流安全专家、金牌讲师',
+    kicker: '徐浪  资深技术专家、金牌讲师',
     badgeText: '免费下载',
     desktopImage: null,
     mobileImage: null,
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
           <div class="hero-stage-1__beam"></div>
           <div class="hero-stage-1__cube">
             <div class="cube-top">
-              <span class="cube-g">G7</span>
+              <span class="cube-g">LOGO</span>
             </div>
             <div class="cube-front"></div>
             <div class="cube-glow"></div>
@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
           <div class="hero-stage-2__clouds"></div>
           <div class="hero-stage-2__visual">
             <div class="whitepaper-book">
-              <span class="whitepaper-book__tag">G7易流 · 2026</span>
+              <span class="whitepaper-book__tag">行业白皮书 · 2026</span>
               <strong>新能源车队<br />管理白皮书</strong>
             </div>
             <div class="ev-truck-silhouette"></div>
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
             <div class="desert-road">
               <div class="desert-truck">
                 <span class="desert-truck__cab"></span>
-                <span class="desert-truck__trailer">G7</span>
+                <span class="desert-truck__trailer">TECH</span>
               </div>
             </div>
           </div>

@@ -37,7 +37,7 @@ interface EnrichedCaseItem {
 const DEFAULT_CASES: EnrichedCaseItem[] = [
   {
     id: '1',
-    title: '中铝物流集团 × G7易流：给每辆货车装上智慧大脑，筑牢大宗运输安全防线',
+    title: '中铝物流集团：给每辆货车装上智慧大脑，筑牢大宗运输安全防线',
     category: '大宗',
     partnerBrand: '中铝物流',
     partnerSub: 'CHINALCO LOGISTICS',
@@ -53,7 +53,7 @@ const DEFAULT_CASES: EnrichedCaseItem[] = [
   },
   {
     id: '3',
-    title: '津西钢铁 × G7易流：构建厂外物流全流程无人化、透明化协同平台',
+    title: '津西钢铁：构建厂外物流全流程无人化、透明化协同平台',
     category: '大宗',
     partnerBrand: '津西钢铁',
     partnerSub: 'JINXI IRON & STEEL',
@@ -61,7 +61,7 @@ const DEFAULT_CASES: EnrichedCaseItem[] = [
   },
   {
     id: '4',
-    title: '百年凤祥 × G7易流：AI 全程冷链温控守护食品安全“鲜”标准',
+    title: '百年凤祥：AI 全程冷链温控守护食品安全“鲜”标准',
     category: '食品/生鲜/医药',
     partnerBrand: '凤祥食品',
     partnerSub: 'FENGXIANG FOOD',
@@ -85,7 +85,7 @@ const DEFAULT_CASES: EnrichedCaseItem[] = [
   },
   {
     id: '7',
-    title: '新疆晟祥物流 × G7易流：AI + 数字化赋能新能源重卡车队管理扩张',
+    title: '新疆晟祥物流：AI + 数字化赋能新能源重卡车队管理扩张',
     category: '大宗',
     partnerBrand: '晟祥物流',
     partnerSub: 'SHENGXIANG',
@@ -194,7 +194,7 @@ function goPage(p: number) {
 // 底部 2×2 客户成功故事视频证言卡（1:1 还原 case_24.png / case_32.png）
 const DEFAULT_STORIES: AboutStoryItem[] = [
   {
-    quote: '“与G7易流的合作，对公司各项经营指标都有显著提升。”',
+    quote: '“与平台的深度合作，对公司各项经营指标都有显著提升。”',
     author: '张太喜  双汇物流董事长',
     company: '双汇物流',
     logoText: 'SHUANGHUI 双汇物流',
@@ -202,7 +202,7 @@ const DEFAULT_STORIES: AboutStoryItem[] = [
     videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
   },
   {
-    quote: '“统一多元的数据，加上G7易流精准的算法，帮助天佑完善了管理闭环。”',
+    quote: '“统一多元的数据，加上精准的算法模型，帮助天佑完善了管理闭环。”',
     author: '何镭  天佑物流标准/执行总监',
     company: '天佑物流',
     logoText: 'tianyou天佑',
@@ -301,7 +301,7 @@ onMounted(async () => {
             :to="`/cases/${item.id}`"
             class="g7-case-card"
           >
-            <!-- 顶部 16:10 封面 + 居中白色联名水印 Logo（客户Logo × G7易流） -->
+            <!-- 顶部 16:10 封面 + 居中白色联名水印 Logo（客户Logo × 品牌名称） -->
             <div class="g7-case-card__cover" :style="{ background: item.coverBg }">
               <img
                 v-if="item.coverUrl"
@@ -314,7 +314,7 @@ onMounted(async () => {
               <div class="g7-case-card__cobrand">
                 <span class="cobrand__partner">{{ item.partnerBrand }}</span>
                 <span class="cobrand__x">×</span>
-                <span class="cobrand__self"><em>G7</em>{{ siteName.replace(/^G7/i, '') || '易流' }}</span>
+                <span class="cobrand__self">{{ siteName || '企业平台' }}</span>
               </div>
             </div>
 

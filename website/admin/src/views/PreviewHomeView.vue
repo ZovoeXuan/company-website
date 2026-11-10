@@ -745,7 +745,7 @@ function normalizeSectionOrder(raw?: unknown): HomeSectionKey[] {
 function normalizeSite(d?: Partial<SiteDraft> | null): SiteDraft {
   const c = clone(d || {})
   return {
-    siteName: c.siteName ?? 'G7易流',
+    siteName: c.siteName ?? '示例科技',
     slogan: c.slogan ?? '领先的物联网与数字化软件服务商',
     copyrightText: c.copyrightText ?? '© 2026 示例科技有限公司',
     icpText: c.icpText ?? '京ICP备08004136号',
@@ -1619,7 +1619,7 @@ function addHeroSlide() {
     theme: 'dark',
     kicker: '数智化核心能力 · 驱动产业升级',
     badgeText: '新功能上线',
-    watermark: 'G7 ECO',
+    watermark: 'TECH ECO',
     imageAlt: '轮播背景',
     titleColor: '',
     subtitleColor: '',
@@ -2660,7 +2660,7 @@ onBeforeUnmount(() => {
                   <div class="hero-stage-1__beam"></div>
                   <div class="hero-stage-1__cube">
                     <div class="cube-top">
-                      <span class="cube-g">G7</span>
+                      <span class="cube-g">LOGO</span>
                     </div>
                   </div>
                 </div>
@@ -2668,7 +2668,7 @@ onBeforeUnmount(() => {
                 <div v-else-if="heroIndex % 3 === 1" class="hero-stage-2">
                   <div class="hero-stage-2__visual">
                     <div class="whitepaper-book">
-                      <span class="whitepaper-book__tag">G7易流 · 2026</span>
+                      <span class="whitepaper-book__tag">行业白皮书 · 2026</span>
                       <strong>{{ currentHero?.title || '新能源车队管理白皮书' }}</strong>
                     </div>
                   </div>
@@ -2679,7 +2679,7 @@ onBeforeUnmount(() => {
                     <div class="desert-road">
                       <div class="desert-truck">
                         <span class="desert-truck__cab"></span>
-                        <span class="desert-truck__trailer">G7</span>
+                        <span class="desert-truck__trailer">TECH</span>
                       </div>
                     </div>
                   </div>
@@ -2739,7 +2739,7 @@ onBeforeUnmount(() => {
                           <el-form-item label="眉标文案 (Kicker)">
                             <el-input
                               v-model="drafts.HOME.hero.items[heroIndex].kicker"
-                              placeholder="如：徐浪 G7易流专家"
+                              placeholder="如：徐浪 资深技术专家"
                             />
                           </el-form-item>
                         </el-col>

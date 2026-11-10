@@ -2,7 +2,7 @@ import { watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSiteConfigCache } from './consult'
 
-const DEFAULT_SITE_NAME = 'G7易流 · 数字物流与工业物联网平台'
+const DEFAULT_SITE_NAME = '工业物联网与数字化转型服务平台'
 
 export interface PageMeta {
   title: string
