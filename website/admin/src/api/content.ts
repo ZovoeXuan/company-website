@@ -143,7 +143,7 @@ export interface CategoryPage {
 
 export function listCategories(params?: string | { categoryType?: string; keyword?: string; page?: number; pageSize?: number }) {
   if (typeof params === 'string') {
-    return get<CategoryPage>(`/api/admin/categories?categoryType=${encodeURIComponent(params)}&pageSize=100`)
+    return get<CategoryPage>(`/api/admin/categories?categoryType=${encodeURIComponent(params)}&pageSize=50`)
   }
   const query = new URLSearchParams()
   if (params?.categoryType) query.set('categoryType', params.categoryType)

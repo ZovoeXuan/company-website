@@ -327,12 +327,28 @@ async function load() {
   }
 }
 
+function handleRealtimeSync(e?: StorageEvent | Event) {
+  if (e instanceof StorageEvent) {
+    if (e.key === 'g7_last_published') {
+      load()
+    }
+  } else {
+    load()
+  }
+}
+
 onMounted(() => {
   load()
+  window.addEventListener('storage', handleRealtimeSync)
+  window.addEventListener('focus', () => load())
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') load()
+  })
 })
 
 onBeforeUnmount(() => {
   if (heroTimer) clearInterval(heroTimer)
+  window.removeEventListener('storage', handleRealtimeSync)
 })
 </script>
 

@@ -15,7 +15,7 @@
  *    - 🛡️ 隐私说明 (PRIVACY)：标题、更新日期与隐私正文所见即所得直改
  * 2. 跨页面全局脏数据追踪、30 步 Undo/Redo 历史栈、桌面/平板/手机三视口切换、一键全局保存草稿与按依赖顺序一键全局发布上线。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { LinkValue } from '@/components/LinkEditor.vue'
@@ -26,6 +26,7 @@ import {
   getContent,
   listCategories,
   listContents,
+  listMedia,
   publishCategory,
   publishContent,
   saveCategory,
@@ -148,7 +149,10 @@ interface HeroItem {
   sortOrder: number
   title: string
   subtitle: string
+  theme?: 'dark' | 'light'
   kicker?: string
+  badgeText?: string
+  watermark?: string
   videoUrl?: string
   desktopMediaId?: number
   mobileMediaId?: number
@@ -614,7 +618,7 @@ let historyTimer: ReturnType<typeof setTimeout> | null = null
 
 function pushHistorySnapshot() {
   if (isApplyingHistory || loading.value) return
-  const snap = JSON.stringify(drafts)
+  const snap = JSON.stringify(toRaw(drafts.value))
   if (historyPointer.value >= 0 && historyStack.value[historyPointer.value] === snap) return
   historyStack.value = historyStack.value.slice(0, historyPointer.value + 1)
   historyStack.value.push(snap)
@@ -726,7 +730,7 @@ const contentDetailsCache = reactive<Record<string, Record<string, any>>>({})
 const activeContentRawBackup = ref<Record<string, unknown>>({})
 
 function clone<T>(val: T): T {
-  return JSON.parse(JSON.stringify(val ?? {}))
+  return JSON.parse(JSON.stringify(toRaw(val) ?? {}))
 }
 
 function normalizeSectionOrder(raw?: unknown): HomeSectionKey[] {
@@ -839,6 +843,11 @@ function normalizeHome(d?: Partial<HomeDraft> | null): HomeDraft {
               sortOrder: h.sortOrder ?? 100,
               title: h.title ?? '',
               subtitle: h.subtitle ?? '',
+              theme: (h.theme === 'light' ? 'light' : 'dark') as 'dark' | 'light',
+              kicker: h.kicker ?? '',
+              badgeText: h.badgeText ?? '',
+              watermark: h.watermark ?? '',
+              videoUrl: h.videoUrl ?? '',
               desktopMediaId: h.desktopMediaId ? Number(h.desktopMediaId) : undefined,
               mobileMediaId: h.mobileMediaId ? Number(h.mobileMediaId) : undefined,
               imageAlt: h.imageAlt ?? '',
@@ -854,11 +863,13 @@ function normalizeHome(d?: Partial<HomeDraft> | null): HomeDraft {
               {
                 enabled: true,
                 sortOrder: 100,
-                title: 'AI与物联网驱动企业效率变革',
-                subtitle: '连接核心业务流程，实时掌控经营关键指标',
+                title: '紫宝盒',
+                subtitle: '物流行业首款全场景AI工具',
+                theme: 'dark' as const,
+                watermark: '紫宝盒',
                 imageAlt: '焦点图',
-                buttonText: '探索解决方案',
-                link: { type: 'PAGE', pageCode: 'SOLUTIONS' },
+                buttonText: '了解更多',
+                link: { type: 'PAGE', pageCode: 'PRODUCTS' },
                 titleColor: '',
                 subtitleColor: '',
                 kickerColor: '',
@@ -1030,6 +1041,7 @@ async function loadAll() {
       cases,
       news,
       custs,
+      mediaListRes,
     ] = await Promise.all([
       getConfig<SiteDraft>('SITE'),
       getConfig<NavigationDraft>('NAVIGATION'),
@@ -1041,11 +1053,12 @@ async function loadAll() {
       listCategories('SOLUTION'),
       listCategories('CASE'),
       listCategories('NEWS'),
-      listContents({ contentType: 'PRODUCT', page: 1, pageSize: 100 }),
-      listContents({ contentType: 'SOLUTION', page: 1, pageSize: 100 }),
-      listContents({ contentType: 'CASE', page: 1, pageSize: 100 }),
-      listContents({ contentType: 'NEWS', page: 1, pageSize: 100 }),
-      listContents({ contentType: 'CUSTOMER', page: 1, pageSize: 100 }),
+      listContents({ contentType: 'PRODUCT', page: 1, pageSize: 50 }),
+      listContents({ contentType: 'SOLUTION', page: 1, pageSize: 50 }),
+      listContents({ contentType: 'CASE', page: 1, pageSize: 50 }),
+      listContents({ contentType: 'NEWS', page: 1, pageSize: 50 }),
+      listContents({ contentType: 'CUSTOMER', page: 1, pageSize: 50 }),
+      listMedia({ page: 1, pageSize: 50 }),
     ])
 
     configViews.SITE = siteRes
@@ -1077,7 +1090,13 @@ async function loadAll() {
     contentsMap.NEWS = news.items || []
     contentsMap.CUSTOMER = custs.items || []
 
-    historyStack.value = [JSON.stringify(drafts)]
+    if (mediaListRes && Array.isArray(mediaListRes.items)) {
+      for (const m of mediaListRes.items) {
+        mediaCache[Number(m.id)] = m
+      }
+    }
+
+    historyStack.value = [JSON.stringify(toRaw(drafts.value))]
     historyPointer.value = 0
 
     await syncPageFromRoute()
@@ -1473,6 +1492,12 @@ function resolveMediaUrl(mediaId?: number | string | null): string {
   return `/api/admin/media/${mediaId}/file`
 }
 
+function isVideoMedia(mediaId?: number | string | null): boolean {
+  if (!mediaId) return false
+  const m = mediaCache[Number(mediaId)]
+  return m?.mediaType === 'VIDEO'
+}
+
 function getContentItem(type: ContentType, id: number | string): ContentView | undefined {
   return (contentsMap[type] || []).find((x) => String(x.id) === String(id))
 }
@@ -1591,6 +1616,10 @@ function addHeroSlide() {
     sortOrder: (drafts.value.HOME.hero.items.length + 1) * 10,
     title: '新轮播主标题',
     subtitle: '点击文字即可直接在画布中编辑副标题描述',
+    theme: 'dark',
+    kicker: '数智化核心能力 · 驱动产业升级',
+    badgeText: '新功能上线',
+    watermark: 'G7 ECO',
     imageAlt: '轮播背景',
     titleColor: '',
     subtitleColor: '',
@@ -1806,6 +1835,10 @@ async function saveAndPublishAll() {
       }
     }
 
+    try {
+      localStorage.setItem('g7_last_published', String(Date.now()))
+      window.dispatchEvent(new CustomEvent('g7_published', { detail: { time: Date.now() } }))
+    } catch (_) {}
     ElMessage.success('🎉 全站配置与内容已同步发布上线！')
     await loadAll()
   } catch (err) {
@@ -2573,19 +2606,67 @@ onBeforeUnmount(() => {
                页面 1：首页 (activePage === 'HOME') —— 严格对齐最新 GitHub main 分支
                ========================================================================= -->
           <template v-if="activePage === 'HOME'">
-            <!-- Hero 焦点轮播区 -->
+            <!-- Hero 焦点轮播区（1:1 对齐官网前台 3 屏视觉舞台与深浅主题） -->
             <section
               class="canvas-hero editable-zone"
-              :class="{ 'is-selected': selectedSection === 'hero' && studioMode === 'edit' }"
-              :style="
-                currentHero && resolveMediaUrl(currentHero.desktopMediaId)
-                  ? {
-                      backgroundImage: `linear-gradient(90deg, rgba(11,15,25,0.82) 0%, rgba(11,15,25,0.45) 100%), url(${resolveMediaUrl(currentHero.desktopMediaId)})`,
-                    }
-                  : undefined
-              "
+              :class="[
+                { 'is-selected': selectedSection === 'hero' && studioMode === 'edit' },
+                `canvas-hero--${currentHero?.theme || 'dark'}`,
+                `canvas-hero--slide-${heroIndex % 3}`
+              ]"
               @click="selectedSection = 'hero'"
             >
+              <!-- 背景层：图片、视频，或 1:1 默认 3 屏真实视觉舞台 -->
+              <div class="canvas-hero__bg-layer" aria-hidden="true">
+                <video
+                  v-if="currentHero?.videoUrl || isVideoMedia(currentHero?.desktopMediaId)"
+                  :key="currentHero?.videoUrl || currentHero?.desktopMediaId"
+                  :src="currentHero?.videoUrl || resolveMediaUrl(currentHero?.desktopMediaId)"
+                  class="canvas-hero__media"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <img
+                  v-else-if="currentHero && resolveMediaUrl(currentHero.desktopMediaId)"
+                  :src="resolveMediaUrl(currentHero.desktopMediaId)"
+                  :alt="currentHero.imageAlt || currentHero.title"
+                  class="canvas-hero__media"
+                />
+                <!-- 默认第 1 屏视觉：紫宝盒暗黑光束与 3D 硬件魔盒 -->
+                <div v-else-if="heroIndex % 3 === 0" class="hero-stage-1">
+                  <div class="hero-stage-1__watermark">{{ currentHero?.watermark || currentHero?.title || '紫宝盒' }}</div>
+                  <div class="hero-stage-1__beam"></div>
+                  <div class="hero-stage-1__cube">
+                    <div class="cube-top">
+                      <span class="cube-g">G7</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 默认第 2 屏视觉：晴空白皮书与新能源重卡编队 -->
+                <div v-else-if="heroIndex % 3 === 1" class="hero-stage-2">
+                  <div class="hero-stage-2__visual">
+                    <div class="whitepaper-book">
+                      <span class="whitepaper-book__tag">G7易流 · 2026</span>
+                      <strong>{{ currentHero?.title || '新能源车队管理白皮书' }}</strong>
+                    </div>
+                  </div>
+                </div>
+                <!-- 默认第 3 屏视觉：戈壁公路俯瞰与紫色领航重卡 -->
+                <div v-else class="hero-stage-3">
+                  <div class="desert-highway">
+                    <div class="desert-road">
+                      <div class="desert-truck">
+                        <span class="desert-truck__cab"></span>
+                        <span class="desert-truck__trailer">G7</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 编辑工具条 -->
               <div v-if="studioMode === 'edit'" class="zone-toolbar">
                 <span class="zone-toolbar__tag">
                   首页 Hero 焦点图 ({{ heroIndex + 1 }} / {{ drafts.HOME.hero.items.length }})
@@ -2604,22 +2685,58 @@ onBeforeUnmount(() => {
                 <el-popover
                   v-if="currentHero"
                   placement="bottom-start"
-                  :width="440"
+                  :width="460"
                   trigger="click"
                 >
                   <template #reference>
                     <button type="button" class="zone-btn" @click.stop>
-                      🎨 背景图 / 视频 / 颜色设置
+                      🎨 主题 / 背景 / 颜色配置
                     </button>
                   </template>
                   <div class="popover-form" v-if="currentHero">
-                    <h4>当前焦点屏样式与跳转配置</h4>
+                    <h4>当前焦点屏全局配置</h4>
                     <el-form label-position="top" size="small">
+                      <el-row :gutter="10">
+                        <el-col :span="12">
+                          <el-form-item label="色彩主题">
+                            <el-select v-model="drafts.HOME.hero.items[heroIndex].theme" style="width: 100%">
+                              <el-option label="🌙 深色科技 (dark)" value="dark" />
+                              <el-option label="☀️ 浅色明亮 (light)" value="light" />
+                            </el-select>
+                          </el-form-item>
+                        </el-col>
+                        <el-col :span="12">
+                          <el-form-item label="右上巨幅水印">
+                            <el-input
+                              v-model="drafts.HOME.hero.items[heroIndex].watermark"
+                              placeholder="如：紫宝盒"
+                            />
+                          </el-form-item>
+                        </el-col>
+                      </el-row>
+                      <el-row :gutter="10">
+                        <el-col :span="12">
+                          <el-form-item label="眉标文案 (Kicker)">
+                            <el-input
+                              v-model="drafts.HOME.hero.items[heroIndex].kicker"
+                              placeholder="如：徐浪 G7易流专家"
+                            />
+                          </el-form-item>
+                        </el-col>
+                        <el-col :span="12">
+                          <el-form-item label="徽章大字 (Badge)">
+                            <el-input
+                              v-model="drafts.HOME.hero.items[heroIndex].badgeText"
+                              placeholder="如：免费下载"
+                            />
+                          </el-form-item>
+                        </el-col>
+                      </el-row>
                       <el-form-item label="背景图媒体">
                         <el-select
                           v-model="drafts.HOME.hero.items[heroIndex].desktopMediaId"
                           clearable
-                          placeholder="选择背景大图"
+                          placeholder="选择背景大图（未选则使用 3D 舞台）"
                           style="width: 100%"
                         >
                           <el-option
@@ -2670,6 +2787,7 @@ onBeforeUnmount(() => {
                 </el-popover>
               </div>
 
+              <!-- 前例文案排版（随深浅主题自适应并支持实景点击编辑） -->
               <div v-if="currentHero" class="canvas-hero__content">
                 <p
                   class="canvas-hero__kicker"
@@ -2680,7 +2798,7 @@ onBeforeUnmount(() => {
                       ($event.target as HTMLElement).innerText.trim()
                   "
                 >
-                  {{ currentHero.kicker || '数智化核心能力 · 驱动产业升级' }}
+                  {{ currentHero.kicker || (studioMode === 'edit' ? '点击输入眉标文案...' : '') }}
                 </p>
                 <h1
                   class="canvas-hero__title"
@@ -2704,13 +2822,25 @@ onBeforeUnmount(() => {
                 >
                   {{ currentHero.subtitle }}
                 </p>
+                <div v-if="currentHero.badgeText || studioMode === 'edit'" class="canvas-hero__badge-wrap">
+                  <span
+                    class="canvas-hero__badge"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="
+                      drafts.HOME.hero.items[heroIndex].badgeText =
+                        ($event.target as HTMLElement).innerText.trim()
+                    "
+                  >
+                    {{ currentHero.badgeText || (studioMode === 'edit' ? '+ 徽章标签' : '') }}
+                  </span>
+                </div>
                 <div class="canvas-hero__actions">
                   <button
                     type="button"
                     class="canvas-hero__btn"
                     :style="{
-                      backgroundColor: currentHero.buttonBgColor || '#4c2ce6',
-                      color: currentHero.buttonTextColor || '#ffffff',
+                      backgroundColor: currentHero.buttonBgColor || undefined,
+                      color: currentHero.buttonTextColor || undefined,
                     }"
                     @click.stop="
                       studioMode !== 'edit' ? navigateLinkInStudio(currentHero.link) : undefined
@@ -2729,6 +2859,7 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
+              <!-- 横向指示切换条（1:1 契合官网前台） -->
               <div v-if="activeHome.hero.items.length > 1" class="canvas-hero__bars">
                 <button
                   v-for="(_, idx) in activeHome.hero.items"
@@ -2736,6 +2867,7 @@ onBeforeUnmount(() => {
                   type="button"
                   class="canvas-hero__bar"
                   :class="{ active: heroIndex === idx }"
+                  :title="`切换到第 ${idx + 1} 屏`"
                   @click.stop="heroIndex = idx"
                 ></button>
               </div>
@@ -5584,58 +5716,114 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-/* 首页 Hero 焦点图与底部极简短横条切换器 */
+/* 首页 Hero 焦点图与 1:1 官网前台视觉舞台（支持深浅模式、水波/光束/3D魔盒/白皮书/戈壁公路） */
 .canvas-hero {
   position: relative;
-  min-height: 400px;
-  background: linear-gradient(135deg, #0b0f19 0%, #1e1b4b 60%, #311042 100%);
-  background-size: cover;
-  background-position: center;
+  min-height: 520px;
+  max-height: 640px;
+  overflow: hidden;
+  background: #0b0c10;
   color: #ffffff;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.canvas-hero--light {
+  background: linear-gradient(180deg, #b8d8f8 0%, #e2effc 52%, #f4f7fb 100%) !important;
+  color: #1f2329 !important;
+}
+.canvas-hero__bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.canvas-hero__media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .canvas-hero__content {
-  padding: 64px 48px 48px;
+  position: relative;
+  z-index: 2;
+  padding: 64px 48px 40px;
   max-width: 780px;
 }
 .canvas-hero__kicker {
   font-size: 14px;
+  font-weight: 600;
   color: #a5b4fc;
   margin-bottom: 12px;
   letter-spacing: 1px;
 }
+.canvas-hero--light .canvas-hero__kicker {
+  color: #0369a1;
+}
 .canvas-hero__title {
-  font-size: 40px;
+  font-size: 38px;
   font-weight: 800;
-  line-height: 1.22;
+  line-height: 1.25;
   margin: 0 0 16px;
+  color: #ffffff;
+}
+.canvas-hero--light .canvas-hero__title {
+  background: linear-gradient(90deg, #0284c7 0%, #2563eb 55%, #0d9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .canvas-hero__subtitle {
-  font-size: 17px;
-  color: rgba(255, 255, 255, 0.85);
-  margin: 0 0 28px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0 0 20px;
   line-height: 1.6;
+}
+.canvas-hero--light .canvas-hero__subtitle {
+  color: #334155;
+}
+.canvas-hero__badge-wrap {
+  margin-bottom: 24px;
+}
+.canvas-hero__badge {
+  display: inline-block;
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 4px 16px rgba(2, 132, 199, 0.28);
+}
+.canvas-hero--light .canvas-hero__badge {
+  color: #0284c7;
+  text-shadow: none;
+}
+.canvas-hero__actions {
+  margin-top: 10px;
 }
 .canvas-hero__btn {
   border: none;
-  padding: 12px 28px;
-  font-size: 15px;
+  padding: 11px 26px;
+  font-size: 14px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  background: #4c2ce6;
+  background: #e5e7eb;
+  color: #1f2329;
+  transition: all 0.2s;
+}
+.canvas-hero--light .canvas-hero__btn {
+  background: #0284c7;
   color: #ffffff;
 }
 .canvas-hero__bars {
+  position: relative;
+  z-index: 2;
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding-bottom: 22px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0 48px 24px;
 }
 .canvas-hero__bar {
-  width: 36px;
+  width: 40px;
   height: 4px;
   border: none;
   border-radius: 2px;
@@ -5644,8 +5832,156 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
 }
 .canvas-hero__bar.active {
-  width: 52px;
+  width: 56px;
   background: #ffffff;
+}
+.canvas-hero--light .canvas-hero__bar {
+  background: rgba(15, 23, 42, 0.2);
+}
+.canvas-hero--light .canvas-hero__bar.active {
+  background: #0284c7;
+}
+
+/* 3D 视觉舞台（1:1 从官网 HomeView.vue 还原） */
+.canvas-hero .hero-stage-1 {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 68% 54%, #2e1a68 0%, #121124 45%, #090a0f 100%);
+}
+.canvas-hero .hero-stage-1__watermark {
+  position: absolute;
+  right: 6%;
+  top: 12%;
+  font-size: clamp(80px, 11vw, 150px);
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.05);
+  letter-spacing: 0.06em;
+  filter: blur(2px);
+  user-select: none;
+}
+.canvas-hero .hero-stage-1__beam {
+  position: absolute;
+  right: 12%;
+  bottom: 8%;
+  width: 420px;
+  height: 180px;
+  background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.48) 0%, rgba(56, 189, 248, 0.18) 45%, transparent 72%);
+  transform: rotate(-12deg);
+  filter: blur(12px);
+}
+.canvas-hero .hero-stage-1__cube {
+  position: absolute;
+  right: 16%;
+  top: 36%;
+  width: 200px;
+  height: 140px;
+  transform: perspective(800px) rotateX(24deg) rotateY(-28deg);
+}
+.canvas-hero .cube-top {
+  width: 100%;
+  height: 95px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #1e1b4b 100%);
+  border: 2px solid rgba(167, 139, 250, 0.65);
+  box-shadow: 0 16px 40px rgba(124, 58, 237, 0.55), inset 0 0 20px rgba(167, 139, 250, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.canvas-hero .cube-g {
+  font-size: 34px;
+  font-weight: 900;
+  font-style: italic;
+  color: #e9d5ff;
+  text-shadow: 0 0 16px #a855f7;
+}
+.canvas-hero .hero-stage-2 {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(165deg, #9ec9f5 0%, #d8ebff 48%, #eef4fa 100%);
+}
+.canvas-hero .hero-stage-2__visual {
+  position: absolute;
+  right: 10%;
+  bottom: 12%;
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+.canvas-hero .whitepaper-book {
+  width: 180px;
+  height: 240px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
+  box-shadow: -14px 18px 36px rgba(15, 23, 42, 0.16);
+  padding: 22px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transform: rotate(-6deg);
+  border-left: 7px solid #0284c7;
+}
+.canvas-hero .whitepaper-book__tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0284c7;
+}
+.canvas-hero .whitepaper-book strong {
+  font-size: 18px;
+  line-height: 1.35;
+  color: #0f172a;
+}
+.canvas-hero .hero-stage-3 {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 25% 60%, rgba(45, 30, 20, 0.55) 0%, transparent 55%),
+    linear-gradient(115deg, #9a6b4c 0%, #b58360 42%, #7c5338 78%, #3d281a 100%);
+}
+.canvas-hero .desert-highway {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.canvas-hero .desert-road {
+  position: absolute;
+  left: 48%;
+  top: -15%;
+  width: 120px;
+  height: 135%;
+  background: #33363d;
+  border-left: 5px solid #d6b899;
+  border-right: 5px solid #d6b899;
+  transform: rotate(-24deg);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.45);
+}
+.canvas-hero .desert-truck {
+  position: absolute;
+  left: 18px;
+  top: 46%;
+  width: 36px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  filter: drop-shadow(10px 12px 10px rgba(0, 0, 0, 0.6));
+}
+.canvas-hero .desert-truck__cab {
+  height: 22px;
+  background: #e2e8f0;
+  border-radius: 5px 5px 2px 2px;
+}
+.canvas-hero .desert-truck__trailer {
+  flex: 1;
+  background: #7c3aed;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 1px;
 }
 
 /* 通用画布区块 */
