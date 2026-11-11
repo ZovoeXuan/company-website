@@ -1936,7 +1936,25 @@ onBeforeUnmount(() => {
   box-shadow: 0 16px 36px rgba(16, 24, 40, 0.08);
 }
 
-.about-news-card__poster,
+.about-news-card__poster {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  position: relative;
+  background: #0f172a;
+}
+
+.about-news-card__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.about-news-card:hover .about-news-card__poster img {
+  transform: scale(1.05);
+}
+
 .res-card__cover {
   aspect-ratio: 1 / 1;
   overflow: hidden;

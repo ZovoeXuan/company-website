@@ -81,7 +81,7 @@ onMounted(load)
       </div>
 
       <figure v-if="data.cover" class="cover">
-        <img :src="data.cover.url" :alt="data.cover.alt" :width="data.cover.width" :height="data.cover.height" />
+        <img :src="data.cover.url" :alt="data.cover.alt || data.title" />
       </figure>
 
       <!-- 正文由后端清洗后下发 -->
@@ -126,10 +126,19 @@ onMounted(load)
   margin-bottom: 40px;
   border-radius: var(--radius);
   overflow: hidden;
+  max-height: 440px;
+  background: var(--c-surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cover img {
   width: 100%;
+  height: auto;
+  max-height: 440px;
+  object-fit: cover;
+  display: block;
   border-radius: var(--radius);
 }
 
