@@ -64,3 +64,12 @@ export function updateLeadStatus(id: string, payload: {
     body: payload,
   })
 }
+
+export function getLeadCounts(params?: { keyword?: string; from?: string; to?: string }) {
+  const query = new URLSearchParams()
+  if (params?.keyword) query.set('keyword', params.keyword)
+  if (params?.from) query.set('from', params.from)
+  if (params?.to) query.set('to', params.to)
+  const qs = query.toString()
+  return get<Record<LeadStatus, number>>(`/api/admin/leads/counts${qs ? `?${qs}` : ''}`)
+}

@@ -54,32 +54,6 @@ export interface ContactEmailItem {
   desc: string
 }
 
-export interface XiaoQiFaqPair {
-  q: string
-  a: string
-  thought?: string
-}
-
-export interface XiaoQiConfig {
-  enabled?: boolean
-  name?: string
-  roleTitle?: string
-  headerLine1?: string
-  headerLine2?: string
-  welcomeTitle?: string
-  welcomeSubtitle?: string
-  certBadge?: string
-  capabilities?: string[]
-  questions?: string[]
-  faqPairs?: XiaoQiFaqPair[]
-  deepThinkEnabled?: boolean
-  deepThinkModel?: string
-  disclaimer?: string
-  apiUrl?: string
-  apiKey?: string
-  modelName?: string
-  systemPrompt?: string
-}
 
 export interface PageHeroConfig {
   title?: string
@@ -110,7 +84,6 @@ export interface SiteConfig {
   nav: NavItem[]
   megaColumns?: MegaColumn[]
   megaCta?: { text: string; linkText: string } | null
-  xiaoqiConfig?: XiaoQiConfig | null
   contactEmails?: ContactEmailItem[]
   pageHeroes?: {
     news?: PageHeroConfig
@@ -120,6 +93,8 @@ export interface SiteConfig {
   }
   contact: {
     companyName?: string
+    formTitle?: string
+    successText?: string
     phone: string
     email: string
     address: string
@@ -276,7 +251,8 @@ export interface HomeView {
   cases: (HomeBlock & { items: HomeCard[]; moreUrl: string }) | null
   customers: (HomeBlock & { items: HomeCustomer[] }) | null
   news: (HomeBlock & { mode: string; items: HomeNewsItem[]; moreUrl: string }) | null
-  consultation: { title: string; subtitle: string; buttonText: string; link: HomeLink }
+  consultation: { title: string; subtitle: string; buttonText: string; link: HomeLink } | null
+  formEnabled?: boolean
 }
 
 export interface Category {
@@ -296,6 +272,7 @@ export interface TitledItem {
   description: string
   tag?: string
   icon?: MediaRef | null
+  iconMediaId?: string | number | null
 }
 
 export interface OutcomeMetric {
@@ -347,6 +324,7 @@ export interface ProductDetail extends ProductSummary {
   roleTabs?: ProductRoleTab[]
   /** D1 扩展：端侧工具矩阵（WEB + APP + 微信群） */
   terminalTools?: ProductTerminalTool[]
+  relatedSolutions?: SolutionSummary[]
   relatedCases?: CaseSummary[]
 }
 
@@ -359,6 +337,7 @@ export interface SolutionDetail extends SolutionSummary {
   pains?: TitledItem[]
   benefits?: TitledItem[]
   relatedProducts?: ProductSummary[]
+  relatedCases?: CaseSummary[]
 }
 
 export interface CaseSummary extends ContentSummary {}
@@ -442,8 +421,15 @@ export interface AboutQualificationItem {
   imageUrl?: string | null
 }
 
+export type LeadSourcePosition = string
+export type ContentType = 'PRODUCT' | 'SOLUTION' | 'CASE' | 'NEWS' | 'CUSTOMER' | string
+
 export interface AboutPage {
   title?: string
+  stats?: Array<{ displayValue?: string; value?: string | number; unit?: string; label: string }>
+  showStories?: boolean
+  storiesTitle?: string
+  stories?: Array<{ title: string; tag?: string; date?: string; cover?: string; url?: string }>
   heroTitle?: string
   heroSubtitle?: string
   heroEyebrow?: string
@@ -508,6 +494,7 @@ export interface ContactPage {
 export interface LeadSubmitPayload {
   name: string
   phone: string
+  smsCode?: string
   companyName: string
   demand: string
   sourcePath: string
@@ -516,6 +503,7 @@ export interface LeadSubmitPayload {
   contentId?: number
   consent: boolean
   consentVersion: number
+  hp?: string
 }
 
 export interface LeadSubmitResult {

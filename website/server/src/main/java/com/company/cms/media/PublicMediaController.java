@@ -14,7 +14,8 @@ import java.time.Duration;
 
 /**
  * 公开素材。只有被「已发布且来源有效」的内容引用时才可访问，
- * 避免通过遍历 ID 拿到草稿里的素材。支持 Range，视频可拖动进度。
+ * 避免通过遍历 ID 拿到草稿里的素材。
+ * 使用短缓存 + must-revalidate（而非 365 天 immutable），确保内容下线撤回后公开访问立即失效。
  */
 @RestController
 @RequestMapping("/api/public/media")
@@ -35,6 +36,6 @@ public class PublicMediaController {
         }
         MediaService.StoredFile file = mediaService.load(id);
         MediaHttp.write(response, file, range,
-                CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable().getHeaderValue(), false);
+                CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic().mustRevalidate().getHeaderValue(), false);
     }
 }

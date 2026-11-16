@@ -1,7 +1,7 @@
 <!-- 对应源码路径: website/admin/src/views/ContentEditorView.vue -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ArticleBody from '../../../shared/ArticleBody.vue'
 import ContentPicker from '@/components/ContentPicker.vue'
@@ -31,6 +31,9 @@ const id = computed(() => (typeof route.params.id === 'string' ? route.params.id
 const isEdit = computed(() => Boolean(id.value))
 
 const loading = ref(false)
+const loadFailed = ref(false)
+const isDirty = ref(false)
+let suppressDirtyWatch = false
 const saving = ref(false)
 const publishing = ref(false)
 const meta = ref<ContentView | null>(null)
@@ -218,6 +221,7 @@ function buildDraftPayload(): Record<string, unknown> {
           .filter(Boolean),
       }))
     base.terminalTools = form.value.terminalTools.filter((t) => t.name.trim())
+    base.relatedSolutionIds = form.value.relatedSolutionIds
     base.relatedCaseIds = form.value.relatedCaseIds
   } else if (contentType.value === 'SOLUTION') {
     base.industry = form.value.industry.trim()
@@ -225,6 +229,7 @@ function buildDraftPayload(): Record<string, unknown> {
     base.pains = form.value.pains
     base.benefits = form.value.benefits
     base.relatedProductIds = form.value.relatedProductIds
+    base.relatedCaseIds = form.value.relatedCaseIds
   } else if (contentType.value === 'CASE') {
     base.customerName = form.value.customerName.trim()
     base.industry = form.value.industry.trim()
@@ -243,14 +248,50 @@ function buildDraftPayload(): Record<string, unknown> {
   return base
 }
 
+watch(
+  form,
+  () => {
+    if (!suppressDirtyWatch) isDirty.value = true
+  },
+  { deep: true },
+)
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (isDirty.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+onBeforeRouteLeave(async () => {
+  if (!isDirty.value) return true
+  try {
+    await ElMessageBox.confirm('当前页面有尚未保存的修改，确认离开？', '未保存提醒', {
+      type: 'warning',
+      confirmButtonText: '放弃修改并离开',
+      cancelButtonText: '留在当前页',
+    })
+    return true
+  } catch {
+    return false
+  }
+})
+
 async function load() {
   if (!isEdit.value) return
   loading.value = true
+  loadFailed.value = false
   try {
     const detail = await getContent(id.value)
     meta.value = detail.content
+    suppressDirtyWatch = true
     fillFromDraft(detail.draft)
+    isDirty.value = false
+    setTimeout(() => {
+      suppressDirtyWatch = false
+    }, 0)
   } catch (error) {
+    loadFailed.value = true
     ElMessage.error(error instanceof ApiError ? error.message : '内容加载失败')
   } finally {
     loading.value = false
@@ -258,6 +299,10 @@ async function load() {
 }
 
 async function onSaveDraft() {
+  if (isEdit.value && (loadFailed.value || !meta.value)) {
+    ElMessage.error('当前内容尚未成功加载，禁止保存以免覆盖或重复创建')
+    return false
+  }
   if (!form.value.title.trim()) {
     ElMessage.warning('请先填写标题')
     return false
@@ -275,7 +320,12 @@ async function onSaveDraft() {
     if (isEdit.value && meta.value) {
       const updated = await saveDraft(id.value, payload, meta.value.lockVersion)
       meta.value = updated.content
+      suppressDirtyWatch = true
       fillFromDraft(updated.draft)
+      isDirty.value = false
+      setTimeout(() => {
+        suppressDirtyWatch = false
+      }, 0)
       try {
         localStorage.setItem('admin_data_updated', String(Date.now()))
       } catch (_) {}
@@ -283,6 +333,7 @@ async function onSaveDraft() {
     } else {
       const created = await createContent(contentType.value, payload)
       meta.value = created.content
+      isDirty.value = false
       try {
         localStorage.setItem('admin_data_updated', String(Date.now()))
       } catch (_) {}
@@ -319,7 +370,7 @@ async function onPublish() {
     await publishContent(meta.value.id, meta.value.lockVersion, meta.value.draftVersion)
     try {
       localStorage.setItem('admin_data_updated', String(Date.now()))
-      localStorage.setItem('g7_last_published', String(Date.now()))
+      localStorage.setItem('site_last_published', String(Date.now()))
     } catch (_) {}
     ElMessage.success('已正式发布上线')
     await load()
@@ -357,8 +408,13 @@ function goPreview() {
 }
 
 onMounted(() => {
+  window.addEventListener('beforeunload', onBeforeUnload)
   loadCategories()
   load()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
 })
 </script>
 
@@ -469,11 +525,15 @@ onMounted(() => {
           <template v-if="contentType === 'PRODUCT'">
             <el-divider content-position="left">产品核心特性 (最多 8 条)</el-divider>
             <div v-for="(feat, fIdx) in form.features" :key="fIdx" class="sub-row">
-              <el-input v-model="feat.title" maxlength="30" placeholder="特性标题" style="width: 200px" />
+              <el-input v-model="feat.tag" maxlength="20" placeholder="模块标签(可选)" style="width: 140px" />
+              <el-input v-model="feat.title" maxlength="30" placeholder="特性标题" style="width: 180px" />
               <el-input v-model="feat.description" maxlength="200" placeholder="特性说明" style="flex: 1" />
+              <el-button size="small" @click="openMedia('IMAGE', (m) => (feat.iconMediaId = Number(m.id)))">
+                {{ feat.iconMediaId ? `图标#${feat.iconMediaId}` : '选图标' }}
+              </el-button>
               <el-button link type="danger" @click="form.features.splice(fIdx, 1)">删除</el-button>
             </div>
-            <el-button size="small" @click="form.features.length < 8 && form.features.push({ title: '', description: '' })">
+            <el-button size="small" @click="form.features.length < 8 && form.features.push({ tag: '', title: '', description: '', iconMediaId: null })">
               + 添加产品特性
             </el-button>
 
@@ -511,6 +571,9 @@ onMounted(() => {
               + 添加端侧工具
             </el-button>
 
+            <el-divider content-position="left">关联行业解决方案</el-divider>
+            <ContentPicker v-model="form.relatedSolutionIds" content-type="SOLUTION" :max="6" />
+
             <el-divider content-position="left">关联标杆案例</el-divider>
             <ContentPicker v-model="form.relatedCaseIds" content-type="CASE" :max="6" />
           </template>
@@ -541,6 +604,9 @@ onMounted(() => {
 
             <el-divider content-position="left">关联推荐产品</el-divider>
             <ContentPicker v-model="form.relatedProductIds" content-type="PRODUCT" :max="6" />
+
+            <el-divider content-position="left">关联客户案例</el-divider>
+            <ContentPicker v-model="form.relatedCaseIds" content-type="CASE" :max="6" />
           </template>
 
           <template v-else-if="contentType === 'CASE'">
@@ -571,6 +637,12 @@ onMounted(() => {
                 <el-input v-model="form.quoteAuthor" maxlength="60" />
               </el-form-item>
             </div>
+
+            <el-divider content-position="left">案例用到的产品</el-divider>
+            <ContentPicker v-model="form.relatedProductIds" content-type="PRODUCT" :max="6" />
+
+            <el-divider content-position="left">案例关联的解决方案</el-divider>
+            <ContentPicker v-model="form.relatedSolutionIds" content-type="SOLUTION" :max="6" />
           </template>
 
           <template v-else-if="contentType === 'NEWS'">
@@ -626,7 +698,7 @@ onMounted(() => {
             <div v-if="editorMode === 'split'" class="richtext-preview">
               <div class="richtext-preview__head">前台排版实时预览（复用 ArticleBody）</div>
               <div class="richtext-preview__body">
-                <ArticleBody :html="previewHtml" :show-toc="false" :show-progress="false" :show-tools="false" />
+                <ArticleBody :html="previewHtml" :show-toc="false" />
               </div>
             </div>
           </div>

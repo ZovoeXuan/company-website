@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { ApiError } from '@/api/http'
 import {
   getLead,
+  getLeadCounts,
   listLeads,
   updateLeadStatus,
   type LeadDetail,
@@ -22,6 +23,7 @@ const viewMode = ref<'table' | 'kanban'>('table')
 const loading = ref(false)
 const rows = ref<LeadListItem[]>([])
 const total = ref(0)
+const statusCounts = ref<Record<LeadStatus, number>>({ NEW: 0, CONTACTED: 0, CLOSED: 0, INVALID: 0 })
 
 const query = reactive({
   status: '',
@@ -70,16 +72,24 @@ function formatTime(value: string | null | undefined) {
 async function load() {
   loading.value = true
   try {
-    const res = await listLeads({
-      status: query.status || undefined,
-      keyword: query.keyword.trim() || undefined,
-      from: query.range[0] || undefined,
-      to: query.range[1] || undefined,
-      page: query.page,
-      pageSize: query.pageSize,
-    })
+    const [res, counts] = await Promise.all([
+      listLeads({
+        status: query.status || undefined,
+        keyword: query.keyword.trim() || undefined,
+        from: query.range[0] || undefined,
+        to: query.range[1] || undefined,
+        page: query.page,
+        pageSize: query.pageSize,
+      }),
+      getLeadCounts({
+        keyword: query.keyword.trim() || undefined,
+        from: query.range[0] || undefined,
+        to: query.range[1] || undefined,
+      }).catch(() => null),
+    ])
     rows.value = res.items
     total.value = res.total
+    if (counts) statusCounts.value = counts
   } catch (error) {
     ElMessage.error(error instanceof ApiError ? error.message : '咨询线索加载失败')
   } finally {
@@ -186,7 +196,7 @@ onMounted(load)
             <el-radio-button value="table">📋 表格视图</el-radio-button>
             <el-radio-button value="kanban">🗂️ 看板视图 (Kanban)</el-radio-button>
           </el-radio-group>
-          <el-button size="small" plain @click="exportLeadsCsv">导出当前页 CSV</el-button>
+          <el-button size="small" plain @click="exportLeadsCsv">导出当前页脱敏 CSV</el-button>
           <el-button size="small" @click="load">刷新</el-button>
         </div>
       </div>
@@ -277,7 +287,7 @@ onMounted(load)
       <div v-for="col in STATUS_COLUMNS" :key="col.key" class="kanban__col">
         <div class="kanban__head">
           <strong>{{ col.label }}</strong>
-          <el-tag size="small" :type="col.tag">{{ kanbanGroups[col.key].length }}</el-tag>
+          <el-tag size="small" :type="col.tag">本页 {{ kanbanGroups[col.key].length }} / 总计 {{ statusCounts[col.key] ?? kanbanGroups[col.key].length }}</el-tag>
         </div>
         <div class="kanban__list">
           <div

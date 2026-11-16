@@ -59,82 +59,6 @@ interface StoryItemForm {
   videoUrl: string
 }
 
-const DEFAULT_INTRO = `鑫链科技有限公司是一家领先的工业物联网科技和软件服务公司。为企业客户提供从设备接入、数据采集、能源监测到智能调度、自动运营的一体化数字化平台，连接企业运营全流程并以数据和AI驱动决策，助力客户降本增效。\n\n公司的客户覆盖超80%行业头部企业以及数万家中小企业，服务网络覆盖全国核心产业园区。`
-
-const DEFAULT_CEO_QUOTE = '“我谨代表公司全体员工，向在这个不凡时代中努力前行的奋斗者致以崇高的敬意！”'
-const DEFAULT_CEO_TITLE = '从微不足道开始改变世界'
-const DEFAULT_CEO_SIGNATURE = '企业负责人'
-const DEFAULT_CEO_EXCERPT = [
-  '十多年前，当我们刚开始带着第一代智能终端走进现场的时候，很少有人相信，一个小小的物联网终端，有一天会彻底改变整个行业运行的方式。',
-  '实体产业是国民经济的血脉，千千万万企业日夜兼程。然而在过去很长一段时间里，安全风险高、成本核算难、现场状态黑盒，一直是压在企业经营者心头的三座大山。',
-  '正是从每一次毫秒级的感知、每一次防碰撞预警、每一度电的精准计量这些看似“微不足道”的小事开始，我们将物联网技术与AI算法融入生产现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
-].join('\n')
-const DEFAULT_CEO_FULL = [
-  '我谨代表公司全体员工，向在这个不凡时代中努力前行的奋斗者致以崇高的敬意！',
-  '十多年前，当我们刚开始带着第一代智能终端走进现场的时候，很少有人相信，一个小小的物联网终端，有一天会彻底改变整个行业运行的方式。',
-  '实体产业是国民经济的血脉，千千万万企业日夜兼程。然而在过去很长一段时间里，安全风险高、成本核算难、现场状态黑盒，一直是压在企业经营者心头的三座大山。',
-  '正是从每一次毫秒级的感知、每一次防碰撞预警、每一度电的精准计量这些看似“微不足道”的小事开始，我们将物联网技术与AI算法融入生产现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
-  '今天，数百万台物联网设备在我们的平台上实时在线，每天产生海量真实运营数据。当AI模型走进工业与企业现场，数据不再只是冰冷的报表，而是能够主动识别风险、听懂指令、帮企业降本增效的得力助手。',
-  '时代在变，技术在变，但我们存在的唯一理由始终未变——用科技创新和服务提升行业生产力，做企业客户最值得信赖的长期伙伴。让我们继续从微不足道处着手，一起创造美好未来！',
-].join('\n')
-
-const DEFAULT_RESOURCES_LIST: ResourceItemForm[] = [
-  { category: '企业资料', title: '企业宣传册', logoText: '全栈产品手册', logoColor: '#4c2ce6', url: '', isVideo: false },
-  { category: '企业资料', title: '安全管家', logoText: '安全管家 · 主动安全托管', logoColor: '#2563eb', url: '', isVideo: false },
-  { category: '企业资料', title: '财运通', logoText: '财运通 · 数字化资产结算', logoColor: '#0284c7', url: '', isVideo: false },
-  { category: '企业资料', title: '冷链管家', logoText: '冷链管家 · 全程温控可视', logoColor: '#0d9488', url: '', isVideo: false },
-  { category: '客户视频', title: '标杆案例', logoText: '优秀客户标杆', logoColor: '#16a34a', url: '', isVideo: true },
-  { category: '客户视频', title: '示范工程', logoText: '产业数字化工程', logoColor: '#0284c7', url: '', isVideo: true },
-  { category: '客户视频', title: '智慧物流', logoText: '物流数字化转型', logoColor: '#dc2626', url: '', isVideo: true },
-  { category: '客户视频', title: '智能工厂', logoText: '智能工厂示范', logoColor: '#d97706', url: '', isVideo: true },
-  { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队管理白皮书', logoColor: '#0284c7', url: '', isVideo: false },
-  { category: '行业报告', title: '2026数字化转型实践蓝皮书', logoText: '数字化转型大数据报告', logoColor: '#2563eb', url: '', isVideo: false },
-  { category: '行业报告', title: '中国物联网安全AI治理报告', logoText: '工业安全AI治理报告', logoColor: '#4f46e5', url: '', isVideo: false },
-  { category: '行业报告', title: '大宗产业数字化转型实践指南', logoText: '无人化协同白皮书', logoColor: '#334155', url: '', isVideo: false },
-  { category: 'ESG', title: '企业环境、社会及管治（ESG）报告', logoText: 'ESG 可持续发展报告', logoColor: '#059669', url: '', isVideo: false },
-  { category: 'ESG', title: '绿色低碳与新能源减碳核算标准', logoText: '双碳与绿色能源实践', logoColor: '#10b981', url: '', isVideo: false },
-  { category: 'ESG', title: '一线人员守护与社会公益行动年报', logoText: '安全守护行动计划', logoColor: '#0d9488', url: '', isVideo: false },
-  { category: 'ESG', title: '数据安全与隐私合规治理白皮书', logoText: '信息安全与隐私保护合规', logoColor: '#0284c7', url: '', isVideo: false },
-]
-
-const DEFAULT_STORIES_LIST: StoryItemForm[] = [
-  {
-    company: '标杆客户',
-    author: '客户代表',
-    quote: '通过全流程数字运营体系，合规率提升至99.8%，全程实时可视。',
-    logoText: '标杆客户',
-    videoUrl: '',
-  },
-]
-
-const DEFAULT_MILESTONES_LIST: Milestone[] = [
-  {
-    year: '2018',
-    title: '发布智能挂车与安全管家托管服务',
-    description: '连接平台货运车辆突破 80 万台；完成由多家国际顶级机构联合领投的战略融资',
-  },
-  {
-    year: '2019',
-    title: '平台卡车连接数突破140万',
-    description: '面向煤炭、钢铁、水泥、汽车、快运提供综合性数字化方案；与中铝、普洛斯设立合资公司',
-  },
-  {
-    year: '2022',
-    title: '平台卡车连接数突破 200万',
-    description: '宣布完成新一轮2亿美元融资；嬴彻科技自动驾驶卡车量产交付',
-  },
-  {
-    year: '2010',
-    title: '提供基于北斗和GPS车队管理 SaaS 服务',
-    description: '平台连接车辆突破 2000 台',
-  },
-  {
-    year: '2014',
-    title: '推出智能管车与车队金融结算体系',
-    description: '全国设立七大区域运营中心，服务超万家物流企业',
-  },
-]
-
 const route = useRoute()
 const router = useRouter()
 const activeTab = ref('intro')
@@ -155,37 +79,6 @@ function onTabChange(tabPane: any) {
     router.replace({ query: { ...route.query, tab: name } }).catch(() => {})
   }
 }
-
-const DEFAULT_TEAM_MEMBERS: TeamMemberForm[] = [
-  {
-    name: '张明远',
-    role: '首席执行官',
-    avatar: '/team/zhai-xuehun.svg',
-    bioText:
-      '张明远先生，现任公司首席执行官。\n作为产业物联网和企业数字化领域的开拓者，带领团队打造了行业领先的软硬一体平台。\n推动了千行百业的信息化和数字化进程，多次荣获行业领军人物与年度先锋企业家等荣誉。\n张明远先生毕业于清华大学，拥有丰富的技术研发与产业商业化运营经验。',
-  },
-  {
-    name: '李建华',
-    role: '总裁',
-    avatar: '/team/zhang-jingtao.svg',
-    bioText:
-      '李建华先生，现任公司总裁，全面负责公司技术研发、行业解决方案及客户成功体系建设。\n深耕产业科技领域二十余年，推动了软硬一体终端与全场景SaaS平台的深度融合，助力数万家企业实现降本增效与数字化跃升。',
-  },
-  {
-    name: '王淑琴',
-    role: '高级副总裁',
-    avatar: '/team/hao-shuxia.svg',
-    bioText:
-      '王淑琴女士，现任公司高级副总裁，负责组织发展、人才体系建设与大客户战略生态协同。\n长期致力于科技企业的组织创新与管理效能升级，打造了覆盖全国核心产业园区的高效专业服务团队。',
-  },
-  {
-    name: '赵志刚',
-    role: '首席财务官',
-    avatar: '/team/zhang-jielong.svg',
-    bioText:
-      '赵志刚先生，现任公司首席财务官（CFO），负责集团财务战略、资本运作及战略投资。\n主导完成了公司多轮国际顶级投资机构战略融资及战略合并，持续推动公司构建稳健可持续的商业增长模型。',
-  },
-]
 
 const avatarFileInput = ref<HTMLInputElement>()
 const uploadingMemberIdx = ref<number | null>(null)
@@ -283,7 +176,7 @@ const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('ABOUT')
 
 const form = reactive({
-  heroTitle: '以物联网技术和软件服务改变行业未来',
+  heroTitle: '',
   heroSubtitle: '',
   heroEyebrow: '',
   heroBgType: 'default' as 'default' | 'image' | 'video',
@@ -293,26 +186,26 @@ const form = reactive({
   showIntro: true,
   showIntroImage: false,
   introImageMode: 'none' as 'none' | 'image' | 'radar',
-  showCeoLetter: true,
+  showCeoLetter: false,
   showQualifications: true,
   showMilestones: true,
   showOffices: true,
   introTitle: '关于我们',
   intro: '',
   introImage: '',
-  ceoQuote: DEFAULT_CEO_QUOTE,
-  ceoTitle: DEFAULT_CEO_TITLE,
-  ceoSignature: DEFAULT_CEO_SIGNATURE,
+  ceoQuote: '',
+  ceoTitle: '',
+  ceoSignature: '',
   ceoButtonText: '展开全部',
-  ceoExcerptText: DEFAULT_CEO_EXCERPT,
-  ceoFullText: DEFAULT_CEO_FULL,
+  ceoExcerptText: '',
+  ceoFullText: '',
   teamTitle: '管理团队',
   teamMembers: [] as TeamMemberForm[],
   resourcesTitle: '资料库',
   resources: [] as ResourceItemForm[],
   customerStories: [] as StoryItemForm[],
-  mission: '以科技创新和服务升级产业生产力，让参与者共享美好改变',
-  vision: '行业最受尊重的数字化转型伙伴',
+  mission: '',
+  vision: '',
   values: [] as ValueItemForm[],
   joinTitle: '期待您的加入',
   joinButtonText: '查看职位',
@@ -325,7 +218,7 @@ const form = reactive({
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
-  form.heroTitle = draft.heroTitle ?? '以物联网技术和软件服务改变行业未来'
+  form.heroTitle = draft.heroTitle ?? ''
   form.heroSubtitle = draft.heroSubtitle ?? ''
   form.heroEyebrow = draft.heroEyebrow ?? ''
   form.heroBgType = draft.heroBgType ?? 'default'
@@ -333,132 +226,101 @@ function fill() {
   form.heroBgVideo = draft.heroBgVideo ?? ''
   form.showHeroLogoMark = draft.showHeroLogoMark === true
   form.showIntro = draft.showIntro !== false
-  const hasImg = !draft.introImage ? false : true
+  const hasImg = Boolean(draft.introImage)
   form.showIntroImage = draft.showIntroImage === true || (draft.showIntroImage === undefined ? hasImg : false)
   form.introImageMode = (draft.introImageMode ?? (hasImg ? 'image' : 'none')) as any
-  form.showCeoLetter = draft.showCeoLetter !== false
+  form.showCeoLetter = draft.showCeoLetter === true || Boolean(draft.ceoLetter?.title)
   form.showQualifications = draft.showQualifications !== false
   form.showMilestones = draft.showMilestones !== false
   form.showOffices = draft.showOffices !== false
-  form.introTitle = (draft.introTitle && !draft.introTitle.includes('G7') && !draft.introTitle.includes('易流')) ? draft.introTitle : '关于我们'
-  form.intro = (draft.intro && !draft.intro.includes('G7') && !draft.intro.includes('易流')) ? draft.intro : DEFAULT_INTRO
+  form.introTitle = draft.introTitle ?? '关于我们'
+  form.intro = draft.intro ?? ''
   form.introImage = draft.introImage ?? ''
 
   if (draft.ceoLetter) {
-    const rawQuote = draft.ceoLetter.leftQuote || DEFAULT_CEO_QUOTE
-    form.ceoQuote = rawQuote.includes('G7') || rawQuote.includes('易流') ? DEFAULT_CEO_QUOTE : rawQuote
-    form.ceoTitle = draft.ceoLetter.title || DEFAULT_CEO_TITLE
-    form.ceoSignature = draft.ceoLetter.signature || DEFAULT_CEO_SIGNATURE
+    form.ceoQuote = draft.ceoLetter.leftQuote ?? ''
+    form.ceoTitle = draft.ceoLetter.title ?? ''
+    form.ceoSignature = draft.ceoLetter.signature ?? ''
     form.ceoButtonText = draft.ceoLetter.buttonText || '展开全部'
-    form.ceoExcerptText = Array.isArray(draft.ceoLetter.excerpt) && draft.ceoLetter.excerpt.length > 0 && !draft.ceoLetter.excerpt.join('').includes('G7')
+    form.ceoExcerptText = Array.isArray(draft.ceoLetter.excerpt)
       ? draft.ceoLetter.excerpt.join('\n')
-      : DEFAULT_CEO_EXCERPT
-    form.ceoFullText = Array.isArray(draft.ceoLetter.fullParagraphs) && draft.ceoLetter.fullParagraphs.length > 0 && !draft.ceoLetter.fullParagraphs.join('').includes('G7')
+      : ''
+    form.ceoFullText = Array.isArray(draft.ceoLetter.fullParagraphs)
       ? draft.ceoLetter.fullParagraphs.join('\n')
-      : DEFAULT_CEO_FULL
+      : ''
   } else {
-    form.ceoQuote = DEFAULT_CEO_QUOTE
-    form.ceoTitle = DEFAULT_CEO_TITLE
-    form.ceoSignature = DEFAULT_CEO_SIGNATURE
+    form.ceoQuote = ''
+    form.ceoTitle = ''
+    form.ceoSignature = ''
     form.ceoButtonText = '展开全部'
-    form.ceoExcerptText = DEFAULT_CEO_EXCERPT
-    form.ceoFullText = DEFAULT_CEO_FULL
+    form.ceoExcerptText = ''
+    form.ceoFullText = ''
   }
 
-  form.teamTitle = (draft.teamTitle && !draft.teamTitle.includes('G7') && !draft.teamTitle.includes('易流')) ? draft.teamTitle : '管理团队'
-  if (Array.isArray(draft.teamMembers) && draft.teamMembers.length > 0) {
-    form.teamMembers = draft.teamMembers.map((m: any, idx: number) => {
-      const match = DEFAULT_TEAM_MEMBERS.find((d) => d.name === m.name) || DEFAULT_TEAM_MEMBERS[idx]
-      const cleanRole = (m.role ?? '').replace(/G7易流/g, '').replace(/G7/g, '').replace(/易流/g, '').trim()
-      const rawBio = Array.isArray(m.bio) && m.bio.length > 0
-        ? m.bio.join('\n')
-        : (match?.bioText || '')
-      const cleanBio = rawBio.replace(/G7易流/g, '公司').replace(/G7/g, '公司').replace(/易流科技/g, '战略合作伙伴')
-      return {
+  form.teamTitle = draft.teamTitle ?? '管理团队'
+  form.teamMembers = Array.isArray(draft.teamMembers)
+    ? draft.teamMembers.map((m: any) => ({
         name: m.name ?? '',
-        role: cleanRole || match?.role || '高管',
-        avatar: m.avatar || match?.avatar || '',
-        bioText: cleanBio,
-      }
-    })
-  } else {
-    form.teamMembers = DEFAULT_TEAM_MEMBERS.map((m) => ({ ...m }))
-  }
+        role: m.role ?? '',
+        avatar: m.avatar ?? '',
+        bioText: Array.isArray(m.bio) ? m.bio.join('\n') : '',
+      }))
+    : []
 
   form.resourcesTitle = draft.resourcesTitle ?? '资料库'
-  if (Array.isArray(draft.resources) && draft.resources.length > 0) {
-    form.resources = draft.resources.map((r: any) => ({
-      category: r.category ?? '企业资料',
-      title: (r.title ?? '').replace(/G7易流/g, '').replace(/G7/g, '').trim(),
-      logoText: (r.logoText ?? '').replace(/G7易流/g, '').replace(/G7/g, '').trim(),
-      logoColor: r.logoColor ?? '#4c2ce6',
-      url: r.url ?? '',
-      isVideo: Boolean(r.isVideo),
-    }))
-  } else {
-    form.resources = DEFAULT_RESOURCES_LIST.map((r) => ({ ...r }))
-  }
+  form.resources = Array.isArray(draft.resources)
+    ? draft.resources.map((r: any) => ({
+        category: r.category ?? '企业资料',
+        title: r.title ?? '',
+        logoText: r.logoText ?? '',
+        logoColor: r.logoColor ?? '#2563eb',
+        url: r.url ?? '',
+        isVideo: Boolean(r.isVideo),
+      }))
+    : []
 
-  if (Array.isArray(draft.customerStories) && draft.customerStories.length > 0) {
-    form.customerStories = draft.customerStories.map((s: any) => ({
-      quote: (s.quote ?? '').replace(/G7易流/g, '公司').replace(/G7/g, '公司'),
-      author: s.author ?? '',
-      company: s.company ?? '',
-      logoText: s.logoText ?? '',
-      videoUrl: s.videoUrl ?? '',
-    }))
-  } else {
-    form.customerStories = DEFAULT_STORIES_LIST.map((s) => ({ ...s }))
-  }
+  form.customerStories = Array.isArray(draft.customerStories)
+    ? draft.customerStories.map((s: any) => ({
+        quote: s.quote ?? '',
+        author: s.author ?? '',
+        company: s.company ?? '',
+        logoText: s.logoText ?? '',
+        videoUrl: s.videoUrl ?? '',
+      }))
+    : []
 
-  form.mission = (draft.mission && !draft.mission.includes('设备状态') && !draft.mission.includes('G7'))
-    ? draft.mission
-    : '以科技创新和服务升级产业生产力，让参与者共享美好改变'
-  form.vision = (draft.vision && !draft.vision.includes('G7')) ? draft.vision : '行业最受尊重的数字化转型伙伴'
-  form.joinTitle = (draft.joinTitle && !draft.joinTitle.includes('G7') && !draft.joinTitle.includes('易流')) ? draft.joinTitle : '期待您的加入'
+  form.mission = draft.mission ?? ''
+  form.vision = draft.vision ?? ''
+  form.joinTitle = draft.joinTitle ?? '期待您的加入'
   form.joinButtonText = draft.joinButtonText ?? '查看职位'
   form.joinUrl = draft.joinUrl ?? ''
 
-  if (Array.isArray(draft.values) && draft.values.length > 0) {
-    form.values = draft.values.map((v: any) => ({
-      title: v.title ?? '',
-      linesText: Array.isArray(v.lines)
-        ? v.lines.join('\n')
-        : typeof v.lines === 'string'
-          ? v.lines
-          : '',
-    }))
-  } else {
-    form.values = [
-      { title: '客户成功', linesText: '我们存在的唯一目的就是为客户带来价值\n深入场景，洞察客户需求，解决客户痛点问题\n以可信赖的产品和有温度的服务，做客户的长期朋友' },
-      { title: '极限', linesText: '目标远大，不甘平庸，不断挑战认知边界，把不可能变为可能\n敢想、敢试、敢突破，致力于打造有号召力的产品\n把事做透，用工匠精神实现卓越成果' },
-      { title: '信任', linesText: '以身作则，说到做到\n敢于信任，从我做起\n主动寻找有共同理想的产业变革者，打造有格局的朋友圈' },
-      { title: '坚韧', linesText: '坚持长期主义积极面对挑战和不确定性，敢于在泥泞中前行\n坚定目标，锲而不舍，迎难而上，确保结果\n充分发挥主观能动性，多找思路和方法，拒绝借口' },
-      { title: '主人翁精神', linesText: '从全局出发，长期利益最大化\n主动担当，站在造钟者的角度思考并解决问题\n持续学习，自我迭代，与公司共同成长' },
-    ]
-  }
+  form.values = Array.isArray(draft.values)
+    ? draft.values.map((v: any) => ({
+        title: v.title ?? '',
+        linesText: Array.isArray(v.lines)
+          ? v.lines.join('\n')
+          : typeof v.lines === 'string'
+            ? v.lines
+            : '',
+      }))
+    : []
 
-  const isDemoMilestones = Array.isArray(draft.milestones) && draft.milestones.some((m: any) => (m.description || '').includes('设备巡检'))
-  if (Array.isArray(draft.milestones) && draft.milestones.length >= 3 && !isDemoMilestones) {
-    form.milestones = draft.milestones.map((item: any) => ({ ...item }))
-  } else {
-    form.milestones = DEFAULT_MILESTONES_LIST.map((item) => ({ ...item }))
-  }
+  form.milestones = Array.isArray(draft.milestones)
+    ? draft.milestones.map((item: any) => ({
+        year: item.year ?? '',
+        title: item.title ?? '',
+        description: item.description ?? '',
+      }))
+    : []
 
-  if (Array.isArray(draft.offices) && draft.offices.length > 0) {
-    form.offices = draft.offices.map((o: any) => ({ ...o }))
-  } else {
-    form.offices = [
-      { city: '北京（总部）', phone: '010-62667878', address: '北京市 海淀区 建材城中路 27 号金隅智造工场 N7 号楼 2 层', mapX: 68, mapY: 41 },
-      { city: '深圳', phone: '0755-26944168', address: '深圳市南山区滨海大道 3369 号有线信息传输大厦 9 层', mapX: 68, mapY: 77 },
-      { city: '成都', phone: '028-83358692', address: '成都市 天府新区 兴隆湖畔路西段 99 号天府新经济产业园 D 区 B6 栋 28 楼', mapX: 53, mapY: 63 },
-      { city: '广州', phone: '', address: '广州市黄埔区科学大道237号A1栋1106室', mapX: 66, mapY: 74 },
-      { city: '上海', phone: '021-51083899', address: '上海市闵行区申长路988弄虹桥万科中心T2号楼6层', mapX: 76, mapY: 57 },
-      { city: '西安', phone: '', address: '西安市雁塔区丈八一路1号汇鑫IBC-D座8楼802、803室', mapX: 59, mapY: 52 },
-      { city: '天津', phone: '', address: '天津市东丽区东二道空港商务园东区E6-102、202', mapX: 71, mapY: 45 },
-    ]
-  }
-  form.qualifications = (draft.qualifications ?? []).map((item: any) => ({ ...item }))
+  form.offices = Array.isArray(draft.offices)
+    ? draft.offices.map((o: any) => ({ ...o }))
+    : []
+
+  form.qualifications = Array.isArray(draft.qualifications)
+    ? draft.qualifications.map((item: any) => ({ ...item }))
+    : []
 }
 
 function addMilestone() {
@@ -792,7 +654,7 @@ onMounted(async () => {
 
               <div class="info-col">
                 <div class="row-inline">
-                  <el-input v-model="tm.name" placeholder="姓名（如：翟学魂）" style="width: 180px">
+                  <el-input v-model="tm.name" placeholder="姓名" style="width: 180px">
                     <template #prepend>姓名</template>
                   </el-input>
                   <el-input v-model="tm.role" placeholder="职务（如：首席执行官）" style="flex: 1">
@@ -801,7 +663,7 @@ onMounted(async () => {
                 </div>
 
                 <div class="row-inline">
-                  <el-input v-model="tm.avatar" placeholder="头像图片路径或 URL（如：/team/zhai-xuehun.svg）" style="width: 100%">
+                  <el-input v-model="tm.avatar" placeholder="头像图片 URL（如 /api/public/media/1）" style="width: 100%">
                     <template #prepend>头像URL</template>
                   </el-input>
                 </div>
@@ -908,7 +770,7 @@ onMounted(async () => {
               <el-option label="行业报告" value="行业报告" />
               <el-option label="ESG" value="ESG" />
             </el-select>
-            <el-input v-model="res.title" placeholder="卡片标题（如：安全管家 / 滨拓物流）" style="width: 220px" />
+            <el-input v-model="res.title" placeholder="资料卡片标题" style="width: 220px" />
             <el-input v-model="res.logoText" placeholder="封面大字或品牌名" style="width: 200px" />
             <el-input v-model="res.url" placeholder="下载链接或视频 URL" style="flex: 1" />
             <el-button link type="danger" @click="form.resources.splice(rIdx, 1)">删除</el-button>
@@ -935,7 +797,7 @@ onMounted(async () => {
         <div v-for="(st, sIdx) in form.customerStories" :key="sIdx" class="card-box">
           <div class="row-inline">
             <el-input v-model="st.company" placeholder="公司简称" style="width: 160px" />
-            <el-input v-model="st.author" placeholder="受访人姓名与职务（如：张太喜 双汇物流董事长）" style="width: 280px" />
+            <el-input v-model="st.author" placeholder="受访人姓名与职务" style="width: 280px" />
             <el-input v-model="st.logoText" placeholder="右下角品牌 Logo 文字" style="width: 180px" />
             <el-button link type="danger" @click="form.customerStories.splice(sIdx, 1)">删除</el-button>
           </div>

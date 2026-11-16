@@ -1,207 +1,166 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ContactEmailItem, NavItem, QrCodeItem, SiteConfig } from '@/data/types'
-import { isPlaceholderIcp, resolvePublicContactEmails } from '@/utils/siteDisplay'
+import { computed, onMounted, ref } from 'vue'
+import { getSite } from '@/api/public'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
+import {
+  isPlaceholderContact,
+  resolvePublicContactEmails,
+  resolvePublicPhone,
+} from '@/utils/siteDisplay'
+import type { ContactEmailItem, NavItem, SiteConfig } from '@/data/types'
 
-const props = defineProps<{ config: SiteConfig }>()
+const site = ref<SiteConfig | null>(null)
 
-const defaultFooterGroups: Array<{ title: string; links: NavItem[] }> = [
-  {
-    title: 'IoT服务',
-    links: [
-      { label: '安全管家', path: '/products?category=安全' },
-      { label: '冷链管家', path: '/products?category=冷链' },
-      { label: '流向管家', path: '/products?category=流向' },
-      { label: '追货管家', path: '/products?category=追货' },
-      { label: '开放平台', path: '/products' },
-    ],
-  },
-  {
-    title: '交易服务',
-    links: [
-      { label: '财运通', path: '/solutions?category=交易' },
-      { label: '数字能源', path: '/solutions?category=能源' },
-      { label: '共享挂车', path: '/solutions' },
-    ],
-  },
-  {
-    title: '解决方案',
-    links: [
-      { label: '大宗物流数字化', path: '/solutions/1' },
-      { label: '连锁零售数字化', path: '/solutions/2' },
-      { label: '饲料防偷盗 AI 治理', path: '/solutions/3' },
-    ],
-  },
-  {
-    title: '关于我们',
-    links: [
-      { label: '企业简介', path: '/about?tab=intro#part' },
-      { label: '管理团队', path: '/about?tab=team#part' },
-      { label: '媒体中心', path: '/about?tab=media#part' },
-      { label: '加入我们', path: '/about?tab=join#part' },
-    ],
-  },
-]
-
-const groups = computed(() => {
-  const configured = props.config.footer?.groups ?? []
-  if (configured.length > 0) {
-    return configured.map((g) => {
-      if (g.title === '关于我们') {
-        return {
-          title: g.title,
-          links: [
-            { label: '企业简介', path: '/about?tab=intro#part' },
-            { label: '管理团队', path: '/about?tab=team#part' },
-            { label: '媒体中心', path: '/about?tab=media#part' },
-            { label: '加入我们', path: '/about?tab=join#part' },
-          ],
-        }
-      }
-      return g
-    })
-  }
-  return defaultFooterGroups
+const footerGroups = computed(() => {
+  const groups = site.value?.footer?.groups
+  if (!Array.isArray(groups)) return []
+  return groups.filter((g) => g && g.title && Array.isArray(g.links) && g.links.length > 0)
 })
 
-const contactEmails = computed<ContactEmailItem[]>(() => {
-  return resolvePublicContactEmails(props.config.contactEmails, props.config.contact?.email)
-})
-
-const contactAddress = computed(
-  () => props.config.contact?.address || '',
+const contactEmails = computed<ContactEmailItem[]>(() =>
+  resolvePublicContactEmails(site.value?.contactEmails, site.value?.contact?.email),
 )
 
-const qrCodes = computed<QrCodeItem[]>(() => {
-  const raw = props.config.footer?.qrCodes ?? []
-  if (raw.length >= 2) return raw
-  if (raw.length === 1) {
-    return [raw[0], { label: '视频号', imageUrl: '' }]
-  }
-  return [
-    { label: '公众号', imageUrl: '' },
-    { label: '视频号', imageUrl: '' },
-  ]
-})
-
-const icpText = computed(() => {
-  const raw = props.config.footer?.icp
-  return isPlaceholderIcp(raw) ? '' : raw!.trim()
-})
-const icpUrl = computed(() => props.config.footer?.icpUrl || 'https://beian.miit.gov.cn/')
-const copyrightText = computed(
-  () => props.config.footer?.copyright || `© ${new Date().getFullYear()} ${props.config.siteName || '鑫链科技'}`,
+const servicePhone = computed(() =>
+  resolvePublicPhone(site.value?.contact?.phone, null),
 )
 
-function switchLang(lang: 'zh' | 'en') {
-  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+const qrList = computed(() => {
+  const qrs = site.value?.footer?.qrCodes
+  if (Array.isArray(qrs) && qrs.length > 0) {
+    return qrs.filter((item) => item && item.imageUrl)
+  }
+  if (site.value?.contact?.qrImageUrl) {
+    return [
+      {
+        label: site.value.contact.qrLabel || '官方二维码',
+        imageUrl: site.value.contact.qrImageUrl,
+      },
+    ]
+  }
+  return []
+})
+
+function isExternal(link: NavItem) {
+  const targetUrl = link.url || link.path || ''
+  return link.linkType === 'URL' || /^https?:\/\//i.test(targetUrl)
 }
+
+async function reloadFooterConfig() {
+  const siteData = await getSite().catch(() => null)
+  if (siteData) site.value = siteData
+}
+
+useRealtimeSync(['siteConfigVersion'], () => {
+  void reloadFooterConfig()
+})
+
+onMounted(reloadFooterConfig)
 </script>
 
 <template>
-  <!-- 底部深色 6 栏页脚（双二维码上下垂直叠放、邮箱职能副标题、右侧语言与备案对齐） -->
-  <footer class="g7-footer">
-    <div class="container container--wide g7-footer__inner">
-      <!-- 左侧品牌标识 -->
-      <div class="g7-footer__brand">
-        <RouterLink to="/" class="g7-footer__mark" aria-label="返回首页">{{ (props.config.siteName || '示').slice(0, 1) }}</RouterLink>
-      </div>
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer__container">
+      <div class="site-footer__main">
+        <!-- 左侧：品牌信息、服务热线、二维码与联系邮箱 -->
+        <div class="site-footer__contact">
+          <RouterLink to="/" class="footer-brand">
+            <img
+              v-if="site?.logoUrl"
+              :src="site.logoUrl"
+              :alt="site.logoAlt || site.siteName || '企业官网'"
+              class="footer-brand__img"
+            />
+            <span v-else class="footer-brand__text">{{ site?.siteName || '企业官网' }}</span>
+          </RouterLink>
 
-      <!-- 4 列导航分组（IoT服务 / 交易服务 / 解决方案 / 关于我们） -->
-      <div v-for="grp in groups" :key="grp.title" class="g7-footer__col">
-        <h3 class="g7-footer__title">{{ grp.title }}</h3>
-        <ul class="g7-footer__list">
-          <li v-for="lnk in grp.links" :key="lnk.label">
-            <a
-              v-if="lnk.url"
-              :href="lnk.url"
-              class="g7-footer__link"
-              :target="lnk.newWindow ? '_blank' : undefined"
-              :rel="lnk.newWindow ? 'noopener noreferrer' : undefined"
-            >
-              {{ lnk.label }}
+          <p v-if="site?.slogan" class="footer-desc">
+            {{ site.slogan }}
+          </p>
+
+          <div v-if="servicePhone" class="footer-hotline">
+            <span class="footer-hotline__label">咨询热线</span>
+            <a :href="`tel:${servicePhone.replace(/[\s-]/g, '')}`" class="footer-hotline__number">
+              {{ servicePhone }}
             </a>
-            <RouterLink v-else :to="lnk.path || '/'" class="g7-footer__link">
-              {{ lnk.label }}
-            </RouterLink>
-          </li>
-        </ul>
-      </div>
-
-      <!-- 第 5 列：联系我们 -->
-      <div class="g7-footer__col g7-footer__col--contact">
-        <h3 class="g7-footer__title">联系我们</h3>
-        <template v-if="contactEmails.length > 0">
-          <div v-for="item in contactEmails" :key="item.email" class="g7-footer__email-block">
-            <a :href="`mailto:${item.email}`" class="g7-footer__email">{{ item.email }}</a>
-            <span class="g7-footer__email-desc">{{ item.desc }}</span>
           </div>
-        </template>
-        <p v-else class="g7-footer__email-desc">官方邮箱待公开</p>
-        <p v-if="contactAddress" class="g7-footer__addr">{{ contactAddress }}</p>
-      </div>
 
-      <!-- 第 6 列：关注我们（双二维码上下垂直排列：公众号在上、视频号在下） -->
-      <div class="g7-footer__col g7-footer__col--qr">
-        <h3 class="g7-footer__title">关注我们</h3>
-        <div class="g7-footer__qr-stack">
-          <div v-for="(qr, qIdx) in qrCodes" :key="`${qr.label}-${qIdx}`" class="g7-footer__qr-item">
-            <div class="g7-footer__qr-box">
-              <img v-if="qr.imageUrl" :src="qr.imageUrl" :alt="qr.label" />
-              <svg
-                v-else
-                viewBox="0 0 100 100"
-                class="g7-footer__qr-svg"
-                aria-hidden="true"
-              >
-                <rect width="100" height="100" fill="#ffffff" />
-                <rect x="8" y="8" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
-                <rect x="16" y="16" width="10" height="10" fill="#111" />
-                <rect x="66" y="8" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
-                <rect x="74" y="16" width="10" height="10" fill="#111" />
-                <rect x="8" y="66" width="26" height="26" fill="none" stroke="#111" stroke-width="6" />
-                <rect x="16" y="74" width="10" height="10" fill="#111" />
-                <rect x="42" y="12" width="6" height="6" fill="#111" />
-                <rect x="52" y="20" width="6" height="12" fill="#111" />
-                <rect x="42" y="42" width="16" height="16" rx="3" fill="#4f46e5" />
-                <rect x="46" y="46" width="8" height="8" rx="1" fill="#ffffff" />
-                <rect x="14" y="44" width="18" height="6" fill="#111" />
-                <rect x="68" y="44" width="18" height="6" fill="#111" />
-                <rect x="44" y="68" width="12" height="6" fill="#111" />
-                <rect x="64" y="66" width="10" height="10" fill="#111" />
-                <rect x="80" y="74" width="12" height="18" fill="#111" />
-                <rect x="44" y="82" width="18" height="10" fill="#111" />
-              </svg>
+          <div v-if="qrList.length > 0" class="footer-qrs">
+            <div v-for="qr in qrList" :key="qr.label" class="footer-qr">
+              <div class="footer-qr__box">
+                <img :src="qr.imageUrl || ''" :alt="qr.label" class="footer-qr__img" />
+              </div>
+              <span class="footer-qr__label">{{ qr.label }}</span>
             </div>
-            <span class="g7-footer__qr-label">{{ qr.label }}</span>
+          </div>
+
+          <ul v-if="contactEmails.length > 0" class="footer-emails">
+            <li v-for="(item, idx) in contactEmails" :key="idx">
+              <a :href="`mailto:${item.email}`" class="footer-emails__addr">{{ item.email }}</a>
+              <span v-if="item.desc" class="footer-emails__desc">（{{ item.desc }}）</span>
+            </li>
+          </ul>
+
+          <p
+            v-if="site?.contact?.address && !isPlaceholderContact(site.contact.address)"
+            class="footer-address"
+          >
+            地址：{{ site.contact.address }}
+          </p>
+        </div>
+
+        <!-- 右侧：后台配置的页脚导航分组（未配置时不伪造分组） -->
+        <div v-if="footerGroups.length > 0" class="site-footer__columns">
+          <div v-for="group in footerGroups" :key="group.title" class="footer-col">
+            <h3 class="footer-col__title">{{ group.title }}</h3>
+            <ul class="footer-col__list">
+              <li v-for="link in group.links" :key="link.label + link.path">
+                <a
+                  v-if="isExternal(link)"
+                  :href="link.url || link.path"
+                  :target="link.newWindow ? '_blank' : undefined"
+                  :rel="link.newWindow ? 'noopener noreferrer' : undefined"
+                  class="footer-col__link"
+                >
+                  {{ link.label }}
+                </a>
+                <RouterLink v-else :to="link.path" class="footer-col__link">
+                  {{ link.label }}
+                </RouterLink>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
 
-      <!-- 第 7 列：网站语言 + 底部备案版权信息同列对齐 -->
-      <div class="g7-footer__col g7-footer__col--lang">
-        <div>
-          <h3 class="g7-footer__title">网站语言</h3>
-          <div class="g7-footer__langs">
-            <button type="button" class="g7-footer__lang-btn" @click="switchLang('zh')">中文</button>
-            <button type="button" class="g7-footer__lang-btn is-muted" @click="switchLang('en')">English</button>
-          </div>
-        </div>
-
-        <div class="g7-footer__legal">
+      <!-- 底部版权与备案栏 -->
+      <div class="site-footer__bottom">
+        <div class="site-footer__legal">
+          <span>
+            {{
+              site?.footer?.copyright ||
+              `© ${new Date().getFullYear()} ${site?.siteName || ''} 保留所有权利`
+            }}
+          </span>
           <a
-            v-if="icpText"
-            :href="icpUrl"
+            v-if="site?.footer?.icp"
+            :href="site.footer.icpUrl || 'https://beian.miit.gov.cn'"
             target="_blank"
             rel="noopener noreferrer"
-            class="g7-footer__legal-link"
+            class="footer-legal-link"
           >
-            {{ icpText }}
+            {{ site.footer.icp }}
           </a>
-          <span v-else class="g7-footer__legal-link">备案号待补充</span>
-          <RouterLink to="/privacy" class="g7-footer__legal-link">隐私说明</RouterLink>
-          <p class="g7-footer__copy">{{ copyrightText }}</p>
+          <a
+            v-if="site?.footer?.policeText"
+            :href="site.footer.policeUrl || 'https://www.beian.gov.cn'"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-legal-link"
+          >
+            {{ site.footer.policeText }}
+          </a>
+          <RouterLink to="/privacy" class="footer-legal-link">隐私说明</RouterLink>
         </div>
       </div>
     </div>
@@ -209,184 +168,197 @@ function switchLang(lang: 'zh' | 'en') {
 </template>
 
 <style scoped>
-.g7-footer {
-  background: #060709;
-  color: #ffffff;
-  padding: 76px 0 68px;
+.site-footer {
+  background: #0f172a;
+  color: #cbd5e1;
+  padding: 64px 0 36px;
+  font-size: 13px;
 }
 
-.g7-footer__inner {
-  max-width: 1180px;
+.site-footer__container {
+  max-width: 1240px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 52px repeat(4, minmax(96px, 1fr)) 190px 108px 148px;
-  gap: 24px;
-  align-items: start;
+  padding: 0 32px;
 }
 
-.g7-footer__mark {
-  display: inline-block;
-  font-size: 20px;
-  font-weight: 900;
-  font-style: italic;
+.site-footer__main {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 56px;
+  padding-bottom: 44px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.footer-brand__img {
+  height: 30px;
+  width: auto;
+}
+
+.footer-brand__text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.footer-desc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #94a3b8;
+  margin: 0 0 18px;
+}
+
+.footer-hotline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.footer-hotline__label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.footer-hotline__number {
+  font-size: 22px;
+  font-weight: 700;
   color: #ffffff;
   text-decoration: none;
-  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.g7-footer__title {
-  font-size: 13px;
-  font-weight: 400;
-  color: #6e7380;
-  margin: 0 0 24px;
+.footer-qrs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.g7-footer__list {
+.footer-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer-qr__box {
+  width: 84px;
+  height: 84px;
+  background: #ffffff;
+  padding: 5px;
+  border-radius: 6px;
+}
+
+.footer-qr__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.footer-qr__label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.footer-emails {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.footer-emails__addr {
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+.footer-emails__addr:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.footer-emails__desc {
+  color: #94a3b8;
+}
+
+.footer-address {
+  font-size: 12.5px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.site-footer__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 28px;
+}
+
+.footer-col__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 14px;
+}
+
+.footer-col__list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-}
-
-.g7-footer__link {
-  font-size: 13px;
-  color: #d0d5dd;
-  text-decoration: none;
-  transition: color 0.18s ease;
-}
-
-.g7-footer__link:hover {
-  color: #ffffff;
-}
-
-.g7-footer__email-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 22px;
-}
-
-.g7-footer__email {
-  font-size: 13.5px;
-  color: #e5e7eb;
-  text-decoration: none;
-}
-
-.g7-footer__email:hover {
-  color: #ffffff;
-}
-
-.g7-footer__email-desc {
-  font-size: 12px;
-  color: #5f6470;
-}
-
-.g7-footer__addr {
-  margin: 26px 0 0;
-  font-size: 12px;
-  line-height: 1.75;
-  color: #6e7380;
-}
-
-.g7-footer__qr-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.g7-footer__qr-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 84px;
-}
-
-.g7-footer__qr-box {
-  width: 84px;
-  height: 84px;
-  background: #ffffff;
-  padding: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.g7-footer__qr-box img,
-.g7-footer__qr-svg {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-.g7-footer__qr-label {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #98a2b3;
-}
-
-.g7-footer__col--lang {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 245px;
-}
-
-.g7-footer__langs {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
-  align-items: flex-start;
 }
 
-.g7-footer__lang-btn {
-  border: none;
-  background: none;
-  padding: 0;
+.footer-col__link {
+  color: #94a3b8;
+  text-decoration: none;
   font-size: 13px;
-  color: #e5e7eb;
-  cursor: pointer;
+  transition: color 0.16s ease;
 }
 
-.g7-footer__lang-btn.is-muted {
-  color: #5f6470;
-}
-
-.g7-footer__lang-btn:hover {
+.footer-col__link:hover {
   color: #ffffff;
 }
 
-.g7-footer__legal {
+.site-footer__bottom {
+  padding-top: 24px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 32px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: #64748b;
 }
 
-.g7-footer__legal-link {
-  font-size: 12.5px;
-  color: #d0d5dd;
+.site-footer__legal {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.footer-legal-link {
+  color: #94a3b8;
   text-decoration: none;
 }
 
-.g7-footer__legal-link:hover {
+.footer-legal-link:hover {
   color: #ffffff;
 }
 
-.g7-footer__copy {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #5f6470;
-}
-
-@media (max-width: 1024px) {
-  .g7-footer__inner {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 32px;
-  }
-  .g7-footer__col--lang {
-    min-height: auto;
+@media (max-width: 960px) {
+  .site-footer__main {
+    grid-template-columns: 1fr;
+    gap: 36px;
   }
 }
 </style>

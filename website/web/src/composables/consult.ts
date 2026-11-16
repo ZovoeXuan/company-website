@@ -1,44 +1,57 @@
-// 对应源码路径: website/web/src/composables/consult.ts
-import { reactive, ref } from 'vue'
-import { getContactPage, getSite } from '@/api/public'
-import { isPlaceholderContact } from '@/utils/siteDisplay'
-import type { SiteConfig } from '@/data/types'
+import { reactive } from 'vue'
+import { getContactPage, getHome, getSite } from '@/api/public'
+import type { ContentType, LeadSourcePosition } from '@/data/types'
 
-const siteCache = ref<SiteConfig | null>(null)
-export function useSiteConfigCache() {
-  return { siteCache, loadConsultContext }
-}
-
-
-export interface ConsultOpenOptions {
-  sourcePosition: string
-  contentType?: 'PRODUCT' | 'SOLUTION' | 'CASE'
+export interface ConsultOptions {
+  sourcePosition?: LeadSourcePosition
+  contentType?: ContentType
   contentId?: string | number
   title?: string
   initialDemand?: string
 }
 
-const dialog = reactive({
+interface ConsultDialogState {
+  open: boolean
+  sourcePosition: LeadSourcePosition
+  contentType?: ContentType
+  contentId?: string
+  title?: string
+  initialDemand?: string
+}
+
+interface ConsultContextState {
+  loaded: boolean
+  loadError: boolean
+  formEnabled: boolean
+  smsVerifyEnabled: boolean
+  privacyVersion: number
+  formTitle: string
+  successText: string
+}
+
+const dialog = reactive<ConsultDialogState>({
   open: false,
-  sourcePosition: 'NAVIGATION',
-  contentType: undefined as 'PRODUCT' | 'SOLUTION' | 'CASE' | undefined,
-  contentId: undefined as number | undefined,
-  title: '',
-  initialDemand: '',
+  sourcePosition: 'FLOATING',
 })
 
-/** 小七 AI 助手右侧抽屉全局状态 */
-const xiaoqi = reactive({
-  open: false,
-  initialQuestion: '',
+const context = reactive<ConsultContextState>({
+  loaded: false,
+  loadError: false,
+  formEnabled: false,
+  smsVerifyEnabled: true,
+  privacyVersion: 1,
+  formTitle: '预约产品演示与方案咨询',
+  successText: '感谢您的留言，我们的顾问将在 1 个工作日内与您联系。',
 })
 
-export function openConsult(options: ConsultOpenOptions) {
-  dialog.sourcePosition = options.sourcePosition
+let loadingPromise: Promise<void> | null = null
+
+export function openConsult(options: ConsultOptions = {}) {
+  dialog.sourcePosition = options.sourcePosition ?? 'FLOATING'
   dialog.contentType = options.contentType
-  dialog.contentId = options.contentId != null ? Number(options.contentId) : undefined
-  dialog.title = options.title ?? ''
-  dialog.initialDemand = options.initialDemand ?? ''
+  dialog.contentId = options.contentId != null ? String(options.contentId) : undefined
+  dialog.title = options.title
+  dialog.initialDemand = options.initialDemand
   dialog.open = true
 }
 
@@ -46,55 +59,45 @@ export function closeConsult() {
   dialog.open = false
 }
 
+/**
+ * 加载留资表单上下文：采用 Fail-Closed 策略。
+ * 若关键配置接口全部不可用，保持 formEnabled = false，避免绕过隐私协议版本与短信核验契约。
+ */
+export async function loadConsultContext(): Promise<ConsultContextState> {
+  if (context.loaded && !context.loadError) return context
+  if (!loadingPromise) {
+    loadingPromise = Promise.all([
+      getSite().catch(() => null),
+      getHome().catch(() => null),
+      getContactPage().catch(() => null),
+    ])
+      .then(([site, home, contact]) => {
+        if (!site && !home && !contact) {
+          context.loadError = true
+          context.formEnabled = false
+          return
+        }
+        context.loadError = false
+        context.formEnabled = contact?.formEnabled ?? site?.formEnabled ?? home?.formEnabled ?? false
+        context.smsVerifyEnabled =
+          contact?.smsVerifyEnabled ?? site?.contact?.smsVerifyEnabled ?? true
+        context.privacyVersion = site?.privacyVersion ?? 1
+        context.formTitle =
+          contact?.formTitle || site?.contact?.formTitle || '预约产品演示与方案咨询'
+        context.successText =
+          contact?.successText ||
+          site?.contact?.successText ||
+          context.successText
+        context.loaded = true
+      })
+      .finally(() => {
+        loadingPromise = null
+      })
+  }
+  await loadingPromise
+  return context
+}
+
 export function useConsultDialog() {
-  return { dialog, openConsult, closeConsult }
-}
-
-export function openXiaoQi(question = '') {
-  xiaoqi.initialQuestion = question
-  xiaoqi.open = true
-}
-
-export function closeXiaoQi() {
-  xiaoqi.open = false
-}
-
-export function useXiaoQiDrawer() {
-  return { xiaoqi, openXiaoQi, closeXiaoQi }
-}
-
-export interface ConsultContext {
-  formEnabled: boolean
-  smsVerifyEnabled: boolean
-  privacyVersion: number | null
-  formTitle: string
-  successText: string
-  phone: string
-  email: string
-  address: string
-}
-
-/** 打开表单时实时拉取当前发布态（开发文档 5.4 & 7.2：不把 formEnabled 缓存在 localStorage）。 */
-export async function loadConsultContext(): Promise<ConsultContext> {
-  const [site, contact] = await Promise.all([
-    getSite(),
-    getContactPage().catch(() => null),
-  ])
-  if (site) {
-    siteCache.value = site as any
-  }
-  return {
-    formEnabled: Boolean(site.formEnabled ?? contact?.formEnabled ?? false),
-    smsVerifyEnabled: Boolean(contact?.smsVerifyEnabled ?? site.contact?.smsVerifyEnabled ?? true),
-    privacyVersion: site.privacyVersion ?? 1,
-    formTitle: contact?.formTitle || '预约产品展示',
-    successText: contact?.successText || '预约成功！我们的产品专家将在 1 个工作日内与您联系安排产品演示。',
-    phone: isPlaceholderContact(contact?.phone || site.contact?.phone)
-      ? ''
-      : (contact?.phone || site.contact?.phone || '').trim(),
-    email: isPlaceholderContact(contact?.email || site.contact?.email)
-      ? ''
-      : (contact?.email || site.contact?.email || '').trim(),
-    address: (contact?.address || site.contact?.address || '').trim(),
-  }
+  return { dialog, context, openConsult, closeConsult, loadConsultContext }
 }

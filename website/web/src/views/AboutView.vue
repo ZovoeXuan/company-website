@@ -1,4 +1,3 @@
-<!-- 对应源码路径: website/web/src/views/AboutView.vue -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -22,13 +21,13 @@ import type {
 const route = useRoute()
 const router = useRouter()
 const data = ref<AboutPage | null>(null)
-const siteName = ref('公司官网')
+const siteName = ref('企业官网')
 const newsList = ref<NewsSummary[]>([])
 const activeTab = ref<'intro' | 'team' | 'media' | 'resources' | 'join'>('intro')
 
 const ceoModalOpen = ref(false)
 const activeTeamMember = ref<AboutTeamMember | null>(null)
-const milestoneIndex = ref(2)
+const milestoneIndex = ref(0)
 const newsStartIndex = ref(0)
 const activeOfficeIndex = ref(0)
 const activeResourceCat = ref('企业资料')
@@ -38,7 +37,7 @@ usePageMeta(() => ({
   title: '关于我们',
   description:
     data.value?.intro?.slice(0, 120) ||
-    '了解企业简介、CEO致辞、发展历程、管理团队、媒体中心、资料库与加入我们。',
+    '了解企业简介、发展历程、管理团队、媒体中心、资料共享与加入我们。',
 }))
 
 const TABS: Array<{ key: 'intro' | 'team' | 'media' | 'resources' | 'join'; label: string }> = [
@@ -60,8 +59,9 @@ function syncTabFromQuery() {
     setTimeout(() => {
       document.querySelector('.about-history-sec')?.scrollIntoView({ behavior: 'smooth' })
     }, 200)
+  } else {
+    activeTab.value = 'intro'
   }
-  else activeTab.value = 'intro'
 }
 
 watch(
@@ -76,18 +76,13 @@ function switchTab(tabKey: 'intro' | 'team' | 'media' | 'resources' | 'join') {
   router.replace({ path: '/about', query: { tab: tabKey }, hash: '#part' }).catch(() => {})
 }
 
-const heroTitle = computed(() => data.value?.heroTitle || '以物联网技术和软件服务改变公路货运')
+const heroTitle = computed(() => data.value?.heroTitle || `关于${siteName.value}`)
 const introTitle = computed(() => data.value?.introTitle || `关于${siteName.value}`)
 
 const introParagraphs = computed(() => {
   const raw = (data.value?.intro || '').trim()
-  if (raw) {
-    return raw.split(/\n+/).filter(Boolean)
-  }
-  return [
-    `${siteName.value}是一家领先的物联网科技和数字化软件服务公司。为客户提供从设备接入、数据智能、业务协同到运营决策的一体化数字平台，以数据和AI驱动企业运营，助力客户降本增效。`,
-    `公司的客户覆盖超80%行业头部客户以及数万家成长型企业，服务网络覆盖全国核心城市与产业园区。`,
-  ]
+  if (!raw) return []
+  return raw.split(/\n+/).filter(Boolean)
 })
 
 const introVisualType = computed<'none' | 'image' | 'radar'>(() => {
@@ -102,96 +97,45 @@ const introVisualType = computed<'none' | 'image' | 'radar'>(() => {
 
 const hasIntroVisual = computed(() => introVisualType.value !== 'none')
 
-// 1. CEO的一封信（1:1 还原 about_06.png & about_08.png）
-const DEFAULT_CEO_LETTER: AboutCeoLetter = {
-  leftQuote: '“我谨代表公司全体员工，向在这个不凡时代中努力前行的经营者与合作伙伴致以崇高的敬意！”',
-  title: '从微不足道开始改变世界',
-  excerpt: [
-    '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
-    '公路货运是国民经济的血脉，千万名卡车司机和数万家货运经营者日夜兼程。然而在过去很长一段时间里，安全风险高、油费过路费核算难、在途货物状态黑盒，一直是压在每一位车队经营者心头的三座大山。',
-    '正是从每一次毫秒级的定位、每一次防碰撞预警、每一滴油的精准计量这些看似“微不足道”的小事开始，我们将物联网感知技术与AI算法融入货运现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
-  ],
-  signature: '翟学魂',
-  buttonText: '展开全部',
-  fullParagraphs: [
-    '我谨代表公司全体员工，向在这个不凡时代中努力前行的经营者与合作伙伴致以崇高的敬意！',
-    '十多年前，当我们刚开始带着第一代车载终端走进物流园、爬上驾驶室的时候，很少有人相信，一辆大货车上的小小黑盒子，有一天会彻底改变整个中国公路货运的运行方式。',
-    '公路货运是国民经济的血脉，千万名卡车司机和数万家货运经营者日夜兼程。然而在过去很长一段时间里，安全风险高、油费过路费核算难、在途货物状态黑盒，一直是压在每一位车队经营者心头的三座大山。',
-    '正是从每一次毫秒级的定位、每一次防碰撞预警、每一滴油的精准计量这些看似“微不足道”的小事开始，我们将物联网感知技术与AI算法融入货运现场，陪伴客户一步步走出粗放经验管理，迈入数字化精细运营的新时代。',
-    '今天，超过800万台物联网设备在我们的平台上实时在线，每天产生超12TB的真实运营数据与1亿次车辆事件交互。当大模型与全场景AI工具「紫宝盒」走进车队，数据不再只是冰冷的报表，而是能够主动看见风险、听懂指令、帮车队省钱管事的“数字员工”。',
-    '时代在变，技术在变，但我们存在的唯一理由始终未变——用科技创新和服务升级物流生产力，做货运经营者最值得信赖的长期伙伴。让我们继续从微不足道处着手，一起改变世界！',
-  ],
-}
-
-const ceoLetter = computed<AboutCeoLetter>(() => {
-  const raw = data.value?.ceoLetter
-  if (raw && raw.title) {
-    return {
-      leftQuote: raw.leftQuote || DEFAULT_CEO_LETTER.leftQuote,
-      title: raw.title || DEFAULT_CEO_LETTER.title,
-      signature: raw.signature || DEFAULT_CEO_LETTER.signature,
-      buttonText: raw.buttonText || DEFAULT_CEO_LETTER.buttonText,
-      excerpt: Array.isArray(raw.excerpt) && raw.excerpt.length > 0 ? raw.excerpt : DEFAULT_CEO_LETTER.excerpt,
-      fullParagraphs:
-        Array.isArray(raw.fullParagraphs) && raw.fullParagraphs.length > 0
-          ? raw.fullParagraphs
-          : DEFAULT_CEO_LETTER.fullParagraphs,
-    }
-  }
-  return DEFAULT_CEO_LETTER
+const statsList = computed(() => {
+  const raw = data.value?.stats
+  if (!Array.isArray(raw)) return []
+  return raw.filter((s) => s && (s.displayValue || s.value !== undefined) && s.label)
 })
 
-// 2. 发展历程（1:1 还原 about_18.png 循环年份轴 + 3列卡片中间悬浮靶心）
+// 1. CEO的一封信：仅当后台真实配置了 title 或正文时展示，绝不回退参考公司高管签名
+const ceoLetter = computed<AboutCeoLetter | null>(() => {
+  const raw = data.value?.ceoLetter
+  if (!raw || (!raw.title && !(Array.isArray(raw.excerpt) && raw.excerpt.length > 0))) {
+    return null
+  }
+  const excerpt = Array.isArray(raw.excerpt) ? raw.excerpt.filter(Boolean) : []
+  const fullParagraphs =
+    Array.isArray(raw.fullParagraphs) && raw.fullParagraphs.length > 0
+      ? raw.fullParagraphs.filter(Boolean)
+      : excerpt
+  return {
+    leftQuote: raw.leftQuote || '',
+    title: raw.title || '致合作伙伴的一封信',
+    signature: raw.signature || '',
+    buttonText: raw.buttonText || '展开全部',
+    excerpt,
+    fullParagraphs,
+  }
+})
+
+// 2. 发展历程：仅读取后台真实配置的 milestones
 interface NormalizedMilestone {
   year: string
   bullets: string[]
 }
 
-const DEFAULT_MILESTONES: NormalizedMilestone[] = [
-  {
-    year: '2018',
-    bullets: [
-      '发布智能挂车与安全管家托管服务',
-      '连接平台货运车辆突破 80 万台',
-      '完成由多家国际顶级机构联合领投的战略融资',
-    ],
-  },
-  {
-    year: '2019',
-    bullets: [
-      '平台卡车连接数突破140万',
-      '面向煤炭、钢铁、水泥、汽车、快递、快运等多个行业提供综合性数字化解决方案',
-      '与中国铝业、普洛斯、丸红等设立合资公司，服务生态扩张',
-    ],
-  },
-  {
-    year: '2022',
-    bullets: [
-      '平台卡车连接数突破 200万',
-      '宣布完成新一轮2亿美元融资',
-      '嬴彻科技自动驾驶卡车量产交付',
-    ],
-  },
-  {
-    year: '2010',
-    bullets: [
-      '向物流运输公司提供基于北斗和GPS位置信息的车队管理 SaaS 服务',
-      '平台连接车辆2000台',
-    ],
-  },
-  {
-    year: '2014',
-    bullets: [
-      '推出智能管车与车队金融结算服务体系',
-      '全国设立七大区域运营中心，服务超万家物流企业',
-    ],
-  },
-]
-
 const milestonesList = computed<NormalizedMilestone[]>(() => {
   const raw = data.value?.milestones ?? []
-  if (raw.length > 0) {
-    return raw.map((m) => {
+  if (!Array.isArray(raw) || raw.length === 0) return []
+  return raw
+    .filter((m) => m && m.year)
+    .map((m) => {
       const text = [m.title, m.description].filter(Boolean).join('；')
       const bullets = text
         .split(/[\n；;]+/)
@@ -202,24 +146,23 @@ const milestonesList = computed<NormalizedMilestone[]>(() => {
         bullets: bullets.length ? bullets : [m.title || '关键发展节点'],
       }
     })
-  }
-  return DEFAULT_MILESTONES
 })
 
 const visibleYearWindow = computed(() => {
   const list = milestonesList.value
   const total = list.length
   if (total === 0) return []
+  const currentIdx = Math.min(milestoneIndex.value, total - 1)
   const count = Math.min(5, total)
   const half = Math.floor(count / 2)
   const result: Array<{ index: number; year: string; isCenter: boolean }> = []
   for (let offset = -half; offset <= half; offset++) {
     if (result.length >= count) break
-    const idx = (milestoneIndex.value + offset + total) % total
+    const idx = (currentIdx + offset + total) % total
     result.push({
       index: idx,
       year: list[idx].year,
-      isCenter: idx === milestoneIndex.value,
+      isCenter: idx === currentIdx,
     })
   }
   return result
@@ -229,11 +172,15 @@ const visibleMilestoneCards = computed(() => {
   const list = milestonesList.value
   const total = list.length
   if (total === 0) return []
-  const prevIdx = (milestoneIndex.value - 1 + total) % total
-  const nextIdx = (milestoneIndex.value + 1) % total
+  if (total === 1) {
+    return [{ index: 0, item: list[0], isCenter: true }]
+  }
+  const currentIdx = Math.min(milestoneIndex.value, total - 1)
+  const prevIdx = (currentIdx - 1 + total) % total
+  const nextIdx = (currentIdx + 1) % total
   return [
     { index: prevIdx, item: list[prevIdx], isCenter: false },
-    { index: milestoneIndex.value, item: list[milestoneIndex.value], isCenter: true },
+    { index: currentIdx, item: list[currentIdx], isCenter: true },
     { index: nextIdx, item: list[nextIdx], isCenter: false },
   ]
 })
@@ -250,23 +197,30 @@ function nextMilestone() {
   milestoneIndex.value = (milestoneIndex.value + 1) % total
 }
 
-// 3. 联系我们：从后台 ABOUT.offices 读取，未配置或隐藏时不展示静态参考公司网点
+// 3. 联系网点
 const officesList = computed<AboutOfficeItem[]>(() => {
   if (data.value?.showOffices === false) return []
-  return Array.isArray(data.value?.offices) ? data.value.offices : []
+  return Array.isArray(data.value?.offices) ? data.value.offices.filter((o) => o && o.city) : []
 })
 
 const currentOffice = computed(
   () => officesList.value[activeOfficeIndex.value] ?? officesList.value[0],
 )
 
-// 4. 管理团队：从后台 ABOUT.teamMembers 读取，未配置时显示待整理提示
+// 4. 管理团队
 const teamList = computed<AboutTeamMember[]>(() => {
-  return Array.isArray(data.value?.teamMembers) ? data.value.teamMembers : []
+  return Array.isArray(data.value?.teamMembers)
+    ? data.value.teamMembers.filter((m) => m && m.name)
+    : []
 })
 
-// 5. 媒体中心：仅展示真实已发布新闻内容
+// 5. 媒体中心与企业故事
 const resolvedNews = computed<NewsSummary[]>(() => newsList.value)
+
+const storiesList = computed(() => {
+  if (data.value?.showStories === false) return []
+  return Array.isArray(data.value?.stories) ? data.value.stories.filter((s) => s && s.title) : []
+})
 
 const visibleNewsCards = computed(() => {
   const list = resolvedNews.value
@@ -290,65 +244,25 @@ function nextNews() {
   newsStartIndex.value = (newsStartIndex.value + 1) % len
 }
 
-// 6. 资料共享（资料库 4 个子分类切换 + 4 卡轮播 + 右下角圆形下载/播放按钮 ↓，1:1 还原 about_70.png & about_74.png）
-const RESOURCE_CATS = ['企业资料', '客户视频', '行业报告', 'ESG']
+// 6. 资料共享：仅展示后台真实配置的资料，不回退参考公司资料
+const allResources = computed<AboutResourceItem[]>(() => {
+  const custom = data.value?.resources
+  if (!Array.isArray(custom)) return []
+  return custom.filter((r) => r && r.title)
+})
 
-const DEFAULT_RESOURCES: AboutResourceItem[] = [
-  // 企业资料
-  { category: '企业资料', title: '企业宣传册', logoText: '全栈产品手册', logoColor: '#4c2ce6' },
-  { category: '企业资料', title: '安全管家', logoText: '安全管家 · 主动安全托管', logoColor: '#2563eb' },
-  { category: '企业资料', title: '财运通', logoText: '财运通 · 数字化运力结算', logoColor: '#0284c7' },
-  { category: '企业资料', title: '冷链管家', logoText: '冷链管家 · 全程温控可视', logoColor: '#0d9488' },
-  // 客户视频
-  {
-    category: '客户视频',
-    title: '滨拓物流',
-    logoText: '滨拓物流',
-    logoColor: '#16a34a',
-    isVideo: true,
-    url: '',
-  },
-  {
-    category: '客户视频',
-    title: '华电能源',
-    logoText: '中国华电 CHD',
-    logoColor: '#0284c7',
-    isVideo: true,
-    url: '',
-  },
-  {
-    category: '客户视频',
-    title: '双汇物流',
-    logoText: '双汇物流',
-    logoColor: '#dc2626',
-    isVideo: true,
-    url: '',
-  },
-  {
-    category: '客户视频',
-    title: '天佑物流',
-    logoText: 'tianyou天佑',
-    logoColor: '#d97706',
-    isVideo: true,
-    url: '',
-  },
-  // 行业报告
-  { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队管理白皮书', logoColor: '#0284c7' },
-  { category: '行业报告', title: '2026上半年冷链物流行业报告', logoText: '中国冷链物流大数据报告', logoColor: '#2563eb' },
-  { category: '行业报告', title: '中国公路货运数字安全蓝皮书', logoText: '公路货运安全AI治理报告', logoColor: '#4f46e5' },
-  { category: '行业报告', title: '大宗物流数字化转型实践指南', logoText: '大宗物流无人化协同白皮书', logoColor: '#334155' },
-  // ESG
-  { category: 'ESG', title: '环境、社会及管治（ESG）报告', logoText: 'ESG 可持续发展报告', logoColor: '#059669' },
-  { category: 'ESG', title: '绿色物流与电动重卡减碳核算标准', logoText: '物流双碳与绿色运力实践', logoColor: '#10b981' },
-  { category: 'ESG', title: '卡车司机安全守护与公益行动年报', logoText: '千万卡车司机安全守护计划', logoColor: '#0d9488' },
-  { category: 'ESG', title: '数据安全与隐私合规治理白皮书', logoText: '信息安全与隐私保护合规', logoColor: '#0284c7' },
-]
+const resourceCategories = computed<string[]>(() => {
+  const cats = new Set<string>()
+  for (const r of allResources.value) {
+    if (r.category) cats.add(r.category)
+  }
+  return cats.size > 0 ? Array.from(cats) : ['企业资料', '客户视频', '行业报告', 'ESG']
+})
 
 const filteredResources = computed<AboutResourceItem[]>(() => {
-  const custom = data.value?.resources
-  const pool = Array.isArray(custom) && custom.length > 0 ? custom : DEFAULT_RESOURCES
-  const list = pool.filter((r) => r.category === activeResourceCat.value)
-  return list.length > 0 ? list : DEFAULT_RESOURCES.filter((r) => r.category === activeResourceCat.value)
+  if (allResources.value.length === 0) return []
+  const byCat = allResources.value.filter((r) => r.category === activeResourceCat.value)
+  return byCat.length > 0 ? byCat : allResources.value
 })
 
 const visibleResources = computed(() => {
@@ -364,75 +278,32 @@ const visibleResources = computed(() => {
 function handleResourceClick(item: AboutResourceItem) {
   if ((item.isVideo || item.category === '客户视频') && item.url) {
     openVideo({
-      title: `${item.title} · 客户证言视频`,
+      title: `${item.title}`,
       url: item.url,
     })
     return
   }
-  if (item.url && item.url.startsWith('http')) {
+  if (item.url && (item.url.startsWith('http') || item.url.startsWith('/'))) {
     window.open(item.url, '_blank', 'noopener,noreferrer')
     return
   }
   openConsult({
     sourcePosition: 'ABOUT_RESOURCE',
-    title: '获取企业资料与行业报告',
-    initialDemand: `申请获取《${item.title}》完整版 PDF 资料`,
+    title: '获取企业资料与白皮书',
+    initialDemand: `申请获取《${item.title}》资料`,
   })
 }
 
-// 7. 加入我们：使命 / 愿景 / 5 大价值观（含第5项「主人翁精神」，1:1 还原 about_84.png & 01:20-01:36）
-const missionText = computed(
-  () => data.value?.mission || '以科技创新和服务升级物流生产力，让产业参与者共享美好改变',
-)
-const visionText = computed(() => data.value?.vision || '物流产业最受尊重的SaaS公司')
-
-const DEFAULT_VALUES: AboutValueItem[] = [
-  {
-    title: '客户成功',
-    lines: [
-      '我们存在的唯一目的就是为客户带来价值',
-      '客户的需求是公司发展、产品创新的源泉:深入场景，洞察客户需求，解决客户痛点问题',
-      '以可信赖的产品和有温度的服务，满足甚至超越客户的合理期望，做客户的长期朋友',
-    ],
-  },
-  {
-    title: '极限',
-    lines: [
-      '目标远大，不甘平庸，不断挑战认知边界，把不可能变为可能',
-      '敢想、敢试、敢突破，致力于打造有号召力的产品',
-      '把事做透，用工匠精神实现卓越成果',
-    ],
-  },
-  {
-    title: '信任',
-    lines: [
-      '以身作则，说到做到',
-      '敢于信任，从我做起',
-      '主动寻找有共同理想的产业变革者，善于建立信任，打造有格局的朋友圈',
-    ],
-  },
-  {
-    title: '坚韧',
-    lines: [
-      '坚持长期主义积极面对挑战和不确定性，敢于在泥泞中前行',
-      '坚定目标，锲而不舍，迎难而上，确保结果',
-      '充分发挥主观能动性，多找思路和方法，拒绝借口',
-    ],
-  },
-  {
-    title: '主人翁精神',
-    lines: [
-      '从全局出发，长期利益最大化',
-      '主动担当，站在造钟者的角度思考并解决问题',
-      '持续学习，自我迭代，与公司共同成长',
-    ],
-  },
-]
+// 7. 加入我们：使命 / 愿景 / 价值观（仅展示真实配置内容）
+const missionText = computed(() => (data.value?.mission || '').trim())
+const visionText = computed(() => (data.value?.vision || '').trim())
 
 const valuesList = computed<AboutValueItem[]>(() => {
   const raw = data.value?.values
-  if (Array.isArray(raw) && raw.length > 0) {
-    return raw.map((v) => ({
+  if (!Array.isArray(raw) || raw.length === 0) return []
+  return raw
+    .filter((v) => v && v.title)
+    .map((v) => ({
       title: v.title,
       lines: Array.isArray(v.lines)
         ? v.lines
@@ -440,8 +311,6 @@ const valuesList = computed<AboutValueItem[]>(() => {
           ? (v.lines as string).split('\n').map((s) => s.trim()).filter(Boolean)
           : [],
     }))
-  }
-  return DEFAULT_VALUES
 })
 
 function handleJoinClick() {
@@ -451,8 +320,8 @@ function handleJoinClick() {
   }
   openConsult({
     sourcePosition: 'ABOUT_JOIN',
-    title: '查看热招职位与投递简历',
-    initialDemand: '我希望了解当前开放的研发/产品/解决方案岗位并投递简历。',
+    title: '了解开放职位与投递简历',
+    initialDemand: '我希望了解当前开放岗位并沟通投递简历。',
   })
 }
 
@@ -471,11 +340,14 @@ async function reloadAll() {
   ])
   if (aboutRes) {
     data.value = aboutRes
+    if (Array.isArray(aboutRes.resources) && aboutRes.resources.length > 0 && aboutRes.resources[0]?.category) {
+      activeResourceCat.value = aboutRes.resources[0].category
+    }
   }
   if (siteRes?.siteName) {
     siteName.value = siteRes.siteName
   }
-  if (newsRes?.items?.length) {
+  if (newsRes?.items) {
     newsList.value = newsRes.items
   }
 }
@@ -497,7 +369,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="about-g7">
-    <!-- 1. 顶部首屏 Banner（支持可替换图片/视频背景、自定义标题/副标题/眉题） -->
+    <!-- 1. 顶部首屏 Banner -->
     <section
       class="about-hero"
       :class="{
@@ -529,14 +401,16 @@ onBeforeUnmount(() => {
       ></div>
 
       <div class="container about-hero__inner">
-        <div v-if="data?.showHeroLogoMark" v-reveal class="about-hero__logo-mark" aria-hidden="true">G</div>
+        <div v-if="data?.showHeroLogoMark" v-reveal class="about-hero__logo-mark" aria-hidden="true">
+          {{ (siteName || 'E').slice(0, 1) }}
+        </div>
         <p v-if="data?.heroEyebrow" v-reveal class="about-hero__eyebrow">{{ data.heroEyebrow }}</p>
         <h1 v-reveal="100" class="about-hero__title">{{ heroTitle }}</h1>
         <p v-if="data?.heroSubtitle" v-reveal="140" class="about-hero__subtitle">{{ data.heroSubtitle }}</p>
       </div>
     </section>
 
-    <!-- 2. 悬浮白底五页签导航条（#part，支持点击独立切换 5 大子页面，并与页脚关于我们深链同步） -->
+    <!-- 2. 悬浮白底五页签导航条 -->
     <div id="part" class="container about-tabs-wrap">
       <nav v-reveal="140" class="about-tabs" aria-label="关于我们五页签导航">
         <button
@@ -554,8 +428,8 @@ onBeforeUnmount(() => {
 
     <!-- ==================== 子页面 1：企业简介 (intro) ==================== -->
     <div v-if="activeTab === 'intro'" key="subpage-intro" class="about-subpage">
-      <!-- (1) 企业简介：左文右图或纯文排版，支持放图片或不放图片，整个模块可开启或关闭 -->
-      <section v-if="data?.showIntro !== false" class="about-intro-sec">
+      <!-- (1) 企业简介 -->
+      <section v-if="data?.showIntro !== false && (introParagraphs.length > 0 || hasIntroVisual)" class="about-intro-sec">
         <div class="container about-intro-grid" :class="{ 'no-visual': !hasIntroVisual }">
           <div v-reveal class="about-intro__text">
             <h2 class="about-sec-title">{{ introTitle }}</h2>
@@ -570,7 +444,7 @@ onBeforeUnmount(() => {
               <template v-else-if="introVisualType === 'radar'">
                 <div class="about-intro__radar" aria-hidden="true"></div>
                 <div class="about-intro__truck-scene" aria-hidden="true">
-                  <span class="scene-tag">AI + IoT 全链路实时感知</span>
+                  <span class="scene-tag">{{ siteName }} 数字化平台</span>
                 </div>
               </template>
             </div>
@@ -578,13 +452,27 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (2) CEO的一封信（支持开关控制显隐，彻底删除 G 水印） -->
+      <!-- (1.5) 企业规模指标 (stats) -->
+      <section v-if="statsList.length > 0" class="about-quals-sec" style="padding-top: 24px; padding-bottom: 48px;">
+        <div class="container">
+          <div class="quals-grid">
+            <div v-for="(st, sIdx) in statsList" :key="st.label + sIdx" class="qual-card">
+              <h3 class="qual-card__name" style="font-size: 28px; color: #2563eb; margin-bottom: 6px;">
+                {{ st.displayValue || st.value }}{{ st.unit || '' }}
+              </h3>
+              <p class="qual-card__desc">{{ st.label }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- (2) CEO的一封信（仅当后台配置并开启时显示） -->
       <section v-if="data?.showCeoLetter !== false && ceoLetter" class="about-ceo-sec">
         <div class="container">
-          <h2 v-reveal class="about-center-title">CEO的一封信</h2>
+          <h2 v-reveal class="about-center-title">致辞与展望</h2>
 
           <div v-reveal="100" class="ceo-card">
-            <div class="ceo-card__left">
+            <div v-if="ceoLetter.leftQuote" class="ceo-card__left">
               <p class="ceo-card__quote">{{ ceoLetter.leftQuote }}</p>
             </div>
 
@@ -595,20 +483,21 @@ onBeforeUnmount(() => {
               </div>
               <div class="ceo-card__foot">
                 <button
+                  v-if="ceoLetter.fullParagraphs.length > 0"
                   type="button"
                   class="about-outline-btn"
                   @click="ceoModalOpen = true"
                 >
                   {{ ceoLetter.buttonText || '展开全部' }}
                 </button>
-                <span class="ceo-card__sign">{{ ceoLetter.signature }}</span>
+                <span v-if="ceoLetter.signature" class="ceo-card__sign">{{ ceoLetter.signature }}</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- (3) 发展历程横向时间轴轮播（支持开关控制显隐） -->
+      <!-- (3) 发展历程（仅当后台配置并开启时显示） -->
       <section v-if="data?.showMilestones !== false && milestonesList.length" class="about-history-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">发展历程</h2>
@@ -651,7 +540,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (3.5) 荣誉资质与权威认证（支持开关控制显隐，无配置或关闭自动隐藏） -->
+      <!-- (3.5) 荣誉资质与权威认证 -->
       <section v-if="data?.showQualifications !== false && data?.qualifications?.length" class="about-quals-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">荣誉与资质认证</h2>
@@ -670,13 +559,12 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (4) 联系我们：左侧 7 城内部滚动容器 + 右侧点阵地图与大楼实景照片气泡（支持开关控制显隐） -->
+      <!-- (4) 服务分支网络 -->
       <section v-if="data?.showOffices !== false && officesList.length" class="about-offices-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">联系我们</h2>
 
           <div class="offices-layout">
-            <!-- 左侧带自定义深色滚动条的 7 城滚动列表 -->
             <div v-reveal="80" class="offices-scroll-box">
               <div
                 v-for="(off, oIdx) in officesList"
@@ -696,7 +584,6 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <!-- 右侧点阵地图 + 对应城市大厦照片缩略框 -->
             <div v-reveal="140" class="offices-map">
               <div class="offices-map__canvas">
                 <div
@@ -714,13 +601,12 @@ onBeforeUnmount(() => {
                     />
                     <div v-else class="building-illustration" :class="`b-theme--${activeOfficeIndex % 4}`">
                       <div class="building-skyline"></div>
-                      <span class="building-illustration__tag">{{ currentOffice?.city }}办公区实景</span>
+                      <span class="building-illustration__tag">{{ currentOffice?.city }}</span>
                     </div>
                   </div>
                   <span class="map-photo-popup__arrow" aria-hidden="true"></span>
                 </div>
 
-                <!-- 7 城坐标圆点 -->
                 <div class="map-pins">
                   <button
                     v-for="(off, oIdx) in officesList"
@@ -740,9 +626,19 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </section>
+
+      <!-- 若企业简介页签下所有模块均未配置 -->
+      <section
+        v-if="introParagraphs.length === 0 && !ceoLetter && milestonesList.length === 0 && officesList.length === 0"
+        style="padding: 80px 0; text-align: center; color: #64748b;"
+      >
+        <div class="container">
+          <p>企业简介内容正在完善中。</p>
+        </div>
+      </section>
     </div>
 
-    <!-- ==================== 子页面 2：管理团队 (team，1:1 还原 about_62.png & about_48.png) ==================== -->
+    <!-- ==================== 子页面 2：管理团队 (team) ==================== -->
     <div v-else-if="activeTab === 'team'" key="subpage-team" class="about-subpage">
       <section class="about-team-sec">
         <div class="container">
@@ -772,13 +668,13 @@ onBeforeUnmount(() => {
             </article>
           </div>
           <p v-else style="text-align: center; color: #64748b; padding: 48px 0">
-            团队信息整理中，敬请期待。
+            管理团队信息暂未公开。
           </p>
         </div>
       </section>
     </div>
 
-    <!-- ==================== 子页面 3：媒体中心 (media，1:1 还原 00:56-01:06) ==================== -->
+    <!-- ==================== 子页面 3：媒体中心 (media) ==================== -->
     <div v-else-if="activeTab === 'media'" key="subpage-media" class="about-subpage">
       <section class="about-news-sec">
         <div class="container">
@@ -812,7 +708,6 @@ onBeforeUnmount(() => {
                 <div class="about-news-card__body">
                   <h3 class="about-news-card__title">{{ item.title }}</h3>
                   <div class="about-news-card__time">
-                    <span aria-hidden="true">🕒</span>
                     <span>{{ item.displayTime || '' }}</span>
                   </div>
                 </div>
@@ -824,98 +719,127 @@ onBeforeUnmount(() => {
           <p v-else style="text-align: center; color: #64748b; padding: 48px 0">
             暂无已发布新闻资讯。
           </p>
+
+          <!-- 企业故事集 (stories) -->
+          <div v-if="storiesList.length > 0" style="margin-top: 56px;">
+            <h2 class="about-sec-title" style="margin-bottom: 24px;">{{ data?.storiesTitle || '企业故事' }}</h2>
+            <div class="about-news-grid">
+              <a
+                v-for="(st, sIdx) in storiesList"
+                :key="st.title + sIdx"
+                :href="st.url || '/news'"
+                class="about-news-card"
+              >
+                <div class="about-news-card__poster" :class="`poster-theme--${sIdx % 4}`">
+                  <img v-if="st.cover" :src="st.cover" :alt="st.title" loading="lazy" />
+                  <div v-else class="poster-fallback">
+                    <span class="poster-fallback__brand">{{ st.tag || siteName }}</span>
+                    <strong class="poster-fallback__text">{{ st.title.slice(0, 14) }}</strong>
+                  </div>
+                </div>
+                <div class="about-news-card__body">
+                  <h3 class="about-news-card__title">{{ st.title }}</h3>
+                  <div v-if="st.date" class="about-news-card__time">
+                    <span>{{ st.date }}</span>
+                  </div>
+                </div>
+              </a>
+            </div>
+          </div>
         </div>
       </section>
     </div>
 
-    <!-- ==================== 子页面 4：资料共享 / 资料库 (resources，1:1 还原 about_70.png & about_74.png) ==================== -->
+    <!-- ==================== 子页面 4：资料共享 / 资料库 (resources) ==================== -->
     <div v-else-if="activeTab === 'resources'" key="subpage-resources" class="about-subpage">
       <section class="about-res-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">{{ data?.resourcesTitle || '资料库' }}</h2>
 
-          <!-- 4 个子分类切换条：企业资料 / 客户视频 / 行业报告 / ESG -->
-          <div v-reveal="80" class="res-subtabs">
-            <button
-              v-for="cat in RESOURCE_CATS"
-              :key="cat"
-              type="button"
-              class="res-subtabs__btn"
-              :class="{ 'is-active': activeResourceCat === cat }"
-              @click="activeResourceCat = cat; resourceStartIndex = 0"
-            >
-              {{ cat }}
-            </button>
-          </div>
-
-          <!-- 4 卡横向轮播 + 右下角圆形下载/播放按钮 ↓ -->
-          <div v-reveal="140" class="about-news-slider">
-            <button
-              type="button"
-              class="slider-arrow"
-              aria-label="上一组资料"
-              @click="resourceStartIndex = Math.max(0, resourceStartIndex - 1)"
-            >
-              ‹
-            </button>
-
-            <div class="about-news-grid">
-              <article
-                v-for="(resItem, rIdx) in visibleResources"
-                :key="`${resItem.title}-${rIdx}`"
-                class="res-card"
-                @click="handleResourceClick(resItem)"
+          <template v-if="allResources.length > 0">
+            <div v-reveal="80" class="res-subtabs">
+              <button
+                v-for="cat in resourceCategories"
+                :key="cat"
+                type="button"
+                class="res-subtabs__btn"
+                :class="{ 'is-active': activeResourceCat === cat }"
+                @click="activeResourceCat = cat; resourceStartIndex = 0"
               >
-                <div class="res-card__cover" :class="{ 'is-logo-mode': resItem.category === '客户视频' }">
-                  <img v-if="resItem.cover" :src="resItem.cover" :alt="resItem.title" />
-                  <div
-                    v-else-if="resItem.category === '客户视频'"
-                    class="res-card__logo-box"
-                  >
-                    <strong :style="{ color: resItem.logoColor || '#1e293b' }">
-                      {{ resItem.logoText || resItem.title }}
-                    </strong>
-                  </div>
-                  <div
-                    v-else
-                    class="res-card__brochure"
-                    :style="{ background: `linear-gradient(145deg, ${resItem.logoColor || '#4c2ce6'} 0%, #0f172a 100%)` }"
-                  >
-                    <span class="res-card__brochure-brand">{{ siteName || '企业资料' }}</span>
-                    <strong>{{ resItem.logoText || resItem.title }}</strong>
-                  </div>
-                </div>
-
-                <div class="res-card__foot">
-                  <h3 class="res-card__title">{{ resItem.title }}</h3>
-                  <button
-                    type="button"
-                    class="res-card__dl-btn"
-                    :title="resItem.category === '客户视频' ? '播放视频' : '下载资料'"
-                    @click.stop="handleResourceClick(resItem)"
-                  >
-                    ↓
-                  </button>
-                </div>
-              </article>
+                {{ cat }}
+              </button>
             </div>
 
-            <button
-              type="button"
-              class="slider-arrow"
-              aria-label="下一组资料"
-              @click="resourceStartIndex = resourceStartIndex + 1"
-            >
-              ›
-            </button>
-          </div>
+            <div v-reveal="140" class="about-news-slider">
+              <button
+                type="button"
+                class="slider-arrow"
+                aria-label="上一组资料"
+                @click="resourceStartIndex = Math.max(0, resourceStartIndex - 1)"
+              >
+                ‹
+              </button>
+
+              <div class="about-news-grid">
+                <article
+                  v-for="(resItem, rIdx) in visibleResources"
+                  :key="`${resItem.title}-${rIdx}`"
+                  class="res-card"
+                  @click="handleResourceClick(resItem)"
+                >
+                  <div class="res-card__cover" :class="{ 'is-logo-mode': resItem.category === '客户视频' }">
+                    <img v-if="resItem.cover" :src="resItem.cover" :alt="resItem.title" />
+                    <div
+                      v-else-if="resItem.category === '客户视频'"
+                      class="res-card__logo-box"
+                    >
+                      <strong :style="{ color: resItem.logoColor || '#1e293b' }">
+                        {{ resItem.logoText || resItem.title }}
+                      </strong>
+                    </div>
+                    <div
+                      v-else
+                      class="res-card__brochure"
+                      :style="{ background: `linear-gradient(145deg, ${resItem.logoColor || '#2563eb'} 0%, #0f172a 100%)` }"
+                    >
+                      <span class="res-card__brochure-brand">{{ siteName || '企业资料' }}</span>
+                      <strong>{{ resItem.logoText || resItem.title }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="res-card__foot">
+                    <h3 class="res-card__title">{{ resItem.title }}</h3>
+                    <button
+                      type="button"
+                      class="res-card__dl-btn"
+                      :title="resItem.category === '客户视频' ? '播放视频' : '下载资料'"
+                      @click.stop="handleResourceClick(resItem)"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </article>
+              </div>
+
+              <button
+                type="button"
+                class="slider-arrow"
+                aria-label="下一组资料"
+                @click="resourceStartIndex = resourceStartIndex + 1"
+              >
+                ›
+              </button>
+            </div>
+          </template>
+          <p v-else style="text-align: center; color: #64748b; padding: 48px 0">
+            暂无公开共享资料，如需获取产品白皮书或手册请联系商务顾问。
+          </p>
         </div>
       </section>
     </div>
 
-    <!-- ==================== 子页面 5：加入我们 (join，1:1 还原 about_84.png + 使命/愿景/5项价值观) ==================== -->
+    <!-- ==================== 子页面 5：加入我们 (join) ==================== -->
     <div v-else-if="activeTab === 'join'" key="subpage-join" class="about-subpage">
-      <!-- 顶部 招聘海报横幅 -->
       <section class="about-join-sec">
         <div class="container">
           <div v-reveal class="join-banner">
@@ -929,24 +853,23 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- 下方：使命 · 愿景 · 5大价值观（客户成功 / 极限 / 信任 / 坚韧 / 主人翁精神） -->
-      <section class="about-culture-sec">
+      <section v-if="missionText || visionText || valuesList.length > 0" class="about-culture-sec">
         <div class="container">
-          <div v-reveal class="culture-row">
+          <div v-if="missionText" v-reveal class="culture-row">
             <div class="culture-row__label">使命</div>
             <div class="culture-row__content">
               <h3 class="culture-row__headline">{{ missionText }}</h3>
             </div>
           </div>
 
-          <div v-reveal="80" class="culture-row">
+          <div v-if="visionText" v-reveal="80" class="culture-row">
             <div class="culture-row__label">愿景</div>
             <div class="culture-row__content">
               <h3 class="culture-row__headline">{{ visionText }}</h3>
             </div>
           </div>
 
-          <div class="culture-row culture-row--values">
+          <div v-if="valuesList.length > 0" class="culture-row culture-row--values">
             <div v-reveal class="culture-row__label">价值观</div>
             <div class="culture-row__content culture-values-list">
               <div
@@ -966,11 +889,11 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
-    <!-- ==================== 弹窗 A：CEO的一封信全文滚动弹窗（1:1 还原 about_08.png） ==================== -->
+    <!-- ==================== 弹窗 A：致辞全文滚动弹窗 ==================== -->
     <Teleport to="body">
       <Transition name="about-modal">
         <div
-          v-if="ceoModalOpen"
+          v-if="ceoModalOpen && ceoLetter"
           class="about-modal-backdrop"
           role="dialog"
           aria-modal="true"
@@ -994,14 +917,14 @@ onBeforeUnmount(() => {
               >
                 {{ para }}
               </p>
-              <div class="ceo-full-modal__sign">{{ ceoLetter.signature }}</div>
+              <div v-if="ceoLetter.signature" class="ceo-full-modal__sign">{{ ceoLetter.signature }}</div>
             </div>
           </div>
         </div>
       </Transition>
     </Teleport>
 
-    <!-- ==================== 弹窗 B：管理团队高管详情左右分栏弹窗（1:1 还原 about_48.png） ==================== -->
+    <!-- ==================== 弹窗 B：管理团队详情弹窗 ==================== -->
     <Teleport to="body">
       <Transition name="about-modal">
         <div

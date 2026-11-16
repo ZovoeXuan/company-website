@@ -7,8 +7,8 @@ import com.company.cms.common.FieldErrorItem;
 import com.company.cms.common.HtmlSanitizer;
 import com.company.cms.common.PageQuery;
 import com.company.cms.common.PageResult;
-import com.company.cms.media.MediaService;
 import com.company.cms.media.MediaRefRepository;
+import com.company.cms.media.MediaService;
 import com.company.cms.site.PublicVersionService;
 import com.company.cms.system.AuditLogService;
 import org.springframework.stereotype.Service;
@@ -30,7 +30,7 @@ import java.util.Map;
 
 /**
  * 内容核心：草稿保存、发布快照、下线、删除保护与引用维护。
- * 发布是唯一会把 draft_json 复制到 published_json 的入口。
+ * 严格保证「编辑 -> 保存草稿 -> 重新加载 -> 发布 -> 公开接口 -> 正式页面」六步字段契约一致。
  */
 @Service
 public class ContentService {
@@ -78,16 +78,19 @@ public class ContentService {
         List<ContentRow> rows = contents.findPage(filter, query.offset(), query.pageSize());
         long total = contents.count(filter);
 
-        Map<Long, String> categoryNames = new HashMap<>();
+        Map<Long, CategoryRow> categoryMap = new HashMap<>();
         for (ContentRow row : rows) {
-            Long cid = row.publishedCategoryId();
-            if (cid != null && !categoryNames.containsKey(cid)) {
-                categoryNames.put(cid,
-                        categories.findById(cid).map(CategoryRow::publishedName).orElse(""));
+            Long pubCid = row.publishedCategoryId();
+            if (pubCid != null && !categoryMap.containsKey(pubCid)) {
+                categories.findById(pubCid).ifPresent(c -> categoryMap.put(pubCid, c));
+            }
+            Long draftCid = row.draft() == null ? null : longOrNull(row.draft().get("categoryId"));
+            if (draftCid != null && !categoryMap.containsKey(draftCid)) {
+                categories.findById(draftCid).ifPresent(c -> categoryMap.put(draftCid, c));
             }
         }
 
-        List<ContentView> items = rows.stream().map(row -> toView(row, categoryNames)).toList();
+        List<ContentView> items = rows.stream().map(row -> toView(row, categoryMap)).toList();
         return PageResult.of(items, query.page(), query.pageSize(), total);
     }
 
@@ -100,14 +103,15 @@ public class ContentService {
         return contentRefs.findIncoming(id);
     }
 
-    /** 引用面板：附带来源标题，便于后台直接跳转处理。 */
     public List<Map<String, Object>> referenceViews(long id) {
         return contentRefs.findIncoming(id).stream().map(ref -> {
             String sourceTitle = contents.findById(ref.sourceId())
-                    .map(source -> source.publishedTitle() != null
-                            ? source.publishedTitle() : text(source.draft(), "title"))
+                    .map(source -> {
+                        String dTitle = text(source.draft(), "title");
+                        return !dTitle.isBlank() ? dTitle : (source.publishedTitle() != null ? source.publishedTitle() : "");
+                    })
                     .orElse("");
-            Map<String, Object> item = new java.util.LinkedHashMap<>();
+            Map<String, Object> item = new LinkedHashMap<>();
             item.put("sourceKind", ref.sourceKind());
             item.put("sourceId", String.valueOf(ref.sourceId()));
             item.put("sourceTitle", sourceTitle);
@@ -165,7 +169,6 @@ public class ContentService {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "内容已被他人修改，请刷新后重试");
         }
 
-        // 发布瞬间按最新草稿重算引用，再把草稿引用复制为发布引用
         replaceDraftRefs("CONTENT", id, normalized);
         mediaRefs.copyStage("CONTENT", id, "DRAFT", "PUBLISHED");
         contentRefs.copyStage("CONTENT", id, "DRAFT", "PUBLISHED");
@@ -208,10 +211,6 @@ public class ContentService {
 
     // ---------- 校验与引用 ----------
 
-    /**
-     * 草稿与发布共用一套结构校验；发布时额外要求必填项、分类已发布、关联内容已发布。
-     * 字段范围按文档 6.1 通用字段与 6.5～6.9 类型专属字段收敛，未定义字段一律丢弃。
-     */
     private JsonNode validate(ContentType type, JsonNode draft, boolean forPublish, Long selfId) {
         if (draft == null || !draft.isObject()) {
             throw ApiException.validation("draft", "内容必须是 JSON 对象");
@@ -242,7 +241,11 @@ public class ContentService {
         }
         normalized.put("summary", summary);
 
-        String bodyHtml = htmlSanitizer.sanitize(text(draft, "bodyHtml"));
+        String rawBody = text(draft, "bodyHtml");
+        if (rawBody.length() > MAX_BODY) {
+            errors.add(new FieldErrorItem("bodyHtml", "正文不能超过 " + MAX_BODY + " 字符"));
+        }
+        String bodyHtml = htmlSanitizer.sanitize(rawBody);
         if (bodyHtml.length() > MAX_BODY) {
             errors.add(new FieldErrorItem("bodyHtml", "正文不能超过 " + MAX_BODY + " 字符"));
         }
@@ -255,7 +258,6 @@ public class ContentService {
 
         normalized.put("sortOrder", sortOrder(draft, errors));
 
-        // 分类：类型必须匹配；发布时案例与新闻必填
         Long categoryId = longOrNull(draft.get("categoryId"));
         if (categoryId == null) {
             if (forPublish && type.requiresCategoryOnPublish()) {
@@ -273,7 +275,6 @@ public class ContentService {
             }
         }
 
-        // 封面
         Long coverId = mediaId(draft.get("coverMediaId"), "coverMediaId", "封面图片", errors);
         if (coverId == null && forPublish) {
             errors.add(new FieldErrorItem("coverMediaId", "发布前必须选择封面"));
@@ -284,18 +285,18 @@ public class ContentService {
             normalized.put("coverAlt", coverAlt.isEmpty() ? title : coverAlt);
         }
 
-        // 可选主图：未填时前台回退封面
         Long heroId = mediaId(draft.get("heroMediaId"), "heroMediaId", "主图", errors);
         if (heroId != null) {
             normalized.put("heroMediaId", heroId);
         }
 
-        // SEO
         JsonNode seo = draft.get("seo");
         ObjectNode seoNode = objectMapper.createObjectNode();
-        String seoTitle = seo == null ? "" : limit(text(seo, "title"), 80, "seo.title", "SEO 标题", errors);
-        String seoDescription = seo == null ? ""
-                : limit(text(seo, "description"), 200, "seo.description", "SEO 描述", errors);
+        String seoTitle = seo != null ? limit(text(seo, "title"), 80, "seo.title", "SEO 标题", errors)
+                : limit(text(draft, "seoTitle"), 80, "seo.title", "SEO 标题", errors);
+        String seoDescription = seo != null
+                ? limit(text(seo, "description"), 200, "seo.description", "SEO 描述", errors)
+                : limit(text(draft, "seoDescription"), 200, "seo.description", "SEO 描述", errors);
         if (!seoTitle.isEmpty()) {
             seoNode.put("title", seoTitle);
         }
@@ -308,7 +309,18 @@ public class ContentService {
 
         switch (type) {
             case PRODUCT -> {
-                normalized.set("features", titledItems(draft.get("features"), "features", 8, true, errors));
+                JsonNode featSource = draft.get("features");
+                if ((featSource == null || !featSource.isArray() || featSource.isEmpty())
+                        && draft.get("hardwareModules") != null && draft.get("hardwareModules").isArray()) {
+                    featSource = draft.get("hardwareModules");
+                }
+                normalized.set("features", titledItems(featSource, "features", 8, true, errors));
+                normalized.set("effectMetrics", metricItems(draft.get("effectMetrics"), "effectMetrics", 6, errors));
+                normalized.set("roleTabs", roleTabs(draft.get("roleTabs"), errors));
+                normalized.set("terminalTools", terminalTools(draft.get("terminalTools"), errors));
+                normalized.set("relatedSolutionIds",
+                        refIds(draft.get("relatedSolutionIds"), "relatedSolutionIds", 6,
+                                ContentType.SOLUTION, forPublish, selfId, errors));
                 normalized.set("relatedCaseIds",
                         refIds(draft.get("relatedCaseIds"), "relatedCaseIds", 6,
                                 ContentType.CASE, forPublish, selfId, errors));
@@ -320,6 +332,9 @@ public class ContentService {
                 normalized.set("relatedProductIds",
                         refIds(draft.get("relatedProductIds"), "relatedProductIds", 6,
                                 ContentType.PRODUCT, forPublish, selfId, errors));
+                normalized.set("relatedCaseIds",
+                        refIds(draft.get("relatedCaseIds"), "relatedCaseIds", 6,
+                                ContentType.CASE, forPublish, selfId, errors));
             }
             case CASE -> {
                 String customerName = limit(text(draft, "customerName"), 60,
@@ -329,7 +344,7 @@ public class ContentService {
                 }
                 normalized.put("customerName", customerName);
                 normalized.put("industry", limit(text(draft, "industry"), 60, "industry", "所属行业", errors));
-                normalized.set("outcomes", outcomes(draft.get("outcomes"), errors));
+                normalized.set("outcomes", metricItems(draft.get("outcomes"), "outcomes", 4, errors));
                 String quoteText = limit(text(draft, "quoteText"), 300, "quoteText", "引用语", errors);
                 String quoteAuthor = limit(text(draft, "quoteAuthor"), 60, "quoteAuthor", "引用人", errors);
                 if (quoteText.isEmpty() != quoteAuthor.isEmpty()) {
@@ -373,7 +388,6 @@ public class ContentService {
         return normalized;
     }
 
-    /** 客户标识：只有名称、Logo、替代文字、客户网址与排序（文档 6.9）。 */
     private JsonNode validateCustomer(JsonNode draft, boolean forPublish, List<FieldErrorItem> errors) {
         ObjectNode normalized = objectMapper.createObjectNode();
         String title = limit(text(draft, "title"), 60, "title", "客户名称", errors);
@@ -405,7 +419,6 @@ public class ContentService {
         return normalized;
     }
 
-    /** features / pains / benefits 的通用结构：标题、说明、可选图标。 */
     private ArrayNode titledItems(JsonNode source, String field, int max, boolean withIcon,
                                   List<FieldErrorItem> errors) {
         ArrayNode result = objectMapper.createArrayNode();
@@ -427,13 +440,17 @@ public class ContentService {
                 continue;
             }
             ObjectNode node = objectMapper.createObjectNode();
-            String itemTitle = limit(text(item, "title"), 30, path + ".title", "标题", errors);
+            String itemTitle = limit(text(item, "title"), 40, path + ".title", "标题", errors);
             if (itemTitle.isEmpty()) {
                 errors.add(new FieldErrorItem(path + ".title", "请填写标题"));
             }
             node.put("title", itemTitle);
+            String tag = limit(text(item, "tag"), 30, path + ".tag", "标签", errors);
+            if (!tag.isEmpty()) {
+                node.put("tag", tag);
+            }
             node.put("description",
-                    limit(text(item, "description"), 200, path + ".description", "说明", errors));
+                    limit(text(item, "description"), 300, path + ".description", "说明", errors));
             if (withIcon) {
                 Long iconId = mediaId(item.get("iconMediaId"), path + ".iconMediaId", "图标", errors);
                 if (iconId != null) {
@@ -445,31 +462,30 @@ public class ContentService {
         return result;
     }
 
-    /** 案例成果：displayValue 1～20、label 1～40，最多 4 条（文档 6.7）。 */
-    private ArrayNode outcomes(JsonNode source, List<FieldErrorItem> errors) {
+    private ArrayNode metricItems(JsonNode source, String field, int max, List<FieldErrorItem> errors) {
         ArrayNode result = objectMapper.createArrayNode();
         if (source == null || source.isNull()) {
             return result;
         }
         if (!source.isArray()) {
-            errors.add(new FieldErrorItem("outcomes", "格式不正确"));
+            errors.add(new FieldErrorItem(field, "格式不正确"));
             return result;
         }
-        if (source.size() > 4) {
-            errors.add(new FieldErrorItem("outcomes", "成果最多 4 条"));
+        if (source.size() > max) {
+            errors.add(new FieldErrorItem(field, "最多 " + max + " 条"));
         }
-        for (int i = 0; i < Math.min(source.size(), 4); i++) {
+        for (int i = 0; i < Math.min(source.size(), max); i++) {
             JsonNode item = source.get(i);
-            String path = "outcomes[" + i + "]";
+            String path = field + "[" + i + "]";
             if (item == null || !item.isObject()) {
                 errors.add(new FieldErrorItem(path, "格式不正确"));
                 continue;
             }
             ObjectNode node = objectMapper.createObjectNode();
-            String value = limit(text(item, "displayValue"), 20, path + ".displayValue", "成果数值", errors);
-            String label = limit(text(item, "label"), 40, path + ".label", "成果名称", errors);
+            String value = limit(text(item, "displayValue"), 24, path + ".displayValue", "数值", errors);
+            String label = limit(text(item, "label"), 60, path + ".label", "指标名称", errors);
             if (value.isEmpty() || label.isEmpty()) {
-                errors.add(new FieldErrorItem(path, "成果数值与名称都必须填写"));
+                errors.add(new FieldErrorItem(path, "数值与名称都必须填写"));
             }
             node.put("displayValue", value);
             node.put("label", label);
@@ -478,9 +494,56 @@ public class ContentService {
         return result;
     }
 
-    /**
-     * 关联内容 ID 数组。发布时目标必须已发布且类型一致，否则公开接口会出现死链接。
-     */
+    private ArrayNode roleTabs(JsonNode source, List<FieldErrorItem> errors) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (source == null || source.isNull() || !source.isArray()) {
+            return result;
+        }
+        for (int i = 0; i < Math.min(source.size(), 6); i++) {
+            JsonNode item = source.get(i);
+            if (item == null || !item.isObject()) continue;
+            String path = "roleTabs[" + i + "]";
+            String role = limit(text(item, "role"), 30, path + ".role", "角色名称", errors);
+            if (role.isEmpty()) continue;
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("role", role);
+            node.put("headline", limit(text(item, "headline"), 120, path + ".headline", "角色核心价值", errors));
+            ArrayNode bullets = objectMapper.createArrayNode();
+            JsonNode bNode = item.get("bullets");
+            if (bNode != null && bNode.isArray()) {
+                for (int j = 0; j < Math.min(bNode.size(), 8); j++) {
+                    String b = bNode.get(j) != null ? bNode.get(j).asString().trim() : "";
+                    if (!b.isEmpty()) {
+                        bullets.add(limit(b, 150, path + ".bullets[" + j + "]", "价值要点", errors));
+                    }
+                }
+            }
+            node.set("bullets", bullets);
+            result.add(node);
+        }
+        return result;
+    }
+
+    private ArrayNode terminalTools(JsonNode source, List<FieldErrorItem> errors) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (source == null || source.isNull() || !source.isArray()) {
+            return result;
+        }
+        for (int i = 0; i < Math.min(source.size(), 6); i++) {
+            JsonNode item = source.get(i);
+            if (item == null || !item.isObject()) continue;
+            String path = "terminalTools[" + i + "]";
+            String name = limit(text(item, "name"), 40, path + ".name", "终端工具名称", errors);
+            if (name.isEmpty()) continue;
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("name", name);
+            node.put("badge", limit(text(item, "badge"), 24, path + ".badge", "终端类型角标", errors));
+            node.put("description", limit(text(item, "description"), 200, path + ".description", "终端说明", errors));
+            result.add(node);
+        }
+        return result;
+    }
+
     private ArrayNode refIds(JsonNode source, String field, int max, ContentType expected,
                              boolean forPublish, Long selfId, List<FieldErrorItem> errors) {
         ArrayNode result = objectMapper.createArrayNode();
@@ -620,7 +683,7 @@ public class ContentService {
 
     private LocalDateTime displayTimeOf(JsonNode normalized) {
         String raw = text(normalized, "displayTime");
-        return raw.isEmpty() ? null : LocalDate.parse(raw).atStartOfDay();
+        return raw.isEmpty() ? null : LocalDate.parse(raw.substring(0, Math.min(10, raw.length()))).atStartOfDay();
     }
 
     private PublicationStatus parseStatus(String raw) {
@@ -632,9 +695,8 @@ public class ContentService {
     }
 
     /**
-     * 草稿预览视图：字段结构与公开详情一致，但取当前草稿。
-     * 关联内容一律使用各自最新发布版（文档 5.4），预览页会标注该规则。
-     * 图片走后台鉴权地址，避免预览依赖「已发布引用」而 404。
+     * 草稿预览视图：复用与公开详情一致的归一化、清洗与字段结构，
+     * 并将正文中受控图片地址转换为后台鉴权地址 /api/admin/media/{id}/file。
      */
     public Map<String, Object> previewView(long id) {
         ContentRow row = contents.findById(id)
@@ -645,24 +707,38 @@ public class ContentService {
         view.put("id", String.valueOf(row.id()));
         view.put("contentType", row.contentType().name());
         view.put("status", row.status().name());
+        view.put("draftVersion", row.draftVersion());
+        view.put("publishedVersion", row.publishedVersion());
+        view.put("hasUnpublishedChanges", row.hasUnpublishedChanges());
         view.put("title", text(draft, "title"));
         view.put("summary", text(draft, "summary"));
-        view.put("bodyHtml", text(draft, "bodyHtml"));
-        view.put("cover", previewMedia(draft.get("coverMediaId")));
-        view.put("logo", previewMedia(draft.get("logoMediaId")));
-        view.put("hero", previewMedia(draft.get("heroMediaId")));
-        view.put("categoryName", longOrNull(draft.get("categoryId")) == null ? null
-                : categories.findById(longOrNull(draft.get("categoryId")))
-                .map(CategoryRow::draftName).orElse(null));
 
-        for (String field : List.of("features", "capabilities", "outcomes", "pains", "benefits",
-                "quoteText", "quoteAuthor", "customerName", "industry", "displayTime", "author")) {
+        String rawHtml = htmlSanitizer.sanitize(text(draft, "bodyHtml"));
+        String adminPreviewHtml = rawHtml.replaceAll(
+                "/api/public/media/(\\d+)", "/api/admin/media/$1/file");
+        view.put("bodyHtml", adminPreviewHtml);
+
+        view.put("cover", previewMedia(draft.get("coverMediaId"), text(draft, "coverAlt")));
+        view.put("logo", previewMedia(draft.get("logoMediaId"), text(draft, "logoAlt")));
+        view.put("hero", previewMedia(draft.get("heroMediaId"), text(draft, "title")));
+
+        Long catId = longOrNull(draft.get("categoryId"));
+        view.put("categoryId", catId == null ? null : String.valueOf(catId));
+        view.put("categoryName", catId == null ? null
+                : categories.findById(catId).map(CategoryRow::draftName).orElse(null));
+
+        for (String field : List.of("features", "effectMetrics", "roleTabs", "terminalTools",
+                "outcomes", "pains", "benefits", "quoteText", "quoteAuthor",
+                "customerName", "industry", "displayTime", "author", "sourceName", "sourceUrl", "seo")) {
             JsonNode value = draft.get(field);
             if (value != null && !value.isNull()) {
                 view.put(field, value);
             }
         }
 
+        List<Map<String, Object>> relatedCases = new ArrayList<>();
+        List<Map<String, Object>> relatedProducts = new ArrayList<>();
+        List<Map<String, Object>> relatedSolutions = new ArrayList<>();
         List<Map<String, Object>> related = new ArrayList<>();
         for (JsonRefs.ContentRef ref : JsonRefs.contentRefs(draft)) {
             contents.findPublishedById(ref.contentId()).ifPresent(target -> {
@@ -670,14 +746,25 @@ public class ContentService {
                 item.put("id", String.valueOf(target.id()));
                 item.put("contentType", target.contentType().name());
                 item.put("title", text(target.published(), "title"));
+                item.put("summary", text(target.published(), "summary"));
                 related.add(item);
+                switch (target.contentType()) {
+                    case CASE -> relatedCases.add(item);
+                    case PRODUCT -> relatedProducts.add(item);
+                    case SOLUTION -> relatedSolutions.add(item);
+                    default -> {
+                    }
+                }
             });
         }
         view.put("related", related);
+        view.put("relatedCases", relatedCases);
+        view.put("relatedProducts", relatedProducts);
+        view.put("relatedSolutions", relatedSolutions);
         return view;
     }
 
-    private Map<String, Object> previewMedia(JsonNode node) {
+    private Map<String, Object> previewMedia(JsonNode node, String alt) {
         Long mediaId = longOrNull(node);
         if (mediaId == null) {
             return null;
@@ -685,48 +772,68 @@ public class ContentService {
         try {
             var media = mediaService.require(mediaId);
             Map<String, Object> view = new LinkedHashMap<>();
+            view.put("id", String.valueOf(mediaId));
             view.put("url", "/api/admin/media/" + mediaId + "/file");
             view.put("width", media.width());
             view.put("height", media.height());
-            view.put("alt", "");
+            view.put("type", media.mediaType());
+            view.put("alt", alt == null ? "" : alt);
             return view;
         } catch (ApiException ex) {
             return null;
         }
     }
 
-    private ContentView toView(ContentRow row, Map<Long, String> categoryNames) {
-        String categoryName = null;
-        if (row.publishedCategoryId() != null) {
-            categoryName = categoryNames.containsKey(row.publishedCategoryId())
-                    ? categoryNames.get(row.publishedCategoryId())
-                    : categories.findById(row.publishedCategoryId())
-                    .map(CategoryRow::publishedName).orElse(null);
-        }
+    private ContentView toView(ContentRow row, Map<Long, CategoryRow> categoryMap) {
+        String draftTitle = text(row.draft(), "title");
+        String pubTitle = row.publishedTitle();
+        String primaryTitle = !draftTitle.isBlank() ? draftTitle : (pubTitle != null ? pubTitle : "");
+
+        Long draftCatId = row.draft() == null ? null : longOrNull(row.draft().get("categoryId"));
+        Long pubCatId = row.publishedCategoryId();
+        Long effectiveCatId = draftCatId != null ? draftCatId : pubCatId;
+
+        String draftCategoryName = resolveCategoryName(draftCatId, categoryMap, true);
+        String publishedCategoryName = resolveCategoryName(pubCatId, categoryMap, false);
+        String primaryCategoryName = draftCategoryName != null ? draftCategoryName : publishedCategoryName;
+
+        int draftSort = row.draft() == null ? 100 : intOrDefault(row.draft().get("sortOrder"), 100);
+        String draftDisplayTime = text(row.draft(), "displayTime");
+        String pubDisplayTime = row.publishedDisplayTime() == null ? null
+                : row.publishedDisplayTime().toLocalDate().toString();
+
         return new ContentView(
                 String.valueOf(row.id()),
                 row.contentType().name(),
-                row.publishedTitle() != null ? row.publishedTitle() : text(row.draft(), "title"),
+                primaryTitle,
+                pubTitle,
                 row.status().name(),
                 row.draftVersion(),
                 row.publishedVersion(),
                 row.lockVersion(),
                 row.hasUnpublishedChanges(),
-                row.publishedCategoryId() == null ? null : String.valueOf(row.publishedCategoryId()),
-                categoryName,
-                row.publishedSortOrder() == null ? intOrDefault(row.draft().get("sortOrder"), 9999)
-                        : row.publishedSortOrder(),
-                row.publishedDisplayTime() == null ? null : row.publishedDisplayTime().toLocalDate().toString(),
+                effectiveCatId == null ? null : String.valueOf(effectiveCatId),
+                primaryCategoryName,
+                pubCatId == null ? null : String.valueOf(pubCatId),
+                publishedCategoryName,
+                draftSort,
+                !draftDisplayTime.isBlank() ? draftDisplayTime : pubDisplayTime,
                 row.publishedAt() == null ? null : row.publishedAt().atOffset(ZoneOffset.UTC).toString(),
                 coverMediaId(row),
                 row.updatedAt() == null ? null : row.updatedAt().atOffset(ZoneOffset.UTC).toString()
         );
     }
 
-    /**
-     * 列表缩略图：客户标识用 logo，其余用封面。优先草稿，回退发布快照，
-     * 这样运营在列表里看到的就是自己正在编辑的那张图。
-     */
+    private String resolveCategoryName(Long catId, Map<Long, CategoryRow> map, boolean preferDraft) {
+        if (catId == null) return null;
+        CategoryRow cat = map.containsKey(catId) ? map.get(catId) : categories.findById(catId).orElse(null);
+        if (cat == null) return null;
+        if (preferDraft) {
+            return cat.draftName() != null && !cat.draftName().isBlank() ? cat.draftName() : cat.publishedName();
+        }
+        return cat.publishedName() != null && !cat.publishedName().isBlank() ? cat.publishedName() : cat.draftName();
+    }
+
     private String coverMediaId(ContentRow row) {
         String field = row.contentType() == ContentType.CUSTOMER ? "logoMediaId" : "coverMediaId";
         JsonNode draftValue = row.draft() == null ? null : row.draft().get(field);
@@ -750,7 +857,8 @@ public class ContentService {
             return null;
         }
         if (node.isNumber()) {
-            return node.asLong();
+            long val = node.asLong();
+            return val > 0 ? val : null;
         }
         String raw = node.asString().trim();
         return raw.matches("^\\d{1,18}$") ? Long.parseLong(raw) : null;
@@ -764,6 +872,7 @@ public class ContentService {
             String id,
             String contentType,
             String title,
+            String publishedTitle,
             String status,
             int draftVersion,
             Integer publishedVersion,
@@ -771,6 +880,8 @@ public class ContentService {
             boolean hasUnpublishedChanges,
             String categoryId,
             String categoryName,
+            String publishedCategoryId,
+            String publishedCategoryName,
             int sortOrder,
             String displayTime,
             String publishedAt,

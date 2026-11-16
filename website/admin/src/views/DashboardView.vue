@@ -84,7 +84,7 @@ onMounted(load)
         <p class="metric-card__tip">实时向官网前端公开接口输出</p>
       </div>
 
-      <div class="metric-card metric-card--draft" @click="router.push('/contents/products')">
+      <div class="metric-card metric-card--draft" @click="router.push('/contents/products?unpublished=1')">
         <div class="metric-card__header">
           <span class="metric-card__label">待发布/草稿变更</span>
           <span class="metric-card__badge metric-card__badge--draft">待发布</span>
@@ -104,7 +104,7 @@ onMounted(load)
           <span class="metric-card__badge metric-card__badge--leads">NEW</span>
         </div>
         <p class="metric-card__value">{{ data?.pendingLeads ?? 0 }}</p>
-        <p class="metric-card__tip">需在 4 小时工作时间内跟进与回复</p>
+        <p class="metric-card__tip">建议在 1 个工作日内完成首次跟进与状态归档</p>
       </div>
 
       <div v-if="isAdmin" class="metric-card" @click="router.push('/system/users')">

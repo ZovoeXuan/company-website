@@ -36,7 +36,7 @@ const query = reactive({
   keyword: '',
   categoryId: '',
   publicationStatus: '',
-  hasUnpublishedChanges: false,
+  hasUnpublishedChanges: route.query.unpublished === '1',
   page: 1,
   pageSize: 20,
 })
@@ -167,17 +167,26 @@ async function batchPublish() {
   }
   batchRunning.value = true
   let ok = 0
-  let fail = 0
+  const failures: string[] = []
   for (const row of selectedRows.value) {
     try {
       await publishContent(row.id, row.lockVersion, row.draftVersion)
       ok++
-    } catch {
-      fail++
+    } catch (err) {
+      const reason = err instanceof ApiError ? err.message : '发布校验未通过'
+      failures.push(`#${row.id}「${row.title}」：${reason}`)
     }
   }
   batchRunning.value = false
-  ElMessage.success(`批量发布完成：成功 ${ok} 条${fail ? `，失败 ${fail} 条（请检查必填项）` : ''}`)
+  if (failures.length > 0) {
+    ElMessageBox.alert(
+      `成功发布 ${ok} 条，失败 ${failures.length} 条：\n` + failures.join('\n'),
+      '批量发布结果回执',
+      { type: 'warning' },
+    )
+  } else {
+    ElMessage.success(`批量发布完成：成功发布 ${ok} 条`)
+  }
   await load()
 }
 
@@ -198,16 +207,26 @@ async function batchOffline() {
   }
   batchRunning.value = true
   let ok = 0
+  const failures: string[] = []
   for (const row of pubRows) {
     try {
       await offlineContent(row.id, row.lockVersion, row.draftVersion)
       ok++
-    } catch {
-      // ignore single failure
+    } catch (err) {
+      const reason = err instanceof ApiError ? err.message : '被其他线上模块引用，无法下线'
+      failures.push(`#${row.id}「${row.title}」：${reason}`)
     }
   }
   batchRunning.value = false
-  ElMessage.success(`已批量下线 ${ok} 条内容`)
+  if (failures.length > 0) {
+    ElMessageBox.alert(
+      `成功下线 ${ok} 条，失败 ${failures.length} 条：\n` + failures.join('\n'),
+      '批量下线结果回执',
+      { type: 'warning' },
+    )
+  } else {
+    ElMessage.success(`已批量下线 ${ok} 条内容`)
+  }
   await load()
 }
 
@@ -311,16 +330,30 @@ onMounted(() => {
     >
       <el-table-column v-if="isAdmin" type="selection" width="46" />
       <el-table-column prop="id" label="ID" width="76" />
-      <el-table-column label="标题" min-width="240">
+      <el-table-column label="标题 (草稿 / 线上)" min-width="260">
         <template #default="{ row }">
           <div class="title-cell">
             <span class="title-cell__text">{{ row.title }}</span>
             <el-tag v-if="row.hasUnpublishedChanges" size="small" type="warning">有未发布修改</el-tag>
           </div>
+          <div
+            v-if="row.status === 'PUBLISHED' && row.publishedTitle && row.publishedTitle !== row.title"
+            style="font-size: 12px; color: #64748b; margin-top: 2px;"
+          >
+            线上标题：{{ row.publishedTitle }}
+          </div>
         </template>
       </el-table-column>
-      <el-table-column v-if="hasCategory" label="分类" width="130">
-        <template #default="{ row }">{{ row.categoryName || '-' }}</template>
+      <el-table-column v-if="hasCategory" label="分类" width="150">
+        <template #default="{ row }">
+          <div>{{ row.categoryName || '-' }}</div>
+          <div
+            v-if="row.status === 'PUBLISHED' && row.publishedCategoryName && row.publishedCategoryName !== row.categoryName"
+            style="font-size: 11px; color: #64748b;"
+          >
+            线上：{{ row.publishedCategoryName }}
+          </div>
+        </template>
       </el-table-column>
       <el-table-column label="状态" width="110" align="center">
         <template #default="{ row }">

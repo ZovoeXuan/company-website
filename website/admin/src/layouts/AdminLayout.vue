@@ -331,7 +331,7 @@ function handleResize() {
 }
 
 function onStorageUpdate(e: StorageEvent) {
-  if (e.key === 'admin_data_updated' || e.key === 'g7_last_published') {
+  if (e.key === 'admin_data_updated' || e.key === 'site_last_published') {
     loadNavConfig()
   }
 }
@@ -368,7 +368,7 @@ async function onLogout() {
   <el-container class="shell">
     <el-aside :width="isCollapse ? '64px' : '240px'" class="aside">
       <div class="brand" :class="{ 'is-collapsed': isCollapse }">
-        <span class="brand__logo">G</span>
+        <span class="brand__logo">C</span>
         <div v-show="!isCollapse" class="brand__text">
           <div class="brand__title">官网管理后台</div>
           <div class="brand__sub">CMS Console</div>

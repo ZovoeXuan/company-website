@@ -1,4 +1,3 @@
-// 对应源码路径: website/server/src/main/java/com/company/cms/site/SiteConfigValidator.java
 package com.company.cms.site;
 
 import com.company.cms.common.ApiException;
@@ -6,6 +5,8 @@ import com.company.cms.common.ErrorCode;
 import com.company.cms.common.FieldErrorItem;
 import com.company.cms.common.HtmlSanitizer;
 import com.company.cms.content.ContentRepository;
+import com.company.cms.content.ContentRow;
+import com.company.cms.content.ContentType;
 import com.company.cms.media.MediaService;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -22,7 +23,10 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 配置草稿校验与归一化（全面支持小七AI、多邮箱、双二维码、关于我们5大子页面、首页3屏深浅主题与三圆点舞台）。
+ * 站点配置草稿校验与正向白名单归一化：
+ * - 移除 AI 助手 (xiaoqiConfig) 及所有未经校验的透传对象
+ * - 完整保留联系页 (companyName, formTitle, smsVerifyEnabled, mapUrl, qrMediaId)
+ * - 发布时调用 LinkResolver.publishable 及关联内容校验，杜绝死链上线
  */
 @Component
 public class SiteConfigValidator {
@@ -34,8 +38,8 @@ public class SiteConfigValidator {
     private final ContentRepository contents;
 
     public SiteConfigValidator(ObjectMapper objectMapper, HtmlSanitizer htmlSanitizer,
-                                LinkResolver links, MediaService mediaService,
-                                ContentRepository contents) {
+                               LinkResolver links, MediaService mediaService,
+                               ContentRepository contents) {
         this.objectMapper = objectMapper;
         this.htmlSanitizer = htmlSanitizer;
         this.links = links;
@@ -74,8 +78,7 @@ public class SiteConfigValidator {
         }
         node.put("copyrightText", copyright);
         node.put("icpText", limit(text(draft, "icpText"), 80, "icpText", "备案号", errors));
-        String icpUrl = externalOrEmpty(draft, "icpUrl", "icpUrl", "备案链接", errors);
-        node.put("icpUrl", icpUrl);
+        node.put("icpUrl", externalOrEmpty(draft, "icpUrl", "icpUrl", "备案链接", errors));
         node.put("policeText", limit(text(draft, "policeText"), 80, "policeText", "公安备案号", errors));
         node.put("policeUrl", externalOrEmpty(draft, "policeUrl", "policeUrl", "公安备案链接", errors));
 
@@ -116,37 +119,73 @@ public class SiteConfigValidator {
         }
         node.set("footerGroups", groups);
 
+        // 页脚受控二维码列表（仅保存受控 mediaId 或合法 URL）
         ArrayNode qrCodes = objectMapper.createArrayNode();
         JsonNode rawQrs = draft.get("qrCodes");
         if (rawQrs != null && rawQrs.isArray()) {
             for (int i = 0; i < Math.min(rawQrs.size(), 4); i++) {
                 JsonNode q = rawQrs.get(i);
                 if (q == null || !q.isObject()) continue;
+                String path = "qrCodes[" + i + "]";
                 ObjectNode qNode = objectMapper.createObjectNode();
-                qNode.put("label", limit(text(q, "label"), 20, "qrCodes[" + i + "].label", "二维码名称", errors));
-                Long qMediaId = mediaId(q.get("mediaId"), "qrCodes[" + i + "].mediaId", "二维码图片", errors);
+                qNode.put("label", limit(text(q, "label"), 20, path + ".label", "二维码名称", errors));
+                Long qMediaId = mediaId(q.get("mediaId"), path + ".mediaId", "二维码图片", errors);
                 if (qMediaId != null) {
                     qNode.put("mediaId", qMediaId);
                     qNode.put("imageUrl", "/api/public/media/" + qMediaId);
-                } else {
-                    String imgUrl = text(q, "imageUrl");
-                    if (!imgUrl.isEmpty()) qNode.put("imageUrl", imgUrl);
                 }
                 qrCodes.add(qNode);
             }
         }
         node.set("qrCodes", qrCodes);
 
-        // 保留页脚多邮箱职能说明与小七 AI 助手自定义配置
-        if (draft.get("contactEmails") != null && draft.get("contactEmails").isArray()) {
-            node.set("contactEmails", draft.get("contactEmails"));
+        // 页脚多邮箱职能列表（结构化白名单）
+        ArrayNode contactEmails = objectMapper.createArrayNode();
+        JsonNode rawEmails = draft.get("contactEmails");
+        if (rawEmails != null && rawEmails.isArray()) {
+            for (int i = 0; i < Math.min(rawEmails.size(), 6); i++) {
+                JsonNode em = rawEmails.get(i);
+                if (em == null || !em.isObject()) continue;
+                String path = "contactEmails[" + i + "]";
+                String emailAddr = limit(text(em, "email"), 100, path + ".email", "联系邮箱", errors);
+                if (emailAddr.isEmpty()) continue;
+                if (!emailAddr.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                    errors.add(new FieldErrorItem(path + ".email", "邮箱格式不正确"));
+                }
+                ObjectNode emNode = objectMapper.createObjectNode();
+                emNode.put("email", emailAddr);
+                emNode.put("desc", limit(text(em, "desc"), 40, path + ".desc", "邮箱用途说明", errors));
+                contactEmails.add(emNode);
+            }
         }
-        if (draft.get("xiaoqiConfig") != null && draft.get("xiaoqiConfig").isObject()) {
-            node.set("xiaoqiConfig", draft.get("xiaoqiConfig"));
-        }
-        // 栏目首屏与横幅配置（新闻、案例、产品、方案等全站栏目首屏背景与文字）
-        if (draft.get("pageHeroes") != null && draft.get("pageHeroes").isObject()) {
-            node.set("pageHeroes", draft.get("pageHeroes"));
+        node.set("contactEmails", contactEmails);
+
+        // 栏目首屏横幅配置（结构化白名单）
+        JsonNode rawHeroes = draft.get("pageHeroes");
+        if (rawHeroes != null && rawHeroes.isObject()) {
+            ObjectNode heroesNode = objectMapper.createObjectNode();
+            for (String pageKey : List.of("products", "solutions", "cases", "news")) {
+                JsonNode ph = rawHeroes.get(pageKey);
+                if (ph != null && ph.isObject()) {
+                    String path = "pageHeroes." + pageKey;
+                    ObjectNode phNode = objectMapper.createObjectNode();
+                    phNode.put("title", limit(text(ph, "title"), 60, path + ".title", "栏目标题", errors));
+                    phNode.put("subtitle", limit(text(ph, "subtitle"), 200, path + ".subtitle", "栏目副标题", errors));
+                    phNode.put("eyebrow", limit(text(ph, "eyebrow"), 40, path + ".eyebrow", "栏目眉题", errors));
+                    String bgType = text(ph, "bgType");
+                    if (!Set.of("default", "image", "video").contains(bgType)) {
+                        bgType = "default";
+                    }
+                    phNode.put("bgType", bgType);
+                    phNode.put("bgImage", limit(text(ph, "bgImage"), 500, path + ".bgImage", "背景图地址", errors));
+                    phNode.put("bgVideo", limit(text(ph, "bgVideo"), 500, path + ".bgVideo", "背景视频地址", errors));
+                    double opacity = ph.get("overlayOpacity") != null && ph.get("overlayOpacity").isNumber()
+                            ? Math.max(0.0, Math.min(1.0, ph.get("overlayOpacity").asDouble())) : 0.55;
+                    phNode.put("overlayOpacity", opacity);
+                    heroesNode.set(pageKey, phNode);
+                }
+            }
+            node.set("pageHeroes", heroesNode);
         }
 
         return node;
@@ -236,8 +275,7 @@ public class SiteConfigValidator {
                 String path = "megaColumns[" + i + "]";
                 if (col == null || !col.isObject()) continue;
                 ObjectNode colNode = objectMapper.createObjectNode();
-                String colTitle = limit(text(col, "title"), 30, path + ".title", "大菜单列标题", errors);
-                colNode.put("title", colTitle);
+                colNode.put("title", limit(text(col, "title"), 30, path + ".title", "大菜单列标题", errors));
 
                 ArrayNode colItems = objectMapper.createArrayNode();
                 JsonNode subItems = col.get("items");
@@ -315,12 +353,12 @@ public class SiteConfigValidator {
         node.put("heroTitle", limit(text(draft, "heroTitle"), 100, "heroTitle", "首屏标题", errors));
         node.put("heroSubtitle", limit(text(draft, "heroSubtitle"), 500, "heroSubtitle", "首屏副标题", errors));
         node.put("heroEyebrow", limit(text(draft, "heroEyebrow"), 60, "heroEyebrow", "首屏眉标", errors));
-        node.put("heroBgType", text(draft, "heroBgType").isEmpty() ? "default" : text(draft, "heroBgType"));
-        node.put("heroBgImage", text(draft, "heroBgImage"));
-        node.put("heroBgVideo", text(draft, "heroBgVideo"));
+        String heroBgType = text(draft, "heroBgType");
+        node.put("heroBgType", Set.of("default", "image", "video").contains(heroBgType) ? heroBgType : "default");
+        node.put("heroBgImage", limit(text(draft, "heroBgImage"), 500, "heroBgImage", "首屏背景图", errors));
+        node.put("heroBgVideo", limit(text(draft, "heroBgVideo"), 500, "heroBgVideo", "首屏背景视频", errors));
         node.put("showHeroLogoMark", bool(draft, "showHeroLogoMark", false));
 
-        // 模块显隐与配图控制：支持放图片/不放图片、支持模块自由开启/关闭
         node.put("showIntro", bool(draft, "showIntro", true));
         boolean hasIntroImg = !text(draft, "introImage").isEmpty();
         node.put("showIntroImage", bool(draft, "showIntroImage", hasIntroImg));
@@ -342,24 +380,121 @@ public class SiteConfigValidator {
         node.put("joinButtonText", limit(text(draft, "joinButtonText"), 20, "joinButtonText", "招聘按钮文字", errors));
         node.put("joinUrl", limit(text(draft, "joinUrl"), 500, "joinUrl", "招聘链接", errors));
 
-        if (draft.get("ceoLetter") != null && draft.get("ceoLetter").isObject()) {
-            node.set("ceoLetter", draft.get("ceoLetter"));
+        // CEO 致信结构化白名单
+        JsonNode rawCeo = draft.get("ceoLetter");
+        if (rawCeo != null && rawCeo.isObject()) {
+            ObjectNode ceoNode = objectMapper.createObjectNode();
+            ceoNode.put("leftQuote", limit(text(rawCeo, "leftQuote"), 300, "ceoLetter.leftQuote", "左侧引言", errors));
+            ceoNode.put("title", limit(text(rawCeo, "title"), 100, "ceoLetter.title", "致辞标题", errors));
+            ceoNode.put("signature", limit(text(rawCeo, "signature"), 50, "ceoLetter.signature", "署名", errors));
+            ceoNode.put("buttonText", limit(text(rawCeo, "buttonText"), 20, "ceoLetter.buttonText", "按钮文字", errors));
+            ceoNode.set("excerpt", stringList(rawCeo.get("excerpt"), 6, 500, "ceoLetter.excerpt", "摘要段落", errors));
+            ceoNode.set("fullParagraphs", stringList(rawCeo.get("fullParagraphs"), 15, 1000, "ceoLetter.fullParagraphs", "全文段落", errors));
+            node.set("ceoLetter", ceoNode);
         }
-        if (draft.get("teamMembers") != null && draft.get("teamMembers").isArray()) {
-            node.set("teamMembers", draft.get("teamMembers"));
+
+        // 管理团队结构化白名单
+        ArrayNode teamList = objectMapper.createArrayNode();
+        JsonNode rawTeam = draft.get("teamMembers");
+        if (rawTeam != null && rawTeam.isArray()) {
+            for (int i = 0; i < Math.min(rawTeam.size(), 20); i++) {
+                JsonNode m = rawTeam.get(i);
+                if (m == null || !m.isObject()) continue;
+                String path = "teamMembers[" + i + "]";
+                String name = limit(text(m, "name"), 40, path + ".name", "成员姓名", errors);
+                if (name.isEmpty()) continue;
+                ObjectNode mNode = objectMapper.createObjectNode();
+                mNode.put("name", name);
+                mNode.put("role", limit(text(m, "role"), 60, path + ".role", "职位", errors));
+                mNode.put("avatar", limit(text(m, "avatar"), 500, path + ".avatar", "头像地址", errors));
+                mNode.set("bio", stringList(m.get("bio"), 10, 600, path + ".bio", "履历段落", errors));
+                teamList.add(mNode);
+            }
         }
-        if (draft.get("resources") != null && draft.get("resources").isArray()) {
-            node.set("resources", draft.get("resources"));
+        node.set("teamMembers", teamList);
+
+        // 资料库结构化白名单
+        ArrayNode resList = objectMapper.createArrayNode();
+        JsonNode rawRes = draft.get("resources");
+        if (rawRes != null && rawRes.isArray()) {
+            for (int i = 0; i < Math.min(rawRes.size(), 30); i++) {
+                JsonNode r = rawRes.get(i);
+                if (r == null || !r.isObject()) continue;
+                String path = "resources[" + i + "]";
+                String rTitle = limit(text(r, "title"), 80, path + ".title", "资料标题", errors);
+                if (rTitle.isEmpty()) continue;
+                ObjectNode rNode = objectMapper.createObjectNode();
+                rNode.put("category", limit(text(r, "category"), 30, path + ".category", "资料分类", errors));
+                rNode.put("title", rTitle);
+                rNode.put("logoText", limit(text(r, "logoText"), 50, path + ".logoText", "封面文字", errors));
+                rNode.put("logoColor", limit(text(r, "logoColor"), 30, path + ".logoColor", "封面底色", errors));
+                rNode.put("url", limit(text(r, "url"), 500, path + ".url", "资料链接", errors));
+                rNode.put("isVideo", bool(r, "isVideo", false));
+                resList.add(rNode);
+            }
         }
-        if (draft.get("customerStories") != null && draft.get("customerStories").isArray()) {
-            node.set("customerStories", draft.get("customerStories"));
+        node.set("resources", resList);
+
+        // 客户故事结构化白名单
+        ArrayNode storyList = objectMapper.createArrayNode();
+        JsonNode rawStories = draft.get("customerStories");
+        if (rawStories != null && rawStories.isArray()) {
+            for (int i = 0; i < Math.min(rawStories.size(), 20); i++) {
+                JsonNode st = rawStories.get(i);
+                if (st == null || !st.isObject()) continue;
+                String path = "customerStories[" + i + "]";
+                String quote = limit(text(st, "quote"), 400, path + ".quote", "证言内容", errors);
+                if (quote.isEmpty()) continue;
+                ObjectNode stNode = objectMapper.createObjectNode();
+                stNode.put("quote", quote);
+                stNode.put("author", limit(text(st, "author"), 60, path + ".author", "证言人", errors));
+                stNode.put("company", limit(text(st, "company"), 60, path + ".company", "客户公司", errors));
+                stNode.put("logoText", limit(text(st, "logoText"), 40, path + ".logoText", "标识文字", errors));
+                stNode.put("videoUrl", limit(text(st, "videoUrl"), 500, path + ".videoUrl", "视频地址", errors));
+                storyList.add(stNode);
+            }
         }
-        if (draft.get("values") != null && draft.get("values").isArray()) {
-            node.set("values", draft.get("values"));
+        node.set("customerStories", storyList);
+
+        // 价值观结构化白名单
+        ArrayNode valList = objectMapper.createArrayNode();
+        JsonNode rawVals = draft.get("values");
+        if (rawVals != null && rawVals.isArray()) {
+            for (int i = 0; i < Math.min(rawVals.size(), 10); i++) {
+                JsonNode v = rawVals.get(i);
+                if (v == null || !v.isObject()) continue;
+                String path = "values[" + i + "]";
+                String vTitle = limit(text(v, "title"), 40, path + ".title", "价值观标题", errors);
+                if (vTitle.isEmpty()) continue;
+                ObjectNode vNode = objectMapper.createObjectNode();
+                vNode.put("title", vTitle);
+                vNode.set("lines", stringList(v.get("lines"), 6, 200, path + ".lines", "价值观诠释", errors));
+                valList.add(vNode);
+            }
         }
-        if (draft.get("offices") != null && draft.get("offices").isArray()) {
-            node.set("offices", draft.get("offices"));
+        node.set("values", valList);
+
+        // 全国分支网点结构化白名单
+        ArrayNode officeList = objectMapper.createArrayNode();
+        JsonNode rawOffices = draft.get("offices");
+        if (rawOffices != null && rawOffices.isArray()) {
+            for (int i = 0; i < Math.min(rawOffices.size(), 20); i++) {
+                JsonNode o = rawOffices.get(i);
+                if (o == null || !o.isObject()) continue;
+                String path = "offices[" + i + "]";
+                String city = limit(text(o, "city"), 40, path + ".city", "城市名称", errors);
+                if (city.isEmpty()) continue;
+                ObjectNode oNode = objectMapper.createObjectNode();
+                oNode.put("city", city);
+                oNode.put("phone", limit(text(o, "phone"), 40, path + ".phone", "分部电话", errors));
+                oNode.put("address", limit(text(o, "address"), 150, path + ".address", "分部地址", errors));
+                oNode.put("image", limit(text(o, "image"), 500, path + ".image", "分部配图", errors));
+                oNode.put("mapX", Math.max(0, Math.min(100, intValue(o, "mapX", 65))));
+                oNode.put("mapY", Math.max(0, Math.min(100, intValue(o, "mapY", 50))));
+                officeList.add(oNode);
+            }
         }
+        node.set("offices", officeList);
 
         ArrayNode milestones = objectMapper.createArrayNode();
         JsonNode source = draft.get("milestones");
@@ -398,8 +533,6 @@ public class SiteConfigValidator {
                 if (qMedia != null) {
                     qual.put("mediaId", qMedia);
                     qual.put("imageUrl", "/api/public/media/" + qMedia);
-                } else if (!text(item, "imageUrl").isEmpty()) {
-                    qual.put("imageUrl", limit(text(item, "imageUrl"), 500, path + ".imageUrl", "资质图片链接", errors));
                 }
                 qualifications.add(qual);
             }
@@ -414,17 +547,28 @@ public class SiteConfigValidator {
         ObjectNode node = objectMapper.createObjectNode();
         String title = limit(text(draft, "title"), 50, "title", "页面标题", errors);
         node.put("title", title.isEmpty() ? "联系我们" : title);
+        node.put("companyName", limit(text(draft, "companyName"), 100, "companyName", "公司全称", errors));
         node.put("description", limit(text(draft, "description"), 300, "description", "页面描述", errors));
+        String formTitle = limit(text(draft, "formTitle"), 40, "formTitle", "弹窗表单标题", errors);
+        node.put("formTitle", formTitle.isEmpty() ? "预约产品展示" : formTitle);
         node.put("successText", limit(text(draft, "successText"), 200, "successText", "提交成功提示", errors));
         node.put("formEnabled", bool(draft, "formEnabled", true));
+        node.put("smsVerifyEnabled", bool(draft, "smsVerifyEnabled", true));
         node.put("phone", limit(text(draft, "phone"), 40, "phone", "联系电话", errors));
         String email = limit(text(draft, "email"), 100, "email", "邮箱", errors);
         if (!email.isEmpty() && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             errors.add(new FieldErrorItem("email", "邮箱格式不正确"));
         }
         node.put("email", email);
-        node.put("address", limit(text(draft, "address"), 120, "address", "地址", errors));
-        node.put("hours", limit(text(draft, "hours"), 60, "hours", "服务时间", errors));
+        node.put("address", limit(text(draft, "address"), 200, "address", "地址", errors));
+        node.put("hours", limit(text(draft, "hours"), 100, "hours", "服务时间", errors));
+        node.put("mapUrl", externalOrEmpty(draft, "mapUrl", "mapUrl", "地图链接", errors));
+        Long qrMediaId = mediaId(draft.get("qrMediaId"), "qrMediaId", "联系二维码", errors);
+        if (qrMediaId != null) {
+            node.put("qrMediaId", qrMediaId);
+            node.put("qrImageUrl", "/api/public/media/" + qrMediaId);
+        }
+        node.put("qrLabel", limit(text(draft, "qrLabel"), 30, "qrLabel", "二维码说明", errors));
         return node;
     }
 
@@ -432,6 +576,8 @@ public class SiteConfigValidator {
 
     private ObjectNode privacy(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
+        String title = limit(text(draft, "title"), 50, "title", "隐私说明标题", errors);
+        node.put("title", title.isEmpty() ? "隐私说明" : title);
         String updatedAt = text(draft, "updatedAt");
         try {
             node.put("updatedAt", LocalDate.parse(updatedAt).toString());
@@ -439,7 +585,11 @@ public class SiteConfigValidator {
             errors.add(new FieldErrorItem("updatedAt", "更新日期格式需为 yyyy-MM-dd"));
             node.put("updatedAt", LocalDate.now().toString());
         }
-        String body = htmlSanitizer.sanitize(text(draft, "bodyHtml"));
+        String rawBody = text(draft, "bodyHtml");
+        if (rawBody.length() > HtmlSanitizer.MAX_LENGTH) {
+            errors.add(new FieldErrorItem("bodyHtml", "隐私说明正文不能超过 " + HtmlSanitizer.MAX_LENGTH + " 字符"));
+        }
+        String body = htmlSanitizer.sanitize(rawBody);
         if (body.isBlank()) {
             errors.add(new FieldErrorItem("bodyHtml", "隐私说明正文不能为空"));
         }
@@ -458,9 +608,6 @@ public class SiteConfigValidator {
         node.set("hero", hero(draft.get("hero"), errors));
         if (draft.get("metrics") != null && draft.get("metrics").isObject()) {
             node.set("metrics", metrics(draft.get("metrics"), errors));
-        }
-        if (draft.get("showcaseStages") != null && draft.get("showcaseStages").isArray()) {
-            node.set("showcaseStages", draft.get("showcaseStages"));
         }
         node.set("services", services(draft.get("services"), errors));
         node.set("cases", caseBlock(draft.get("cases"), errors));
@@ -513,16 +660,15 @@ public class SiteConfigValidator {
                 heroItem.put("sortOrder", sortOrder(item, path, errors));
                 heroItem.put("title", limit(text(item, "title"), 40, path + ".title", "首屏标题", errors));
                 heroItem.put("subtitle",
-                        limit(text(item, "subtitle"), 100, path + ".subtitle", "首屏副标题", errors));
+                        limit(text(item, "subtitle"), 120, path + ".subtitle", "首屏副标题", errors));
                 heroItem.put("theme", "light".equals(text(item, "theme")) ? "light" : "dark");
                 heroItem.put("titleColor", limit(text(item, "titleColor"), 30, path + ".titleColor", "标题颜色", errors));
                 heroItem.put("subtitleColor", limit(text(item, "subtitleColor"), 30, path + ".subtitleColor", "副标题颜色", errors));
                 heroItem.put("kickerColor", limit(text(item, "kickerColor"), 30, path + ".kickerColor", "眉题颜色", errors));
                 heroItem.put("buttonBgColor", limit(text(item, "buttonBgColor"), 30, path + ".buttonBgColor", "按钮背景色", errors));
                 heroItem.put("buttonTextColor", limit(text(item, "buttonTextColor"), 30, path + ".buttonTextColor", "按钮文字色", errors));
-                heroItem.put("kicker", limit(text(item, "kicker"), 60, path + ".kicker", "署名文案", errors));
+                heroItem.put("kicker", limit(text(item, "kicker"), 60, path + ".kicker", "眉题文案", errors));
                 heroItem.put("badgeText", limit(text(item, "badgeText"), 20, path + ".badgeText", "提示文案", errors));
-                heroItem.put("watermark", limit(text(item, "watermark"), 20, path + ".watermark", "背景水印", errors));
                 Long desktop = mediaId(item.get("desktopMediaId"), path + ".desktopMediaId", "桌面图片", errors);
                 if (desktop != null) {
                     heroItem.put("desktopMediaId", desktop);
@@ -532,7 +678,7 @@ public class SiteConfigValidator {
                     heroItem.put("mobileMediaId", mobile);
                 }
                 heroItem.put("imageAlt", limit(text(item, "imageAlt"), 120, path + ".imageAlt", "图片替代文字", errors));
-                String buttonText = limit(text(item, "buttonText"), 12, path + ".buttonText", "按钮文案", errors);
+                String buttonText = limit(text(item, "buttonText"), 16, path + ".buttonText", "按钮文案", errors);
                 ObjectNode link = linkOrNull(item.get("link"), path + ".link", "按钮链接", errors);
                 heroItem.put("buttonText", buttonText);
                 heroItem.set("link", link);
@@ -545,10 +691,6 @@ public class SiteConfigValidator {
 
     private ObjectNode metrics(JsonNode source, List<FieldErrorItem> errors) {
         ObjectNode node = block(source, "metrics", "企业指标", errors);
-        node.put("brandPrefix", limit(text(source, "brandPrefix"), 10, "metrics.brandPrefix", "品牌前缀", errors));
-        if (source != null && source.get("hotspots") != null && source.get("hotspots").isArray()) {
-            node.set("hotspots", source.get("hotspots"));
-        }
         ArrayNode items = objectMapper.createArrayNode();
         JsonNode list = source == null ? null : source.get("items");
         if (list != null && list.isArray()) {
@@ -610,7 +752,7 @@ public class SiteConfigValidator {
                 }
                 item.set("highlights", highlights);
                 String layout = text(group, "layout");
-                item.put("layout", layout.isBlank() ? "auto" : layout);
+                item.put("layout", Set.of("auto", "left", "right").contains(layout) ? layout : "auto");
                 Long image = mediaId(group.get("imageMediaId"), path + ".imageMediaId", "分组配图", errors);
                 if (image != null) {
                     item.put("imageMediaId", image);
@@ -646,8 +788,11 @@ public class SiteConfigValidator {
 
     private ObjectNode news(JsonNode source, List<FieldErrorItem> errors) {
         ObjectNode node = block(source, "news", "新闻动态", errors);
-        String mode = text(source, "mode");
-        if (mode.isEmpty() || !Set.of("SELECTED", "LATEST").contains(mode)) {
+        String mode = text(source, "mode").toUpperCase();
+        if ("MANUAL".equals(mode)) {
+            mode = "SELECTED";
+        }
+        if (!Set.of("SELECTED", "LATEST").contains(mode)) {
             mode = "LATEST";
         }
         node.put("mode", mode);
@@ -665,7 +810,7 @@ public class SiteConfigValidator {
         node.put("subtitle",
                 limit(text(source, "subtitle"), 200, "consultation.subtitle", "咨询区副标题", errors));
         node.put("buttonText",
-                limit(text(source, "buttonText"), 12, "consultation.buttonText", "按钮文案", errors));
+                limit(text(source, "buttonText"), 16, "consultation.buttonText", "按钮文案", errors));
         node.set("link", linkOrNull(source == null ? null : source.get("link"),
                 "consultation.link", "咨询动作", errors));
         return node;
@@ -679,7 +824,21 @@ public class SiteConfigValidator {
         return node;
     }
 
-    // -------------------------------------------------- 发布校验
+    private ArrayNode stringList(JsonNode source, int maxItems, int maxLen, String path, String label,
+                                 List<FieldErrorItem> errors) {
+        ArrayNode arr = objectMapper.createArrayNode();
+        if (source == null || !source.isArray()) return arr;
+        for (int i = 0; i < Math.min(source.size(), maxItems); i++) {
+            JsonNode it = source.get(i);
+            String val = it != null ? it.asString().trim() : "";
+            if (!val.isEmpty()) {
+                arr.add(limit(val, maxLen, path + "[" + i + "]", label, errors));
+            }
+        }
+        return arr;
+    }
+
+    // -------------------------------------------------- 发布校验（含 LinkResolver.publishable 死链阻断）
 
     public void validateForPublish(SiteConfigKey key, JsonNode draft) {
         List<FieldErrorItem> errors = new ArrayList<>();
@@ -703,6 +862,21 @@ public class SiteConfigValidator {
         if (text(draft, "copyrightText").isBlank()) {
             errors.add(new FieldErrorItem("copyrightText", "版权文案不能为空"));
         }
+        JsonNode footerGroups = draft.get("footerGroups");
+        if (footerGroups != null && footerGroups.isArray()) {
+            for (int i = 0; i < footerGroups.size(); i++) {
+                JsonNode grpLinks = footerGroups.get(i).get("links");
+                if (grpLinks != null && grpLinks.isArray()) {
+                    for (int j = 0; j < grpLinks.size(); j++) {
+                        JsonNode lnk = grpLinks.get(j);
+                        if (bool(lnk, "enabled", true) && !links.publishable(lnk.get("link"), null)) {
+                            errors.add(new FieldErrorItem("footerGroups[" + i + "].links[" + j + "].link",
+                                    "页脚链接指向的目标内容不存在、尚未发布或类型不匹配"));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void publishContact(JsonNode draft, List<FieldErrorItem> errors) {
@@ -715,6 +889,25 @@ public class SiteConfigValidator {
         JsonNode items = draft.get("items");
         if (items == null || !items.isArray() || items.isEmpty()) {
             errors.add(new FieldErrorItem("items", "请至少配置一项导航"));
+            return;
+        }
+        for (int i = 0; i < items.size(); i++) {
+            JsonNode item = items.get(i);
+            if (!bool(item, "enabled", true)) continue;
+            if (!links.publishable(item.get("link"), null)) {
+                errors.add(new FieldErrorItem("items[" + i + "].link",
+                        "导航项「" + text(item, "label") + "」指向的目标内容不存在、尚未发布或类型不匹配"));
+            }
+            JsonNode children = item.get("children");
+            if (children != null && children.isArray()) {
+                for (int j = 0; j < children.size(); j++) {
+                    JsonNode child = children.get(j);
+                    if (bool(child, "enabled", true) && !links.publishable(child.get("link"), null)) {
+                        errors.add(new FieldErrorItem("items[" + i + "].children[" + j + "].link",
+                                "子菜单「" + text(child, "label") + "」指向的目标内容不存在、尚未发布或类型不匹配"));
+                    }
+                }
+            }
         }
     }
 
@@ -731,11 +924,57 @@ public class SiteConfigValidator {
                 if (text(item, "title").isBlank()) {
                     errors.add(new FieldErrorItem(path + ".title", "首屏标题不能为空"));
                 }
+                if (!links.publishable(item.get("link"), null)) {
+                    errors.add(new FieldErrorItem(path + ".link", "首屏按钮链接指向的目标内容尚未发布或不存在"));
+                }
                 validHero++;
             }
         }
         if (validHero == 0) {
             errors.add(new FieldErrorItem("hero.items", "正式上线至少需要 1 条有效首屏"));
+        }
+
+        // 校验首页服务分组引用的内容与更多链接
+        JsonNode services = draft.get("services");
+        if (services != null && bool(services, "enabled", true)) {
+            JsonNode groups = services.get("groups");
+            if (groups != null && groups.isArray()) {
+                for (int i = 0; i < groups.size(); i++) {
+                    JsonNode g = groups.get(i);
+                    String path = "services.groups[" + i + "]";
+                    if (!links.publishable(g.get("moreLink"), null)) {
+                        errors.add(new FieldErrorItem(path + ".moreLink", "分组更多链接指向的目标尚未发布"));
+                    }
+                    String expectedType = text(g, "contentType").isEmpty() ? "PRODUCT" : text(g, "contentType");
+                    checkPublishedContentIds(g.get("contentIds"), expectedType, path + ".contentIds", errors);
+                }
+            }
+        }
+        JsonNode cases = draft.get("cases");
+        if (cases != null && bool(cases, "enabled", true)) {
+            checkPublishedContentIds(cases.get("contentIds"), "CASE", "cases.contentIds", errors);
+        }
+        JsonNode customers = draft.get("customers");
+        if (customers != null && bool(customers, "enabled", true)) {
+            checkPublishedContentIds(customers.get("contentIds"), "CUSTOMER", "customers.contentIds", errors);
+        }
+        JsonNode news = draft.get("news");
+        if (news != null && bool(news, "enabled", true) && "SELECTED".equals(text(news, "mode"))) {
+            checkPublishedContentIds(news.get("contentIds"), "NEWS", "news.contentIds", errors);
+        }
+    }
+
+    private void checkPublishedContentIds(JsonNode idsNode, String expectedType, String path,
+                                          List<FieldErrorItem> errors) {
+        if (idsNode == null || !idsNode.isArray()) return;
+        for (int i = 0; i < idsNode.size(); i++) {
+            Long cid = idsNode.get(i).isNumber() ? idsNode.get(i).asLong() : parseLong(idsNode.get(i).asString());
+            if (cid == null) continue;
+            ContentRow row = contents.findPublishedById(cid).orElse(null);
+            if (row == null || !row.contentType().name().equals(expectedType)) {
+                errors.add(new FieldErrorItem(path + "[" + i + "]",
+                        "引用的内容 #" + cid + " 不存在、未发布或类型不匹配"));
+            }
         }
     }
 

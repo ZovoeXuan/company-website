@@ -59,7 +59,7 @@ public class UserService {
 
     /**
      * 修改账号。降级或禁用最后一个启用的管理员会被拒绝。
-     * 为避免并发绕过，先在事务内锁住其他启用的管理员集合再判断。
+     * 当账号被禁用或角色发生变更时，立即撤销该账号已有会话，防止旧权限继续生效。
      */
     @Transactional
     public void update(long id, UpdateUserRequest request, CmsPrincipal operator) {
@@ -81,13 +81,16 @@ public class UserService {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "账号已被他人修改，请刷新后重试");
         }
 
-        if (target.enabled() && !request.enabled()) {
+        boolean disabledNow = target.enabled() && !request.enabled();
+        boolean roleChanged = target.roleCode() != newRole;
+        if (disabledNow || roleChanged) {
             sessionRevoker.revokeAll(target.username());
         }
 
         audit.success(operator.id(), "USER_UPDATE", "USER", id,
                 "修改账号 " + target.username() + "：角色 " + newRole.name()
-                        + "，状态 " + (request.enabled() ? "启用" : "禁用"));
+                        + "，状态 " + (request.enabled() ? "启用" : "禁用")
+                        + (disabledNow || roleChanged ? "（已刷新会话）" : ""));
     }
 
     @Transactional

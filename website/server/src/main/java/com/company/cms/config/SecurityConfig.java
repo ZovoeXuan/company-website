@@ -29,7 +29,7 @@ import java.io.IOException;
 
 /**
  * 安全基线：
- * - 公开只读接口 /api/public/** 允许匿名；公开咨询提交单独排除 CSRF（阶段 6）
+ * - 公开只读接口 /api/public/** 允许匿名；公开咨询提交与验证码发送单独排除 CSRF
  * - 后台接口除 csrf / login 外均需登录，写操作需 CSRF
  * - 认证失败、越权、CSRF 失败都返回统一 JSON，不重定向到 HTML 页面
  * - 登录失败限流在认证过滤器之前检查
@@ -63,9 +63,8 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfRepository)
-                        // 使用原始令牌而非 BREACH 掩码，前端从 /csrf 取到后原样放进请求头
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers("/api/public/leads", "/api/public/xiaoqi/chat"))
+                        .ignoringRequestMatchers("/api/public/leads", "/api/public/leads/sms-code"))
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
@@ -73,7 +72,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/auth/csrf", LOGIN_PATH).permitAll()
                         .requestMatchers("/api/admin/**").authenticated()
                         .anyRequest().denyAll())
-                // 不生成默认 HTML 登录页：该地址只接受表单 POST
                 .formLogin(form -> form
                         .loginPage(LOGIN_PATH)
                         .loginProcessingUrl(LOGIN_PATH)
@@ -99,7 +97,6 @@ public class SecurityConfig {
     public DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
-        // 账号不存在与密码错误返回同一异常，避免枚举账号
         provider.setHideUserNotFoundExceptions(true);
         return provider;
     }

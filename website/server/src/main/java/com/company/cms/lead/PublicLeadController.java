@@ -10,9 +10,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
- * 公开咨询提交。该路由已在安全配置中排除 CSRF，仅接受匿名 JSON 请求。
- * 不提供任何公开读取接口。
+ * 公开咨询提交与短信验证码发送。
  */
 @RestController
 @RequestMapping("/api/public")
@@ -22,6 +23,19 @@ public class PublicLeadController {
 
     public PublicLeadController(LeadService leadService) {
         this.leadService = leadService;
+    }
+
+    public record SmsCodeRequest(String phone) {
+    }
+
+    @PostMapping("/leads/sms-code")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendSmsCode(
+            @RequestBody SmsCodeRequest body,
+            HttpServletRequest request) {
+        Map<String, Object> result = leadService.sendSmsCode(
+                body == null ? null : body.phone(), request.getRemoteAddr());
+        return ResponseEntity.status(200)
+                .body(ApiResponse.ok(result, RequestIdFilter.currentId(request)));
     }
 
     @PostMapping("/leads")

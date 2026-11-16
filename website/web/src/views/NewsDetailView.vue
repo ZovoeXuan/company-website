@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ArticleBody from '../../../shared/ArticleBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getNewsDetail } from '@/api/public'
@@ -77,15 +78,24 @@ onMounted(load)
         <time :datetime="data.displayTime">{{ data.displayTime }}</time>
         <span v-if="data.categoryName" class="tag">{{ data.categoryName }}</span>
         <span v-if="data.author">作者：{{ data.author }}</span>
-        <span v-if="data.sourceName">来源：{{ data.sourceName }}</span>
+        <span v-if="data.sourceName">
+          来源：
+          <a
+            v-if="data.sourceUrl && /^https?:\/\//i.test(data.sourceUrl)"
+            :href="data.sourceUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="color: var(--c-brand); text-decoration: underline;"
+          >{{ data.sourceName }}</a>
+          <template v-else>{{ data.sourceName }}</template>
+        </span>
       </div>
 
       <figure v-if="data.cover" class="cover">
         <img :src="data.cover.url" :alt="data.cover.alt || data.title" />
       </figure>
 
-      <!-- 正文由后端清洗后下发 -->
-      <div class="prose" v-html="data.bodyHtml"></div>
+      <ArticleBody :html="data.bodyHtml" :title="data.title" />
 
       <nav class="adjacent" aria-label="相邻文章">
         <RouterLink v-if="data.prev" :to="`/news/${data.prev.id}`" class="adjacent__link">

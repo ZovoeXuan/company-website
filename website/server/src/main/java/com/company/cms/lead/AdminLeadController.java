@@ -20,8 +20,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 /**
- * 咨询管理只对 ADMIN 开放；EDITOR 没有任何读取权限。
- * 查看详情会写审计，列表不返回完整手机号。
+ * 咨询管理只对 ADMIN 开放；提供分页列表、全量状态计数、脱敏详情与状态流转。
  */
 @RestController
 @RequestMapping("/api/admin/leads")
@@ -48,6 +47,17 @@ public class AdminLeadController {
         LocalDate toDate = LeadService.parseDate(to, "to");
         return ApiResponse.ok(leadService.list(status, keyword, fromDate, toDate,
                 query.page(), query.pageSize()), RequestIdFilter.currentId(request));
+    }
+
+    @GetMapping("/counts")
+    public ApiResponse<Map<String, Long>> counts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            HttpServletRequest request) {
+        LocalDate fromDate = LeadService.parseDate(from, "from");
+        LocalDate toDate = LeadService.parseDate(to, "to");
+        return ApiResponse.ok(leadService.statusCounts(keyword, fromDate, toDate), RequestIdFilter.currentId(request));
     }
 
     @GetMapping("/{id}")

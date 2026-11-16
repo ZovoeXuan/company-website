@@ -23,7 +23,7 @@ import java.util.UUID;
 
 /**
  * 素材上传与删除。图片与视频都由文件头判断格式，不信任客户端扩展名与 Content-Type。
- * 图片上限 5 MB / 2000 万像素，视频上限 50 MB。
+ * 图片上限 5 MB / 2000 万像素，视频上限 50 MB。数据库或审计写入失败时自动清理孤儿磁盘文件。
  */
 @Service
 public class MediaService {
@@ -113,17 +113,26 @@ public class MediaService {
             throw new ApiException(ErrorCode.INTERNAL_ERROR, "素材保存失败，请重试");
         }
 
-        String originalName = safeName(file.getOriginalFilename());
-        long id = repository.insert(storageKey, originalName, extension, mimeType, mediaType,
-                file.getSize(), width, height, durationMs, actor.id());
+        try {
+            String originalName = safeName(file.getOriginalFilename());
+            long id = repository.insert(storageKey, originalName, extension, mimeType, mediaType,
+                    file.getSize(), width, height, durationMs, actor.id());
 
-        audit.success(actor.id(), "MEDIA_UPLOAD", "MEDIA", id,
-                mediaType.equals("VIDEO")
-                        ? "上传视频 " + extension + " " + humanSize(file.getSize())
-                        : "上传图片 " + extension + " " + width + "x" + height);
+            audit.success(actor.id(), "MEDIA_UPLOAD", "MEDIA", id,
+                    mediaType.equals("VIDEO")
+                            ? "上传视频 " + extension + " " + humanSize(file.getSize())
+                            : "上传图片 " + extension + " " + width + "x" + height);
 
-        return new MediaItem(String.valueOf(id), originalName, mimeType, mediaType,
-                width, height, durationMs, file.getSize(), publicUrl(id), null, false);
+            return new MediaItem(String.valueOf(id), originalName, mimeType, mediaType,
+                    width, height, durationMs, file.getSize(), publicUrl(id), null, false);
+        } catch (RuntimeException | Error ex) {
+            try {
+                Files.deleteIfExists(target);
+            } catch (IOException ignored) {
+                // 尽最大努力清理落盘孤儿文件
+            }
+            throw ex;
+        }
     }
 
     public record MediaPage(List<MediaItem> items, int page, int pageSize, long total) {
@@ -179,7 +188,6 @@ public class MediaService {
         return new StoredFile(path, media.mimeType(), media.originalName());
     }
 
-    /** 文件按 UTC 年/月分目录存放，路径由创建时间推导，不依赖客户端输入。 */
     private Path resolvePath(MediaRow media) {
         LocalDate created = media.createdAt().toLocalDate();
         return root.resolve(String.valueOf(created.getYear()))

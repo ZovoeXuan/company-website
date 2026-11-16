@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { listContents, type ContentView } from '@/api/content'
+import { getContent, listContents, type ContentView } from '@/api/content'
 
 export interface LinkValue {
   type: string
@@ -100,7 +100,17 @@ async function loadContents(contentType: string) {
   loading.value = true
   try {
     const data = await listContents({ contentType, publicationStatus: 'PUBLISHED', page: 1, pageSize: 50 })
-    contents.value = data.items
+    const list = [...data.items]
+    const currentId = props.modelValue?.contentId ? String(props.modelValue.contentId) : ''
+    if (currentId && !list.some((item) => String(item.id) === currentId)) {
+      try {
+        const extra = await getContent(currentId)
+        if (extra?.content) list.unshift(extra.content)
+      } catch {
+        // ignore
+      }
+    }
+    contents.value = list
   } catch {
     contents.value = []
   } finally {

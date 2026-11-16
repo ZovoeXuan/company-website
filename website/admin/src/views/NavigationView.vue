@@ -49,49 +49,6 @@ const form = reactive<{
   megaCta: { text: '需要专业场景建议？', linkText: '联系技术专家' },
 })
 
-const DEFAULT_MEGA_COLUMNS: MegaColumn[] = [
-  {
-    title: 'AI产品',
-    items: [{ label: '紫宝盒', path: '/products/1', tag: '首款', isVideo: false }],
-  },
-  {
-    title: 'IoT服务',
-    items: [
-      { label: '安全管家', path: '/products?category=安全', isVideo: false },
-      { label: '冷链管家', path: '/products?category=冷链', isVideo: false },
-      { label: '流向管家', path: '/products?category=流向', isVideo: false },
-      { label: '追货管家', path: '/products?category=追货', isVideo: false },
-    ],
-  },
-  {
-    title: '交易服务',
-    items: [
-      { label: '财运通', path: '/solutions?category=交易', isVideo: false },
-      { label: '数字能源', path: '/solutions?category=能源', isVideo: false },
-    ],
-  },
-  {
-    title: '解决方案',
-    items: [
-      { label: '大宗物流数字化', path: '/solutions/1', isVideo: false },
-      { label: '连锁零售数字化', path: '/solutions/2', isVideo: false },
-      { label: '饲料防偷盗 AI 治理', path: '/solutions/3', isVideo: false },
-    ],
-  },
-  {
-    title: '产品演示',
-    items: [
-      {
-        label: '产品操作视频',
-        path: '',
-        isVideo: true,
-        videoTitle: '紫宝盒 | 物流行业首款全场景AI工具产品演示',
-        videoUrl: '',
-      },
-    ],
-  },
-]
-
 function normalize(node: Partial<NavNode>): NavNode {
   return {
     key: node.key,
@@ -138,11 +95,6 @@ function fill() {
   }
 }
 
-function applyDefaultMega() {
-  form.megaColumns = JSON.parse(JSON.stringify(DEFAULT_MEGA_COLUMNS))
-  form.megaCta = { text: '需要专业场景建议？', linkText: '联系技术专家' }
-  ElMessage.success('已载入 5 列业务全景菜单预设，保存草稿后生效')
-}
 
 function addTop() {
   if (form.items.length >= 8) {
@@ -318,9 +270,7 @@ onMounted(async () => {
           <p class="hint">
             当前台导航项名称包含「产品」或「方案」且展开时，将自动渲染此五列业务全景大菜单（支持角标与视频弹窗演示）。
           </p>
-          <el-button size="small" type="primary" plain @click="applyDefaultMega">
-            ✨ 一键载入默认五列全景模板
-          </el-button>
+
         </div>
 
         <div v-for="(col, cIdx) in form.megaColumns" :key="`mega-col-${cIdx}`" class="node">

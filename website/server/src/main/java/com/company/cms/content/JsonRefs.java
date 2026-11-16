@@ -3,13 +3,19 @@ package com.company.cms.content;
 import tools.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 从草稿 JSON 中提取媒体引用与内容引用。
- * 约定：字段名以 MediaId 结尾表示单个媒体，以 MediaIds 结尾表示媒体数组；
- * 关联内容使用 relatedCaseIds / relatedProductIds / relatedSolutionIds。
+ * 1. 字段名以 MediaId 结尾表示单个媒体，以 MediaIds 结尾表示媒体数组；
+ * 2. 正文 bodyHtml 中通过 data-media-id="123" 或 /api/public/media/123 引用的受控媒体也会被登记引用，
+ *    确保正文中插入的受控图片在发布后可通过公开媒体接口访问，且在素材库中受引用保护。
+ * 3. 关联内容使用 relatedCaseIds / relatedProductIds / relatedSolutionIds。
  */
 public final class JsonRefs {
 
@@ -21,6 +27,9 @@ public final class JsonRefs {
 
     private static final List<String> CONTENT_REF_FIELDS = List.of(
             "relatedCaseIds", "relatedProductIds", "relatedSolutionIds");
+
+    private static final Pattern BODY_MEDIA_PATTERN = Pattern.compile(
+            "(?:data-media-id\\s*=\\s*[\"'](\\d{1,18})[\"']|/api/(?:public|admin)/media/(\\d{1,18})(?:/file)?)");
 
     private JsonRefs() {
     }
@@ -77,6 +86,10 @@ public final class JsonRefs {
                     }
                     continue;
                 }
+                if ("bodyHtml".equals(name) && value != null && value.isString()) {
+                    extractHtmlMediaRefs(value.asString(), childPath, refs);
+                    continue;
+                }
                 walk(value, childPath, refs);
             }
             return;
@@ -88,17 +101,37 @@ public final class JsonRefs {
         }
     }
 
+    private static void extractHtmlMediaRefs(String html, String basePath, List<MediaRef> refs) {
+        if (html == null || html.isBlank()) {
+            return;
+        }
+        Matcher matcher = BODY_MEDIA_PATTERN.matcher(html);
+        Set<Long> seen = new LinkedHashSet<>();
+        int idx = 0;
+        while (matcher.find()) {
+            String raw = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            if (raw != null && raw.matches("^\\d{1,18}$")) {
+                long id = Long.parseLong(raw);
+                if (id > 0 && seen.add(id)) {
+                    refs.add(new MediaRef(basePath + ".img[" + (idx++) + "]", id));
+                }
+            }
+        }
+    }
+
     private static Long asLong(JsonNode node) {
         if (node == null || node.isNull()) {
             return null;
         }
         if (node.isNumber()) {
-            return node.asLong();
+            long val = node.asLong();
+            return val > 0 ? val : null;
         }
         if (node.isString()) {
             String text = node.asString().trim();
             if (text.matches("^\\d{1,18}$")) {
-                return Long.parseLong(text);
+                long val = Long.parseLong(text);
+                return val > 0 ? val : null;
             }
         }
         return null;

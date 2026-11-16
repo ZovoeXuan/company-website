@@ -6,6 +6,7 @@ export interface ContentView {
   id: string
   contentType: string
   title: string
+  publishedTitle?: string | null
   status: PublicationStatus
   draftVersion: number
   publishedVersion: number | null
@@ -13,6 +14,8 @@ export interface ContentView {
   hasUnpublishedChanges: boolean
   categoryId: string | null
   categoryName: string | null
+  publishedCategoryId?: string | null
+  publishedCategoryName?: string | null
   sortOrder: number
   displayTime: string | null
   publishedAt: string | null

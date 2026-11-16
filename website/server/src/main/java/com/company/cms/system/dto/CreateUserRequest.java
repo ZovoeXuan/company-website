@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 新建账号。账号规则见文档 4.2：4~50 位英文字母、数字、下划线、连字符。
+ * 新建账号。账号规则见文档 4.2：4~50 位英文字母、数字、下划线、连字符；密码至少 12 位。
  */
 public record CreateUserRequest(
         @NotBlank(message = "请输入账号")
@@ -21,7 +21,7 @@ public record CreateUserRequest(
         String roleCode,
 
         @NotBlank(message = "请输入初始密码")
-        @Size(min = 6, max = 128, message = "密码长度需在 6 到 128 位之间")
+        @Size(min = 12, max = 128, message = "密码长度需在 12 到 128 位之间")
         String initialPassword
 ) {
 }

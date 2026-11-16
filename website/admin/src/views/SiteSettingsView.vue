@@ -31,31 +31,6 @@ interface ContactEmailConfig {
   desc: string
 }
 
-interface XiaoQiFaqPair {
-  q: string
-  thought?: string
-  a: string
-}
-
-interface XiaoQiConfigForm {
-  enabled: boolean
-  name: string
-  roleTitle: string
-  headerLine1: string
-  headerLine2: string
-  welcomeSubtitle: string
-  certBadge: string
-  capabilitiesText: string
-  questionsText: string
-  faqPairs: XiaoQiFaqPair[]
-  deepThinkEnabled: boolean
-  deepThinkModel: string
-  disclaimer: string
-  apiUrl: string
-  apiKey: string
-  modelName: string
-  systemPrompt: string
-}
 
 interface PageHeroItemForm {
   title: string
@@ -74,9 +49,9 @@ const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('SITE')
 
 const values = ref({
-  siteName: '鑫链科技',
-  slogan: '以物联网技术和软件服务赋能实体产业数字化转型',
-  copyrightText: '© 2026 鑫链科技有限公司',
+  siteName: '',
+  slogan: '',
+  copyrightText: '',
   icpText: '',
   icpUrl: 'https://beian.miit.gov.cn/',
   policeText: '',
@@ -84,49 +59,18 @@ const values = ref({
   logoMediaId: '',
   logoAlt: '',
   faviconMediaId: '',
-  seoTitle: '鑫链科技 - 领先的物联网与数字化软件服务公司',
-  seoDescription: '连接产业全流程并以数据和AI驱动运营，助力企业降本增效。',
+  seoTitle: '',
+  seoDescription: '',
   footerGroups: [] as FooterGroup[],
   qrCodes: [
     { label: '公众号', mediaId: '', imageUrl: '' },
     { label: '视频号', mediaId: '', imageUrl: '' },
   ] as QrCodeConfig[],
   contactEmails: [] as ContactEmailConfig[],
-  xiaoqi: {
-    enabled: true,
-    name: '小鑫',
-    roleTitle: '数字物流专家',
-    headerLine1: '您好，我是您的',
-    headerLine2: '数字物流专家 小鑫',
-    welcomeSubtitle: '企业数字化专家',
-    certBadge: '专业认证',
-    capabilitiesText: '数字化解决方案\n新能源场景分析\n运价查询\n线路智能推荐\n物流实时数据',
-    questionsText:
-      '新能源物流车运营痛点解决方案？\n如何构建智慧物流园区？\n“三晒两抓-城配版”系统中司机的安全分是如何分类的？\n物流企业如何控制货损率？\n中国“双碳”目标及全球ESG趋势对物流企业提出哪些新要求？\n什么是「紫宝盒」全场景AI工具？\n大宗煤炭与钢铁运输如何实现防偷盗AI治理？\n冷链运输如何做到全程不脱温预警？\n车队如何通过数字能源降低加油与充电成本？\n如何申请产品免费试用或预约专家演示？',
-    faqPairs: [
-      {
-        q: '新能源物流车运营痛点解决方案？',
-        thought: '正在检索新能源重卡与城配车队运营数据库，匹配数字能源与智能管车一体化方案...',
-        a: '针对新能源物流车运营，我们提供「智能管车 + 数字能源」一体化解决方案：1. 智能补能调度；2. 能耗精细核算；3. 电池健康实时守护。',
-      },
-      {
-        q: '如何构建智慧物流园区？',
-        thought: '正在调取智慧园区与履约可视化架构模型...',
-        a: '构建智慧物流园区核心在于「场内场外协同 + 全流程无人化感知」：支持预约准入联动、智能月台调度与装卸作业透明化监控。',
-      },
-    ],
-    deepThinkEnabled: true,
-    deepThinkModel: 'DeepSeek R1',
-    disclaimer: '提醒：AI也可能会犯错误，请考虑核实重要信息',
-    apiUrl: '',
-    apiKey: '',
-    modelName: 'deepseek-reasoner',
-    systemPrompt: '你是公司官网的智能专家助手小鑫，请专业、清晰、热情地解答客户关于产品、解决方案与合作试用的问题。',
-  } as XiaoQiConfigForm,
   pageHeroes: {
     news: {
-      title: '企业新闻与行业洞察',
-      subtitle: '关注物流与供应链前沿技术、业务动态与标杆企业数字化实践。',
+      title: '新闻与资讯',
+      subtitle: '了解最新企业动态、产品发布与行业数字化实践。',
       eyebrow: 'NEWSROOM',
       bgType: 'default',
       bgImage: '',
@@ -134,8 +78,8 @@ const values = ref({
       overlayOpacity: 0.55,
     },
     cases: {
-      title: '客户成功故事',
-      subtitle: '每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。',
+      title: '客户实践案例',
+      subtitle: '呈现真实业务痛点、部署路径与可衡量的运营成效。',
       eyebrow: 'CUSTOMER STORIES',
       bgType: 'default',
       bgImage: '',
@@ -144,7 +88,7 @@ const values = ref({
     },
     products: {
       title: '产品中心',
-      subtitle: '从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。',
+      subtitle: '按业务场景选择核心产品模块，支持灵活组合与全栈部署。',
       eyebrow: 'PRODUCTS',
       bgType: 'default',
       bgImage: '',
@@ -153,7 +97,7 @@ const values = ref({
     },
     solutions: {
       title: '解决方案',
-      subtitle: '按行业组织的落地方案。先看问题是否相似，再看做法能否复用。',
+      subtitle: '按行业场景组织的落地方案，涵盖业务痛点、架构路径与可验证成果。',
       eyebrow: 'SOLUTIONS',
       bgType: 'default',
       bgImage: '',
@@ -174,9 +118,9 @@ function emptyLink(): FooterLink {
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
-  values.value.siteName = (draft.siteName && !draft.siteName.includes('G7') && !draft.siteName.includes('易流')) ? draft.siteName : '鑫链科技'
+  values.value.siteName = draft.siteName ?? ''
   values.value.slogan = draft.slogan ?? ''
-  values.value.copyrightText = (draft.copyrightText && !draft.copyrightText.includes('G7') && !draft.copyrightText.includes('E6')) ? draft.copyrightText : '© 2026 鑫链科技有限公司'
+  values.value.copyrightText = draft.copyrightText ?? ''
   values.value.icpText = draft.icpText ?? ''
   values.value.icpUrl = draft.icpUrl ?? ''
   values.value.policeText = draft.policeText ?? ''
@@ -184,7 +128,7 @@ function fill() {
   values.value.logoMediaId = draft.logoMediaId != null ? String(draft.logoMediaId) : ''
   values.value.logoAlt = draft.logoAlt ?? ''
   values.value.faviconMediaId = draft.faviconMediaId != null ? String(draft.faviconMediaId) : ''
-  values.value.seoTitle = (draft.defaultSeo?.title && !draft.defaultSeo.title.includes('G7')) ? draft.defaultSeo.title : '鑫链科技 - 领先的物联网与数字化软件服务公司'
+  values.value.seoTitle = draft.defaultSeo?.title ?? ''
   values.value.seoDescription = draft.defaultSeo?.description ?? ''
 
   values.value.footerGroups = (draft.footerGroups ?? []).map((g: any) => ({
@@ -208,38 +152,11 @@ function fill() {
 
   if (Array.isArray(draft.contactEmails)) {
     values.value.contactEmails = draft.contactEmails
-      .filter((e: any) => e?.email && !/@g7\.com\.cn$/i.test(e.email))
+      .filter((e: any) => e?.email)
       .map((e: any) => ({
         email: e.email ?? '',
         desc: e.desc ?? '',
       }))
-  }
-
-  if (draft.xiaoqiConfig && typeof draft.xiaoqiConfig === 'object') {
-    const xq = draft.xiaoqiConfig
-    values.value.xiaoqi.enabled = xq.enabled ?? true
-    values.value.xiaoqi.name = xq.name ?? '小鑫'
-    values.value.xiaoqi.roleTitle = xq.roleTitle ?? '数字物流专家'
-    values.value.xiaoqi.headerLine1 = xq.headerLine1 ?? '您好，我是您的'
-    values.value.xiaoqi.headerLine2 = xq.headerLine2 ?? '数字物流专家 小鑫'
-    values.value.xiaoqi.welcomeSubtitle = (xq.welcomeSubtitle && !xq.welcomeSubtitle.includes('G7') && !xq.welcomeSubtitle.includes('易流')) ? xq.welcomeSubtitle : '企业数字化专家'
-    values.value.xiaoqi.certBadge = xq.certBadge ?? '专业认证'
-    if (Array.isArray(xq.capabilities) && xq.capabilities.length > 0) {
-      values.value.xiaoqi.capabilitiesText = xq.capabilities.join('\n')
-    }
-    if (Array.isArray(xq.questions) && xq.questions.length > 0) {
-      values.value.xiaoqi.questionsText = xq.questions.join('\n')
-    }
-    if (Array.isArray(xq.faqPairs) && xq.faqPairs.length > 0) {
-      values.value.xiaoqi.faqPairs = xq.faqPairs
-    }
-    values.value.xiaoqi.deepThinkEnabled = xq.deepThinkEnabled ?? true
-    values.value.xiaoqi.deepThinkModel = xq.deepThinkModel ?? 'DeepSeek R1'
-    values.value.xiaoqi.disclaimer = xq.disclaimer ?? '提醒：AI也可能会犯错误，请考虑核实重要信息'
-    values.value.xiaoqi.apiUrl = xq.apiUrl ?? ''
-    values.value.xiaoqi.apiKey = xq.apiKey ?? ''
-    values.value.xiaoqi.modelName = xq.modelName ?? 'deepseek-reasoner'
-    values.value.xiaoqi.systemPrompt = xq.systemPrompt ?? ''
   }
 
   if (draft.pageHeroes && typeof draft.pageHeroes === 'object') {
@@ -261,53 +178,30 @@ function fill() {
 
 function buildPayload() {
   return {
-    siteName: values.value.siteName,
-    slogan: values.value.slogan,
-    copyrightText: values.value.copyrightText,
-    icpText: values.value.icpText,
-    icpUrl: values.value.icpUrl,
-    policeText: values.value.policeText,
-    policeUrl: values.value.policeUrl,
+    siteName: values.value.siteName.trim(),
+    slogan: values.value.slogan.trim(),
+    copyrightText: values.value.copyrightText.trim(),
+    icpText: values.value.icpText.trim(),
+    icpUrl: values.value.icpUrl.trim(),
+    policeText: values.value.policeText.trim(),
+    policeUrl: values.value.policeUrl.trim(),
     logoMediaId: values.value.logoMediaId ? Number(values.value.logoMediaId) : null,
-    logoAlt: values.value.logoAlt,
+    logoAlt: values.value.logoAlt.trim(),
     faviconMediaId: values.value.faviconMediaId ? Number(values.value.faviconMediaId) : null,
     defaultSeo: {
-      title: values.value.seoTitle,
-      description: values.value.seoDescription,
+      title: values.value.seoTitle.trim(),
+      description: values.value.seoDescription.trim(),
     },
     footerGroups: values.value.footerGroups,
-    qrCodes: values.value.qrCodes.map((q) => ({
-      label: q.label,
-      mediaId: q.mediaId ? Number(q.mediaId) : undefined,
-      imageUrl: q.mediaId ? `/api/public/media/${q.mediaId}` : q.imageUrl || undefined,
-    })),
+    qrCodes: values.value.qrCodes
+      .filter((q) => q.mediaId || q.imageUrl)
+      .map((q) => ({
+        label: q.label.trim() || '二维码',
+        mediaId: q.mediaId ? Number(q.mediaId) : undefined,
+        imageUrl: q.mediaId ? `/api/public/media/${q.mediaId}` : q.imageUrl || undefined,
+      })),
     contactEmails: values.value.contactEmails.filter((e) => e.email.trim()),
     pageHeroes: values.value.pageHeroes,
-    xiaoqiConfig: {
-      enabled: values.value.xiaoqi.enabled,
-      name: values.value.xiaoqi.name,
-      roleTitle: values.value.xiaoqi.roleTitle,
-      headerLine1: values.value.xiaoqi.headerLine1,
-      headerLine2: values.value.xiaoqi.headerLine2,
-      welcomeSubtitle: values.value.xiaoqi.welcomeSubtitle,
-      certBadge: values.value.xiaoqi.certBadge,
-      capabilities: values.value.xiaoqi.capabilitiesText
-        .split(/\n+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-      questions: values.value.xiaoqi.questionsText
-        .split(/\n+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-      faqPairs: values.value.xiaoqi.faqPairs.filter((f) => f.q.trim() && f.a.trim()),
-      deepThinkEnabled: values.value.xiaoqi.deepThinkEnabled,
-      deepThinkModel: values.value.xiaoqi.deepThinkModel,
-      disclaimer: values.value.xiaoqi.disclaimer,
-      apiUrl: values.value.xiaoqi.apiUrl.trim(),
-      apiKey: values.value.xiaoqi.apiKey.trim(),
-      modelName: values.value.xiaoqi.modelName.trim(),
-      systemPrompt: values.value.xiaoqi.systemPrompt.trim(),
-    },
   }
 }
 
@@ -443,7 +337,7 @@ onMounted(async () => {
               <el-form-item label="二维码图片">
                 <div class="pick-row">
                   <img v-if="qr.imageUrl" :src="qr.imageUrl" alt="二维码预览" class="qr-thumb" />
-                  <span v-else class="muted">默认显示矢量二维码</span>
+                  <span v-else class="muted">未选择（前台不显示未上传的二维码）</span>
                   <el-button size="small" @click="openPicker(idx === 0 ? 'qr0' : 'qr1')">选择图片</el-button>
                   <el-button
                     v-if="qr.imageUrl || qr.mediaId"
@@ -461,7 +355,7 @@ onMounted(async () => {
         </div>
 
         <el-divider />
-        <h3 class="sec-h">页脚 4 列链接分组（留空时自动使用标准 IoT服务/交易服务/解决方案/关于我们）</h3>
+        <h3 class="sec-h">页脚链接分组（留空时前台隐藏页脚分组列）</h3>
         <div v-for="(group, gIndex) in values.footerGroups" :key="gIndex" class="group-card">
           <div class="group-head">
             <el-input v-model="group.title" maxlength="20" placeholder="分组标题" style="width: 220px" />

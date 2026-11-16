@@ -21,10 +21,8 @@ import java.util.Map;
 
 /**
  * 公开版本聚合服务：为前端提供轻量实时同步版本号与 ETag/304 支持。
- * - siteConfigVersion 覆盖 SITE / NAVIGATION / CONTACT / PRIVACY
- * - homeVersion 覆盖 HOME / CONTACT
- * - aboutVersion 覆盖 ABOUT
- * - contentVersion 覆盖 cms_content 与 cms_category 已发布且未删除项的 (COUNT, SUM(published_version))
+ * 除 COUNT 与 SUM(published_version) 外，同时纳入逐条目 (id:published_version) 序列指纹，
+ * 彻底杜绝「下线旧内容 + 发布新内容」或组合替换时版本号相加抵消碰撞。
  */
 @Service
 public class PublicVersionService {
@@ -41,8 +39,12 @@ public class PublicVersionService {
         }
     }
 
-    record TypeStats(long count, long versionSum, LocalDateTime maxPublishedAt) {
-        static final TypeStats EMPTY = new TypeStats(0L, 0L, null);
+    record TypeStats(long count, long versionSum, LocalDateTime maxPublishedAt, String itemsDigest) {
+        static final TypeStats EMPTY = new TypeStats(0L, 0L, null, "");
+
+        TypeStats(long count, long versionSum, LocalDateTime maxPublishedAt) {
+            this(count, versionSum, maxPublishedAt, "");
+        }
     }
 
     record RawSnapshot(
@@ -103,7 +105,6 @@ public class PublicVersionService {
         }
     }
 
-    /** 检查 ETag 是否命中，兼容弱 ETag 与空白。 */
     public boolean matchesIfNoneMatch(String ifNoneMatch, String currentEtag) {
         if (ifNoneMatch == null || ifNoneMatch.isBlank() || currentEtag == null) {
             return false;
@@ -125,7 +126,6 @@ public class PublicVersionService {
         cached = null;
     }
 
-    /** 事务提交后再清缓存，避免并发请求读到提交前快照并缓存 5 秒。 */
     public void evictAfterCommitOrNow() {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -187,11 +187,17 @@ public class PublicVersionService {
             if (!sb.isEmpty()) sb.append('|');
             TypeStats stats = contentStats.getOrDefault(type.name(), TypeStats.EMPTY);
             sb.append(type.name()).append(':').append(stats.count()).append(',').append(stats.versionSum());
+            if (stats.itemsDigest() != null && !stats.itemsDigest().isBlank()) {
+                sb.append(':').append(shortHash(stats.itemsDigest()));
+            }
         }
         for (ContentType type : ContentType.values()) {
             if (type == ContentType.CUSTOMER) continue;
             TypeStats stats = categoryStats.getOrDefault(type.name(), TypeStats.EMPTY);
             sb.append("|CAT_").append(type.name()).append(':').append(stats.count()).append(',').append(stats.versionSum());
+            if (stats.itemsDigest() != null && !stats.itemsDigest().isBlank()) {
+                sb.append(':').append(shortHash(stats.itemsDigest()));
+            }
         }
         return sb.toString();
     }
@@ -211,6 +217,15 @@ public class PublicVersionService {
             s = s.substring(1, s.length() - 1);
         }
         return s;
+    }
+
+    private static String shortHash(String input) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest, 0, 4);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
     }
 
     private static String shortEtag(String input) {
@@ -243,7 +258,8 @@ public class PublicVersionService {
         jdbc.query(
                 """
                 SELECT content_type, COUNT(*) AS cnt, COALESCE(SUM(published_version), 0) AS sum_ver,
-                       MAX(published_at) AS max_pub
+                       MAX(published_at) AS max_pub,
+                       GROUP_CONCAT(CONCAT(id, ':', COALESCE(published_version, 0)) ORDER BY id SEPARATOR ',') AS digest
                   FROM cms_content
                  WHERE publication_status = 'PUBLISHED' AND deleted = 0
                  GROUP BY content_type
@@ -254,7 +270,8 @@ public class PublicVersionService {
                             new TypeStats(
                                     rs.getLong("cnt"),
                                     rs.getLong("sum_ver"),
-                                    rs.getObject("max_pub", LocalDateTime.class)
+                                    rs.getObject("max_pub", LocalDateTime.class),
+                                    rs.getString("digest")
                             )
                     );
                 }
@@ -264,7 +281,8 @@ public class PublicVersionService {
         jdbc.query(
                 """
                 SELECT category_type, COUNT(*) AS cnt, COALESCE(SUM(published_version), 0) AS sum_ver,
-                       MAX(published_at) AS max_pub
+                       MAX(published_at) AS max_pub,
+                       GROUP_CONCAT(CONCAT(id, ':', COALESCE(published_version, 0)) ORDER BY id SEPARATOR ',') AS digest
                   FROM cms_category
                  WHERE publication_status = 'PUBLISHED' AND deleted = 0
                  GROUP BY category_type
@@ -275,7 +293,8 @@ public class PublicVersionService {
                             new TypeStats(
                                     rs.getLong("cnt"),
                                     rs.getLong("sum_ver"),
-                                    rs.getObject("max_pub", LocalDateTime.class)
+                                    rs.getObject("max_pub", LocalDateTime.class),
+                                    rs.getString("digest")
                             )
                     );
                 }

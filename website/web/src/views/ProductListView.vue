@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -9,29 +10,51 @@ import { usePageHero } from '@/composables/usePageHero'
 import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { PageResult, ProductSummary } from '@/data/types'
 
+const route = useRoute()
+const router = useRouter()
 const { hero: heroConfig, refreshHero } = usePageHero('products')
 
 const categories = ref<Array<{ id: string; name: string }>>([])
-const categoryId = ref<string | null>(null)
-const page = ref(1)
+const categoryId = ref<string | null>(
+  typeof route.query.category === 'string' && route.query.category ? route.query.category : null,
+)
+const page = ref(Math.max(1, Number(route.query.page) || 1))
 const result = ref<PageResult<ProductSummary> | null>(null)
 const loading = ref(true)
 const failed = ref(false)
+let reqSeq = 0
 
 usePageMeta(() => ({
-  title: '产品中心',
-  description: '设备管理平台、预测性维护、能耗监测与边缘网关等产品，覆盖设备接入到运维决策全流程。',
+  title: heroConfig.value?.title || '产品中心',
+  description: heroConfig.value?.subtitle || '浏览已发布的产品体系与技术规格。',
 }))
 
+function syncQueryToUrl() {
+  const query: Record<string, string> = {}
+  if (categoryId.value) query.category = categoryId.value
+  if (page.value > 1) query.page = String(page.value)
+  router.replace({ path: '/products', query }).catch(() => {})
+}
+
 async function load() {
+  const currentSeq = ++reqSeq
   loading.value = true
   failed.value = false
   try {
-    result.value = await getProducts({ page: page.value, pageSize: 9, categoryId: categoryId.value })
+    const res = await getProducts({
+      page: page.value,
+      pageSize: 9,
+      categoryId: categoryId.value,
+    })
+    if (currentSeq !== reqSeq) return
+    result.value = res
   } catch {
+    if (currentSeq !== reqSeq) return
     failed.value = true
   } finally {
-    loading.value = false
+    if (currentSeq === reqSeq) {
+      loading.value = false
+    }
   }
 }
 
@@ -39,7 +62,25 @@ function selectCategory(id: string | null) {
   if (categoryId.value === id) return
   categoryId.value = id
   page.value = 1
+  syncQueryToUrl()
 }
+
+function onPageChange(p: number) {
+  page.value = p
+  syncQueryToUrl()
+}
+
+watch(
+  () => [route.query.category, route.query.page],
+  ([qCat, qPage]) => {
+    const nextCat = typeof qCat === 'string' && qCat ? qCat : null
+    const nextPage = Math.max(1, Number(qPage) || 1)
+    if (nextCat !== categoryId.value || nextPage !== page.value) {
+      categoryId.value = nextCat
+      page.value = nextPage
+    }
+  },
+)
 
 watch([categoryId, page], load)
 
@@ -54,7 +95,7 @@ useRealtimeSync(['siteConfigVersion', 'contentVersion'], async (changed, force) 
 })
 
 onMounted(async () => {
-  categories.value = await getProductCategories()
+  categories.value = await getProductCategories().catch(() => [])
   await load()
 })
 </script>
@@ -63,7 +104,7 @@ onMounted(async () => {
   <div>
     <PageHeader
       :title="heroConfig?.title || '产品中心'"
-      :description="heroConfig?.subtitle ?? '从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。'"
+      :description="heroConfig?.subtitle ?? '按业务场景选择核心产品模块，支持灵活组合与全栈部署。'"
       :eyebrow="heroConfig?.eyebrow ?? 'PRODUCTS'"
       :bg-type="heroConfig?.bgType || 'default'"
       :bg-image="heroConfig?.bgImage"
@@ -112,11 +153,13 @@ onMounted(async () => {
           v-else-if="failed"
           title="产品加载失败"
           description="请稍后刷新页面重试。"
-        />
+        >
+          <button type="button" class="btn btn--ghost empty-action" @click="load">重新加载</button>
+        </EmptyState>
 
         <EmptyState
           v-else-if="!result || result.items.length === 0"
-          title="该分类下暂无产品"
+          title="该分类下暂无已发布产品"
           description="可以切换其他分类，或直接联系我们了解定制方案。"
         >
           <RouterLink to="/contact" class="btn btn--ghost empty-action">联系我们</RouterLink>
@@ -127,20 +170,19 @@ onMounted(async () => {
             v-for="(item, index) in result.items"
             :key="item.id"
             :to="`/products/${item.id}`"
-            v-reveal="index * 70"
+            v-reveal="index * 60"
             class="card product"
           >
             <div class="product__media media-frame">
               <img
                 v-if="item.cover"
                 :src="item.cover.url"
-                :alt="item.cover.alt"
+                :alt="item.cover.alt || item.title"
                 :width="item.cover.width"
                 :height="item.cover.height"
                 loading="lazy"
               />
               <div v-else class="product__placeholder"></div>
-              <span class="product__arrow" aria-hidden="true">→</span>
             </div>
             <div class="card__body">
               <span v-if="item.categoryName" class="tag">{{ item.categoryName }}</span>
@@ -155,7 +197,7 @@ onMounted(async () => {
           :page="result.page"
           :page-size="result.pageSize"
           :total="result.total"
-          @change="(p: number) => (page = p)"
+          @change="onPageChange"
         />
       </div>
     </section>
@@ -179,25 +221,25 @@ onMounted(async () => {
 }
 
 .filters__btn {
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 16px;
   border: 1px solid var(--c-border);
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   font-size: 14px;
   color: var(--c-text-muted);
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: all 0.18s ease;
 }
 
 .filters__btn:hover {
-  border-color: var(--c-border-strong);
-  color: var(--c-text);
+  border-color: var(--c-brand);
+  color: var(--c-brand);
 }
 
 .filters__btn.is-active {
-  background: var(--c-brand, #5b4be8);
-  border-color: var(--c-brand, #5b4be8);
+  background: var(--c-brand);
+  border-color: var(--c-brand);
   color: #fff;
 }
 
@@ -206,67 +248,22 @@ onMounted(async () => {
   color: var(--c-text-subtle);
 }
 
-.product {
-  display: block;
-}
-
 .product__media {
-  aspect-ratio: 4 / 3;
-  border-radius: var(--radius);
-}
-
-.product__media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  aspect-ratio: 16 / 10;
+  border-radius: 0;
 }
 
 .product__placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #17171f, #0a0a10);
-}
-
-.product__arrow {
-  position: absolute;
-  right: 18px;
-  top: 18px;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  backdrop-filter: blur(6px);
-  opacity: 0;
-  transform: translate(-6px, 6px);
-  transition: opacity 0.3s ease, transform 0.3s var(--ease-out);
-}
-
-.product:hover .product__arrow {
-  opacity: 1;
-  transform: none;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
 }
 
 .product__title {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .empty-action {
   margin-top: 20px;
-}
-
-.skeleton {
-  height: 280px;
-  border-radius: var(--radius);
-  background: var(--c-surface);
-}
-
-@media (max-width: 640px) {
-  .list-head {
-    align-items: flex-start;
-  }
 }
 </style>

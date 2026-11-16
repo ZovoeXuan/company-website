@@ -48,9 +48,6 @@ public class ContentRepository {
             rs.getInt("deleted") == 1
     );
 
-    /**
-     * MySQL 的 INT UNSIGNED 通过 JDBC 返回 Long，不能直接强转 Integer。
-     */
     private static Integer intOrNull(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
         Object value = rs.getObject(column);
         return value == null ? null : ((Number) value).intValue();
@@ -99,9 +96,6 @@ public class ContentRepository {
         return key.longValue();
     }
 
-    /**
-     * 保存草稿：draft_version 与 lock_version 同时自增，版本不匹配返回 0。
-     */
     public int updateDraft(long id, JsonNode draft, int expectedLockVersion, Long actorId) {
         return jdbc.update("""
                         UPDATE cms_content
@@ -112,10 +106,6 @@ public class ContentRepository {
                 writeJson(draft), UtcTime.now(), actorId, id, expectedLockVersion);
     }
 
-    /**
-     * 发布：把草稿整份复制为快照，同时写入投影列。
-     * 条件包含 lock_version 与 draft_version，避免用旧草稿发布。
-     */
     public int publish(long id, String title, Long categoryId, int sortOrder,
                        LocalDateTime displayTime, int expectedLockVersion,
                        int expectedDraftVersion, Long actorId) {
@@ -187,7 +177,9 @@ public class ContentRepository {
             args.add(filter.type().name());
         }
         if (filter.categoryId() != null) {
-            where.append(" AND published_category_id = ?");
+            // 同时匹配当前草稿工作态分类与线上已发布分类，确保修改草稿分类后筛选立即生效
+            where.append(" AND (published_category_id = ? OR CAST(draft_json ->> '$.categoryId' AS UNSIGNED) = ?)");
+            args.add(filter.categoryId());
             args.add(filter.categoryId());
         }
         if (filter.status() != null) {
@@ -264,7 +256,6 @@ public class ContentRepository {
         return rows.stream().findFirst();
     }
 
-    /** 首页聚合批量取：一次 IN 查询，避免每张卡片单独查库。 */
     public List<ContentRow> findPublishedByIds(java.util.Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -274,7 +265,6 @@ public class ContentRepository {
                 + " AND deleted = 0 AND id IN (" + placeholders + ")", mapper, ids.toArray());
     }
 
-    /** LATEST 模式：按展示时间倒序取指定条数，忽略手选。 */
     public List<ContentRow> findLatestPublishedNews(int limit) {
         return jdbc.query("""
                 SELECT * FROM cms_content

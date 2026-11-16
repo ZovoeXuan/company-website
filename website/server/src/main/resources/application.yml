@@ -73,7 +73,6 @@ cms:
   init:
     username: "${CMS_INIT_USERNAME:}"
     password: "${CMS_INIT_PASSWORD:}"
-  xiaoqi:
-    rate-per-minute: 10
-    # 仅开发环境可设为 true，允许 http://localhost / 127.0.0.1 的模型接口
-    allow-local-http: "${CMS_XIAOQI_ALLOW_LOCAL_HTTP:false}"
+  sms:
+    # 仅本地开发联调可设为 true，生产环境保持 false
+    expose-dev-code: "${CMS_SMS_EXPOSE_DEV_CODE:false}"

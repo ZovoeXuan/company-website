@@ -72,7 +72,7 @@ export function useConfig<T extends Record<string, unknown>>(key: ConfigKey) {
       try {
         localStorage.setItem('admin_data_updated', String(Date.now()))
         localStorage.setItem('site_last_published', String(Date.now()))
-        localStorage.setItem('g7_last_published', String(Date.now()))
+        localStorage.setItem('site_last_published', String(Date.now()))
         window.dispatchEvent(new CustomEvent('admin_config_changed', { detail: { key, published: true } }))
       } catch (_) {}
       ElMessage.success('已发布')

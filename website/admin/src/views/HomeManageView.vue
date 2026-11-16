@@ -137,7 +137,7 @@ const form = reactive({
   hero: { items: [] as HeroItem[] },
   metrics: {
     enabled: true,
-    brandPrefix: 'G',
+    brandPrefix: '',
     title: '产品展示',
     subtitle: '',
     items: [] as MetricItem[],
@@ -155,20 +155,6 @@ const form = reactive({
     link: { type: 'CONSULT' } as LinkValue | null,
   },
 })
-
-const DEFAULT_HOTSPOTS: HotspotItem[] = [
-  { label: '安全驾驶系统', path: '/products/1', x: 525, y: 175, labelX: 390, labelY: 165, align: 'right' },
-  { label: 'AI 车挂匹配', path: '/products?category=IoT', x: 585, y: 195, labelX: 405, labelY: 205, align: 'right' },
-  { label: '数字加注', path: '/solutions?category=交易', x: 565, y: 245, labelX: 410, labelY: 245, align: 'right' },
-  { label: '油耗管理', path: '/products?category=IoT', x: 590, y: 260, labelX: 590, labelY: 75, align: 'left' },
-  { label: 'AI 量方', path: '/products/1', x: 645, y: 170, labelX: 645, labelY: 95, align: 'left' },
-  { label: '实时温控', path: '/products?category=冷链', x: 695, y: 160, labelX: 695, labelY: 60, align: 'left' },
-  { label: '胎温胎压', path: '/products?category=安全', x: 748, y: 255, labelX: 748, labelY: 82, align: 'left' },
-  { label: '轴称重', path: '/products?category=IoT', x: 785, y: 255, labelX: 785, labelY: 98, align: 'left' },
-  { label: '货舱摄像头', path: '/products?category=安全', x: 842, y: 155, labelX: 842, labelY: 65, align: 'left' },
-  { label: '挂车电子制动系统', path: '/products?category=安全', x: 760, y: 268, labelX: 930, labelY: 220, align: 'left' },
-  { label: '倒车盲点检测', path: '/products/1', x: 852, y: 265, labelX: 930, labelY: 265, align: 'left' },
-]
 
 function fill() {
   const draft = view.value?.draft
@@ -200,106 +186,38 @@ function fill() {
     link: (item.link as LinkValue | null) ?? { type: 'CONSULT' },
   }))
 
-  if (form.hero.items.length === 0) {
-    form.hero.items = [
-      {
-        enabled: true,
-        sortOrder: 10,
-        title: '紫宝盒',
-        subtitle: '物流行业首款全场景AI工具',
-        theme: 'dark',
-        watermark: '紫宝盒',
-        kicker: '',
-        badgeText: '',
-        desktopMediaId: null,
-        mobileMediaId: null,
-        imageAlt: '',
-        buttonText: '了解详情',
-        link: { type: 'PAGE', pageCode: 'PRODUCTS' },
-      },
-      {
-        enabled: true,
-        sortOrder: 20,
-        title: '新能源车队管理白皮书',
-        subtitle: '迈向数据驱动的「成本、效率、安全」的精细化运营新时代',
-        theme: 'light',
-        kicker: '徐浪 资深技术专家、金牌讲师',
-        badgeText: '免费下载',
-        watermark: '',
-        desktopMediaId: null,
-        mobileMediaId: null,
-        imageAlt: '',
-        buttonText: '了解详情',
-        link: { type: 'CONSULT' },
-      },
-      {
-        enabled: true,
-        sortOrder: 30,
-        title: '以物联网技术和软件服务改变公路货运',
-        subtitle: '公路货运行业物联网SaaS公司',
-        theme: 'dark',
-        kicker: '',
-        badgeText: '',
-        watermark: '',
-        desktopMediaId: null,
-        mobileMediaId: null,
-        imageAlt: '',
-        buttonText: '了解详情',
-        link: { type: 'PAGE', pageCode: 'ABOUT' },
-      },
-    ]
-  }
-
   form.metrics.enabled = draft.metrics?.enabled ?? true
-  form.metrics.brandPrefix = draft.metrics?.brandPrefix ?? 'G'
-  form.metrics.title = draft.metrics?.title || '产品展示'
+  form.metrics.brandPrefix = draft.metrics?.brandPrefix ?? ''
+  form.metrics.title = draft.metrics?.title || '核心运营指标'
   form.metrics.subtitle = draft.metrics?.subtitle ?? ''
   form.metrics.items = (draft.metrics?.items ?? []).map((m: any, idx: number) => ({
     key: m.key,
     sortOrder: m.sortOrder ?? (idx + 1) * 10,
     displayValue: m.displayValue ?? '',
-    unit: m.unit ?? '+',
+    unit: m.unit ?? '',
     label: m.label ?? '',
     description: m.description ?? '',
   }))
-  if (form.metrics.items.length === 0) {
-    form.metrics.items = [
-      { sortOrder: 10, displayValue: '800W', unit: '+', label: 'IoT设备连接', description: '' },
-      { sortOrder: 20, displayValue: '12000', unit: '+', label: '油站连接', description: '' },
-      { sortOrder: 30, displayValue: '18W', unit: '+', label: '安全设备', description: '' },
-      { sortOrder: 40, displayValue: '14000', unit: '+', label: '数字货舱', description: '' },
-      { sortOrder: 50, displayValue: '35000', unit: '+', label: '货运经营者', description: '' },
-      { sortOrder: 60, displayValue: '1.44亿公里', unit: '+', label: '日均跟踪里程', description: '' },
-      { sortOrder: 70, displayValue: '1亿', unit: '+', label: '日均车辆事件', description: '' },
-      { sortOrder: 80, displayValue: '12T', unit: '+', label: '日均上传数据', description: '' },
-    ]
-  }
-
-  form.metrics.hotspots =
-    Array.isArray(draft.metrics?.hotspots) && draft.metrics.hotspots.length > 0
-      ? draft.metrics.hotspots.map((h: any, idx: number) => ({
-          ...(DEFAULT_HOTSPOTS[idx] || {}),
-          ...h,
-          path: h.path || DEFAULT_HOTSPOTS[idx]?.path || '/products',
-        }))
-      : DEFAULT_HOTSPOTS.map((h) => ({ ...h }))
+  form.metrics.hotspots = Array.isArray(draft.metrics?.hotspots)
+    ? draft.metrics.hotspots.map((h: any) => ({ ...h }))
+    : []
 
   if (Array.isArray(draft.showcaseStages) && draft.showcaseStages.length > 0) {
     form.showcaseStages = draft.showcaseStages.map((st: any) => ({
-      key: st.key ?? 'iot',
+      key: st.key ?? 'stage',
       title: st.title ?? '',
       description: st.description ?? '',
       morePath: st.morePath ?? '/products',
       mode: st.mode ?? 'RADAR',
-      alertLabel: st.alertLabel ?? '车距过近',
-      alertBaseValue: st.alertBaseValue ?? 153,
-      alertUnit: st.alertUnit ?? 'm',
-      paymentTitle: st.paymentTitle ?? '扫码加油',
-      paymentSubtitle: st.paymentSubtitle ?? '订单支付',
-      paymentAmount: st.paymentAmount ?? '¥202',
+      alertLabel: st.alertLabel ?? '',
+      alertBaseValue: st.alertBaseValue ?? 0,
+      alertUnit: st.alertUnit ?? '',
+      paymentTitle: st.paymentTitle ?? '',
+      paymentSubtitle: st.paymentSubtitle ?? '',
+      paymentAmount: st.paymentAmount ?? '',
       subItems: (st.subItems ?? []).map((sub: any) => ({
         title: sub.title ?? '',
-        prefix: sub.prefix ?? 'G',
+        prefix: sub.prefix ?? '',
         path: sub.path ?? '/products',
         calloutsText: Array.isArray(sub.callouts)
           ? sub.callouts.map((c: any) => c.label).join(' / ')
@@ -307,53 +225,7 @@ function fill() {
       })),
     }))
   } else {
-    form.showcaseStages = [
-      {
-        key: 'iot',
-        title: 'IoT服务',
-        description: '基于物联网感知技术，打造软硬一体化的智能管车服务，全面打通车辆、司机、货物的全链路数字化管理。',
-        morePath: '/products',
-        mode: 'RADAR',
-        alertLabel: '车距过近',
-        alertBaseValue: 153,
-        alertUnit: 'm',
-        subItems: [
-          { prefix: 'G', title: '安全管家', path: '/products?category=安全' },
-          { prefix: 'G', title: '冷链管家', path: '/products?category=冷链' },
-          { prefix: 'G', title: '流向管家', path: '/products?category=流向' },
-          { prefix: 'G', title: '追货管家', path: '/products?category=追货' },
-        ],
-      },
-      {
-        key: 'trade',
-        title: '交易服务',
-        description: '以物联网与大数据技术重构物流交易环节，围绕能源补给、运力结算、数字货舱与物联保险。',
-        morePath: '/solutions',
-        mode: 'PAYMENT',
-        paymentTitle: '扫码加油',
-        paymentSubtitle: '订单支付',
-        paymentAmount: '¥202',
-        subItems: [
-          { prefix: 'G', title: '财运通', path: '/solutions?category=交易' },
-          { prefix: 'G', title: '数字货舱', path: '/products' },
-          { prefix: 'G', title: '物联保险', path: '/solutions' },
-          { prefix: 'G', title: '数字能源', path: '/solutions?category=能源' },
-        ],
-      },
-      {
-        key: 'industry',
-        title: '产业物流数字化',
-        description: '基于物联网与大数据技术，重塑传统行业物流运输模式，打造贯穿全链条端到端的数字化解决方案。',
-        morePath: '/solutions',
-        mode: 'SOLUTIONS',
-        subItems: [
-          { title: '履约可视', path: '/solutions/1', calloutsText: 'RFID读头 / RFID标签 / RFID标签 / 挂车专用主机' },
-          { title: '货运安全', path: '/solutions/2', calloutsText: 'AI双目防碰撞 / DMS疲劳监测 / 盲区生命探测 / 7×24安全托管' },
-          { title: '运力降本', path: '/solutions/3', calloutsText: '智能配载算法 / 数字加注防滴漏 / ETC路径寻优 / 自动对账结算' },
-          { title: '新能源减碳', path: '/solutions/1', calloutsText: '智能充换电调度 / 电池SOH热管理 / 单车碳足迹台账 / 绿电干线组网' },
-        ],
-      },
-    ]
+    form.showcaseStages = []
   }
 
   form.services = {
@@ -376,33 +248,6 @@ function fill() {
       contentIds: (g.contentIds ?? []).map((id: any) => Number(id)),
       moreLink: (g.moreLink as LinkValue | null) ?? { type: 'PAGE', pageCode: 'PRODUCTS' },
     })),
-  }
-
-  if (form.services.groups.length === 0) {
-    form.services.groups = [
-      {
-        key: 'key-g0',
-        sortOrder: 10,
-        title: '设备接入',
-        description: '从协议解析到边缘缓存，把不同厂商的设备统一接进来。',
-        layout: 'left',
-        imageMediaId: null,
-        contentType: 'PRODUCT',
-        contentIds: [1],
-        moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
-      },
-      {
-        key: 'key-g1',
-        sortOrder: 20,
-        title: '健康与能源',
-        description: '用振动、温度与能耗基线，提前发现设备劣化与能源浪费。',
-        layout: 'right',
-        imageMediaId: null,
-        contentType: 'PRODUCT',
-        contentIds: [2],
-        moreLink: { type: 'PAGE', pageCode: 'PRODUCTS' },
-      },
-    ]
   }
 
   form.cases = {
@@ -636,13 +481,13 @@ onMounted(async () => {
               <el-input v-model="slide.subtitle" type="textarea" :rows="2" maxlength="100" show-word-limit />
             </el-form-item>
             <el-form-item label="讲师署名行">
-              <el-input v-model="slide.kicker" maxlength="60" placeholder="例如：徐浪 资深技术专家、金牌讲师" />
+              <el-input v-model="slide.kicker" maxlength="60" placeholder="例如：PRODUCT LAUNCH / 核心发布" />
             </el-form-item>
             <el-form-item label="大字号提示">
               <el-input v-model="slide.badgeText" maxlength="20" style="width: 220px" placeholder="例如：免费下载" />
             </el-form-item>
             <el-form-item label="背景大字水印">
-              <el-input v-model="slide.watermark" maxlength="20" style="width: 220px" placeholder="例如：紫宝盒" />
+              <el-input v-model="slide.watermark" maxlength="20" style="width: 220px" placeholder="可选背景水印文字" />
             </el-form-item>
             <el-form-item label="桌面图片/视频">
               <div class="media-pick-row">

@@ -1,6 +1,9 @@
-import { watchEffect } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
-import { useSiteConfigCache } from './consult'
+import { getSite } from '@/api/public'
+import type { SiteConfig } from '@/data/types'
+const siteCache = ref<SiteConfig | null>(null)
+let siteCacheLoaded = false
 
 const DEFAULT_SITE_NAME = '工业物联网与数字化转型服务平台'
 
@@ -32,7 +35,7 @@ function upsertLink(rel: string, href: string) {
 
 export function usePageMeta(source: PageMeta | (() => PageMeta)) {
   const route = useRoute()
-  const { siteCache } = useSiteConfigCache()
+  if (!siteCacheLoaded) { siteCacheLoaded = true; getSite().then((res) => { siteCache.value = res }).catch(() => {}) }
 
   watchEffect(() => {
     const meta = typeof source === 'function' ? source() : source

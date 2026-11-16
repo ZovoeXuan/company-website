@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ArticleBody from '../../../shared/ArticleBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getSolution } from '@/api/public'
@@ -114,10 +115,10 @@ onMounted(load)
               </ul>
             </section>
 
-            <section class="block">
+            <section v-if="data.bodyHtml" class="block">
               <p class="kicker">APPROACH</p>
               <h2 class="block-title">方案说明</h2>
-              <div class="prose" v-html="data.bodyHtml"></div>
+              <ArticleBody :html="data.bodyHtml" :title="data.title" :show-toc="false" />
             </section>
 
             <section v-if="data.benefits?.length" class="block" aria-labelledby="benefits-title">
@@ -139,10 +140,24 @@ onMounted(load)
 
             <section v-if="data.relatedProducts?.length" class="block" aria-labelledby="related-products">
               <p class="kicker">RELATED PRODUCTS</p>
-              <h2 id="related-products" class="block-title">用到的产品</h2>
+              <h2 id="related-products" class="block-title">相关产品</h2>
               <ul class="related__list">
                 <li v-for="item in data.relatedProducts ?? []" :key="item.id">
                   <RouterLink :to="`/products/${item.id}`" class="related__link">
+                    <span class="related__name">{{ item.title }}</span>
+                    <span class="related__desc">{{ item.summary }}</span>
+                    <span class="related__arrow" aria-hidden="true">→</span>
+                  </RouterLink>
+                </li>
+              </ul>
+            </section>
+
+            <section v-if="data.relatedCases?.length" class="block" aria-labelledby="related-cases">
+              <p class="kicker">CUSTOMER STORIES</p>
+              <h2 id="related-cases" class="block-title">相关客户案例</h2>
+              <ul class="related__list">
+                <li v-for="item in data.relatedCases ?? []" :key="item.id">
+                  <RouterLink :to="`/cases/${item.id}`" class="related__link">
                     <span class="related__name">{{ item.title }}</span>
                     <span class="related__desc">{{ item.summary }}</span>
                     <span class="related__arrow" aria-hidden="true">→</span>

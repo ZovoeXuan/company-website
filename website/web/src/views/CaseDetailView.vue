@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ArticleBody from '../../../shared/ArticleBody.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getCase } from '@/api/public'
@@ -112,7 +113,7 @@ onMounted(load)
 
         <div class="case__layout">
           <article class="case__main">
-            <div class="prose" v-html="data.bodyHtml"></div>
+            <ArticleBody :html="data.bodyHtml" :title="data.title" :show-toc="false" />
 
             <dl v-if="data.outcomes?.length" class="case__outcomes" aria-label="关键结果">
               <div v-for="outcome in data.outcomes ?? []" :key="outcome.label" class="case__outcome">

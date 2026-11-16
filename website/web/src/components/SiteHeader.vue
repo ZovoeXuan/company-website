@@ -1,513 +1,535 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { getSite } from '@/api/public'
 import { openConsult } from '@/composables/consult'
 import { openVideo } from '@/composables/videoModal'
-import type { MegaColumn, MegaSubItem, NavItem } from '@/data/types'
-
-const props = defineProps<{
-  siteName: string
-  nav: NavItem[]
-  logoUrl?: string | null
-  logoAlt?: string
-  megaColumns?: MegaColumn[]
-  megaCta?: { text: string; linkText: string } | null
-}>()
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
+import { resolvePublicPhone } from '@/utils/siteDisplay'
+import type { MegaColumn, MegaSubItem, NavItem, SiteConfig } from '@/data/types'
 
 const route = useRoute()
-const open = ref(false)
-const openMenu = ref<string | null>(null)
-const openMobile = ref<string | null>(null)
+const site = ref<SiteConfig | null>(null)
+const mobileOpen = ref(false)
 const scrolled = ref(false)
-const lang = ref<'zh' | 'en'>('zh')
+const megaOpen = ref(false)
+let megaTimer: ReturnType<typeof setTimeout> | null = null
 
-const enLabelMap: Record<string, string> = {
-  首页: 'Home',
-  产品: 'Products',
-  产品中心: 'Products',
-  产品与方案: 'Products & Solutions',
-  产品与解决方案: 'Products & Solutions',
-  产品及解决方案: 'Products & Solutions',
-  解决方案: 'Solutions',
-  客户案例: 'Customer Cases',
-  新闻: 'News',
-  新闻中心: 'News Center',
-  新闻动态: 'News',
-  关于我们: 'About Us',
-  联系我们: 'Contact',
-}
+const isHomeTop = computed(() => route.path === '/' && !scrolled.value && !megaOpen.value)
 
-function displayNavLabel(label: string) {
-  if (lang.value === 'zh') return label
-  return enLabelMap[label] || label
-}
-
-function toggleLang() {
-  lang.value = lang.value === 'zh' ? 'en' : 'zh'
-  document.documentElement.lang = lang.value === 'en' ? 'en' : 'zh-CN'
-}
-
-function close() {
-  open.value = false
-  openMobile.value = null
-  openMenu.value = null
-}
-
-function onScroll() {
-  scrolled.value = window.scrollY > 16
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return
-  if (openMenu.value) {
-    openMenu.value = null
-    return
-  }
-  if (open.value) close()
-}
-
-let leaveTimer: number | null = null
-
-function isMegaItem(item: NavItem) {
-  return Boolean(item.children?.length) || item.label.includes('产品') || item.label.includes('方案')
-}
-
-function handleMouseEnter(item: NavItem) {
-  if (!isMegaItem(item)) {
-    openMenu.value = null
-    return
-  }
-  if (leaveTimer) {
-    clearTimeout(leaveTimer)
-    leaveTimer = null
-  }
-  openMenu.value = item.label
-}
-
-function handleMouseLeave() {
-  if (leaveTimer) clearTimeout(leaveTimer)
-  leaveTimer = window.setTimeout(() => {
-    openMenu.value = null
-  }, 180)
-}
-
-function toggleMenu(item: NavItem) {
-  openMenu.value = openMenu.value === item.label ? null : item.label
-}
-
-const defaultMegaColumns: MegaColumn[] = [
-  {
-    title: 'AI产品',
-    items: [{ label: '紫宝盒', path: '/products/1', isVideo: false }],
-  },
-  {
-    title: 'IoT服务',
-    items: [
-      { label: '安全管家', path: '/products?category=安全', isVideo: false },
-      { label: '冷链管家', path: '/products?category=冷链', isVideo: false },
-      { label: '流向管家', path: '/products?category=流向', isVideo: false },
-      { label: '追货管家', path: '/products?category=追货', isVideo: false },
-    ],
-  },
-  {
-    title: '交易服务',
-    items: [
-      { label: '财运通', path: '/solutions?category=交易', isVideo: false },
-      { label: '数字能源', path: '/solutions?category=能源', isVideo: false },
-    ],
-  },
-  {
-    title: '解决方案',
-    items: [
-      { label: '大宗物流数字化', path: '/solutions/1', isVideo: false },
-      { label: '连锁零售数字化', path: '/solutions/2', isVideo: false },
-      { label: '饲料防偷盗 AI 治理', path: '/solutions/3', isVideo: false },
-    ],
-  },
-  {
-    title: '产品演示',
-    items: [{ label: '产品操作视频', path: '', isVideo: true }],
-  },
+const defaultNavItems: NavItem[] = [
+  { label: '首页', path: '/' },
+  { label: '产品中心', path: '/products' },
+  { label: '解决方案', path: '/solutions' },
+  { label: '客户案例', path: '/cases' },
+  { label: '新闻中心', path: '/news' },
+  { label: '关于我们', path: '/about' },
+  { label: '联系我们', path: '/contact' },
 ]
 
-const resolvedMegaColumns = computed<MegaColumn[]>(() => {
-  if (props.megaColumns && props.megaColumns.length > 0) {
-    return props.megaColumns
-  }
-  return defaultMegaColumns
+const navItems = computed<NavItem[]>(() => {
+  const items = site.value?.nav
+  if (items && items.length > 0) return items
+  return defaultNavItems
 })
 
-function isTwoColGrid(col: MegaColumn): boolean {
-  return col.title.includes('IoT') || col.title.includes('交易') || col.items.length >= 4
+const megaColumns = computed<MegaColumn[]>(() => {
+  const configured = site.value?.megaColumns
+  if (configured && configured.length > 0) return configured
+  const prodItem = site.value?.nav?.find(
+    (item) => item.path === '/products' || item.label.includes('产品'),
+  )
+  if (prodItem?.children && prodItem.children.length > 0) {
+    return [
+      {
+        title: prodItem.label || '产品与方案',
+        items: prodItem.children.map((ch) => ({
+          label: ch.label,
+          path: ch.path || ch.url || '/products',
+        })),
+      },
+    ]
+  }
+  return []
+})
+
+const hasMegaMenu = computed(() => megaColumns.value.length > 0)
+
+function isMegaTrigger(item: NavItem) {
+  return (
+    hasMegaMenu.value &&
+    (item.path === '/products' || item.label.includes('产品') || Boolean(item.children?.length))
+  )
 }
 
-function handleMegaAction(subItem: MegaSubItem) {
-  openMenu.value = null
-  if (subItem.isVideo && subItem.videoUrl) {
-    openVideo({
-      title: subItem.videoTitle || '产品操作视频演示',
-      url: subItem.videoUrl,
-    })
-  } else if (subItem.isVideo) {
-    openConsult({ sourcePosition: 'MEGA_VIDEO', title: '预约产品视频与实景演示' })
+function openMega() {
+  if (!hasMegaMenu.value) return
+  if (megaTimer) clearTimeout(megaTimer)
+  megaOpen.value = true
+}
+
+function closeMegaDelayed() {
+  if (megaTimer) clearTimeout(megaTimer)
+  megaTimer = setTimeout(() => {
+    megaOpen.value = false
+  }, 150)
+}
+
+function handleSubItemClick(sub: MegaSubItem) {
+  megaOpen.value = false
+  if (sub.isVideo && sub.videoUrl) {
+    openVideo({ title: sub.videoTitle || sub.label, url: sub.videoUrl })
   }
 }
 
-function triggerTrialModal(position = 'NAVIGATION') {
-  openMenu.value = null
-  openMobile.value = null
-  openConsult({ sourcePosition: position, title: '预约产品展示' })
+function isExternal(item: NavItem) {
+  const targetUrl = item.url || item.path || ''
+  return item.linkType === 'URL' || /^https?:\/\//i.test(targetUrl)
 }
 
-function isActive(item: NavItem): boolean {
-  if (!item.path) return false
-  if (item.path === '/') return route.path === '/'
-  return route.path === item.path || route.path.startsWith(`${item.path}/`)
+function isActive(path: string) {
+  if (path === '/') return route.path === '/'
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 
-onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
-  window.addEventListener('scroll', onScroll, { passive: true })
+function handleCta() {
+  mobileOpen.value = false
+  megaOpen.value = false
+  openConsult({
+    sourcePosition: 'HEADER',
+    title: '预约方案咨询',
+  })
+}
+
+const displayPhone = computed(() =>
+  resolvePublicPhone(site.value?.contact?.phone, null),
+)
+
+function onScroll() {
+  scrolled.value = window.scrollY > 24
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    mobileOpen.value = false
+    megaOpen.value = false
+  },
+)
+
+async function reloadHeaderConfig() {
+  const siteData = await getSite().catch(() => null)
+  if (siteData) site.value = siteData
+}
+
+useRealtimeSync(['siteConfigVersion'], () => {
+  void reloadHeaderConfig()
+})
+
+onMounted(async () => {
   onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  await reloadHeaderConfig()
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
+  if (megaTimer) clearTimeout(megaTimer)
 })
 </script>
 
 <template>
-  <header class="header" :class="{ 'is-scrolled': scrolled }">
-    <div class="header__inner container container--wide">
-      <RouterLink to="/" class="brand" :aria-label="`${props.siteName} 首页`">
-        <img v-if="logoUrl" :src="logoUrl" :alt="logoAlt || siteName" class="brand__logo" />
-        <template v-else>
-          <span class="brand__name">{{ siteName || '企业官网' }}</span>
-        </template>
-      </RouterLink>
+  <header
+    class="site-header"
+    :class="{
+      'is-home-top': isHomeTop,
+      'is-scrolled': scrolled || megaOpen || !isHomeTop,
+    }"
+  >
+    <div class="site-header__bar">
+      <!-- 左侧：品牌标识 + 主导航 -->
+      <div class="site-header__left">
+        <RouterLink to="/" class="brand" aria-label="返回首页">
+          <img
+            v-if="site?.logoUrl"
+            :src="site.logoUrl"
+            :alt="site.logoAlt || site.siteName || '企业官网'"
+            class="brand__img"
+          />
+          <span v-else class="brand__text">
+            {{ site?.siteName || '企业官网' }}
+          </span>
+        </RouterLink>
 
-      <nav class="nav" aria-label="主导航">
-        <ul class="nav__list">
-          <li
-            v-for="item in nav"
-            :key="item.label"
-            class="nav__item"
-            @mouseenter="handleMouseEnter(item)"
-            @mouseleave="handleMouseLeave"
-          >
-            <template v-if="isMegaItem(item)">
-              <button
-                type="button"
-                class="nav__link nav__button"
-                :class="{ 'is-active': isActive(item) || openMenu === item.label, 'is-open': openMenu === item.label }"
-                :aria-expanded="openMenu === item.label"
-                @click="toggleMenu(item)"
+        <nav class="primary-nav" aria-label="主导航">
+          <ul class="primary-nav__list">
+            <li
+              v-for="item in navItems"
+              :key="item.label + item.path"
+              class="primary-nav__item"
+              @mouseenter="isMegaTrigger(item) ? openMega() : (megaOpen = false)"
+              @mouseleave="isMegaTrigger(item) ? closeMegaDelayed() : undefined"
+            >
+              <a
+                v-if="isExternal(item)"
+                :href="item.url || item.path"
+                :target="item.newWindow ? '_blank' : undefined"
+                :rel="item.newWindow ? 'noopener noreferrer' : undefined"
+                class="primary-nav__link"
               >
-                {{ displayNavLabel(item.label) }}
-                <span class="caret" aria-hidden="true"></span>
-              </button>
-
-              <!-- 1:1 还原截图 产品与解决方案.jpg：全宽浅灰蓝通栏 5 列下拉大菜单 -->
-              <Transition name="mega-band">
-                <div
-                  v-if="openMenu === item.label"
-                  class="mega-band"
-                  @mouseenter="handleMouseEnter(item)"
-                  @mouseleave="handleMouseLeave"
+                <span>{{ item.label }}</span>
+              </a>
+              <RouterLink
+                v-else
+                :to="item.path"
+                class="primary-nav__link"
+                :class="{
+                  'is-active': isActive(item.path) || (isMegaTrigger(item) && megaOpen),
+                }"
+              >
+                <span>{{ item.label }}</span>
+                <svg
+                  v-if="isMegaTrigger(item)"
+                  class="primary-nav__caret"
+                  :class="{ 'is-open': megaOpen }"
+                  width="10"
+                  height="6"
+                  viewBox="0 0 10 6"
+                  fill="none"
+                  aria-hidden="true"
                 >
-                  <div class="container container--wide">
-                    <template v-if="item.label.includes('产品') || item.label.includes('方案')">
-                      <div class="mega-cols">
-                        <div v-for="col in resolvedMegaColumns" :key="col.title" class="mega-col">
-                          <div class="mega-col__title">{{ col.title }}</div>
-                          <ul
-                            class="mega-col__list"
-                            :class="{ 'mega-col__list--2col': isTwoColGrid(col) }"
-                          >
-                            <li v-for="sub in col.items" :key="sub.label">
-                              <button
-                                v-if="sub.isVideo"
-                                type="button"
-                                class="mega-col__link"
-                                @click="handleMegaAction(sub)"
-                              >
-                                {{ sub.label }}
-                              </button>
-                              <RouterLink
-                                v-else-if="sub.path"
-                                :to="sub.path"
-                                class="mega-col__link"
-                                @click="openMenu = null"
-                              >
-                                {{ sub.label }}
-                              </RouterLink>
-                              <span v-else class="mega-col__link">{{ sub.label }}</span>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                    </template>
+                  <path
+                    d="M1 1L5 5L9 1"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </RouterLink>
+            </li>
+          </ul>
+        </nav>
+      </div>
 
-                    <template v-else>
-                      <ul class="mega-simple-list">
-                        <li v-for="child in item.children" :key="child.label">
-                          <button
-                            v-if="child.linkType === 'CONSULT'"
-                            type="button"
-                            class="mega-col__link"
-                            @click="triggerTrialModal()"
-                          >
-                            {{ displayNavLabel(child.label) }}
-                          </button>
-                          <a
-                            v-else-if="child.url"
-                            :href="child.url"
-                            class="mega-col__link"
-                            :target="child.newWindow ? '_blank' : undefined"
-                            :rel="child.newWindow ? 'noopener noreferrer' : undefined"
-                            @click="openMenu = null"
-                          >
-                            {{ displayNavLabel(child.label) }}
-                          </a>
-                          <RouterLink v-else :to="child.path" class="mega-col__link" @click="openMenu = null">
-                            {{ displayNavLabel(child.label) }}
-                          </RouterLink>
-                        </li>
-                      </ul>
-                    </template>
-                  </div>
-                </div>
-              </Transition>
-            </template>
+      <!-- 右侧：真实配置热线 + 咨询按钮（无伪双语切换） -->
+      <div class="site-header__right">
+        <a
+          v-if="displayPhone"
+          :href="`tel:${displayPhone.replace(/[\s-]/g, '')}`"
+          class="header-hotline"
+        >
+          <span class="header-hotline__label">咨询热线：</span>
+          <span class="header-hotline__num">{{ displayPhone }}</span>
+        </a>
 
-            <button
-              v-else-if="item.linkType === 'CONSULT'"
-              type="button"
-              class="nav__link"
-              @click="triggerTrialModal()"
-            >
-              {{ displayNavLabel(item.label) }}
-            </button>
-            <a
-              v-else-if="item.url"
-              :href="item.url"
-              class="nav__link"
-              :target="item.newWindow ? '_blank' : undefined"
-              :rel="item.newWindow ? 'noopener noreferrer' : undefined"
-            >
-              {{ displayNavLabel(item.label) }}
-            </a>
-            <RouterLink
-              v-else
-              :to="item.path"
-              class="nav__link"
-              :class="{ 'is-active': isActive(item) }"
-            >
-              {{ displayNavLabel(item.label) }}
-            </RouterLink>
-          </li>
-        </ul>
-      </nav>
-
-      <!-- 右侧区域：1:1 对齐视频：English + 循环打字机小鑫助手（唤起右侧 AI 抽屉） + 产品试用（唤起居中预约弹窗） -->
-      <div class="actions">
-        <button type="button" class="lang" @click="toggleLang">
-          {{ lang === 'zh' ? 'English' : '中文' }}
-        </button>
-
-        <button type="button" class="actions__cta" @click="triggerTrialModal('OTHER_CTA')">
-          {{ lang === 'en' ? 'Free Trial' : '产品试用' }}
+        <button type="button" class="header-cta" @click="handleCta">
+          立即咨询
         </button>
 
         <button
           type="button"
-          class="toggle"
-          :aria-expanded="open"
-          aria-controls="mobile-nav"
-          @click="open = !open"
+          class="burger"
+          :aria-expanded="mobileOpen"
+          aria-controls="mobile-drawer"
+          aria-label="展开或收起菜单"
+          @click="mobileOpen = !mobileOpen"
         >
-          <span class="visually-hidden">{{ open ? '关闭菜单' : '打开菜单' }}</span>
-          <span class="toggle__line" :class="{ 'is-open': open }"></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
       </div>
     </div>
 
-    <Transition name="mobile">
-      <nav v-if="open" id="mobile-nav" class="mobile" aria-label="移动端导航">
-        <ul class="mobile__list">
-          <li v-for="item in nav" :key="item.label">
-            <template v-if="item.children?.length">
-              <button
-                type="button"
-                class="mobile__link mobile__button"
-                :aria-expanded="openMobile === item.label"
-                @click="openMobile = openMobile === item.label ? null : item.label"
-              >
-                {{ displayNavLabel(item.label) }}
-                <span class="caret" aria-hidden="true"></span>
-              </button>
-              <ul v-if="openMobile === item.label" class="mobile__sub">
-                <li v-for="child in item.children" :key="child.label">
-                  <RouterLink :to="child.path || '/'" class="mobile__sublink" @click="close">
-                    {{ displayNavLabel(child.label) }}
-                  </RouterLink>
-                </li>
-              </ul>
-            </template>
-            <RouterLink
-              v-else
-              :to="item.path || '/'"
-              class="mobile__link"
-              :class="{ 'is-active': isActive(item) }"
-              @click="close"
-            >
-              {{ displayNavLabel(item.label) }}
-            </RouterLink>
-          </li>
-        </ul>
-        <div class="mobile__btns">
-          <button type="button" class="btn btn--primary mobile__cta" @click="triggerTrialModal('OTHER_CTA')">
-            产品试用
-          </button>
+    <!-- 多列下拉面板：仅当后台配置了 megaColumns 或子菜单时渲染 -->
+    <Transition name="mega-fade">
+      <div
+        v-if="megaOpen && hasMegaMenu"
+        class="mega-panel"
+        @mouseenter="openMega"
+        @mouseleave="closeMegaDelayed"
+      >
+        <div class="mega-panel__inner">
+          <div v-for="col in megaColumns" :key="col.title" class="mega-col">
+            <h3 class="mega-col__title">{{ col.title }}</h3>
+            <div class="mega-col__divider"></div>
+            <ul class="mega-col__list">
+              <li v-for="sub in col.items" :key="sub.label" class="mega-col__item">
+                <a
+                  v-if="sub.isVideo && sub.videoUrl"
+                  href="javascript:void(0)"
+                  class="mega-link"
+                  @click.prevent="handleSubItemClick(sub)"
+                >
+                  <div class="mega-link__title-row">
+                    <span class="mega-link__name">{{ sub.label }}</span>
+                    <span v-if="sub.tag" class="mega-link__badge">{{ sub.tag }}</span>
+                  </div>
+                </a>
+                <RouterLink
+                  v-else
+                  :to="sub.path || '/products'"
+                  class="mega-link"
+                  @click="megaOpen = false"
+                >
+                  <div class="mega-link__title-row">
+                    <span class="mega-link__name">{{ sub.label }}</span>
+                    <span v-if="sub.tag" class="mega-link__badge">{{ sub.tag }}</span>
+                  </div>
+                </RouterLink>
+              </li>
+            </ul>
+          </div>
         </div>
-      </nav>
+      </div>
     </Transition>
+
+    <!-- 移动端抽屉 -->
+    <div v-if="mobileOpen" id="mobile-drawer" class="mobile-drawer">
+      <ul class="mobile-drawer__list">
+        <li v-for="item in navItems" :key="item.label + item.path">
+          <RouterLink :to="item.path" class="mobile-drawer__link">
+            {{ item.label }}
+          </RouterLink>
+        </li>
+      </ul>
+      <div class="mobile-drawer__foot">
+        <a
+          v-if="displayPhone"
+          :href="`tel:${displayPhone.replace(/[\s-]/g, '')}`"
+          class="mobile-drawer__phone"
+        >
+          咨询热线：{{ displayPhone }}
+        </a>
+        <button type="button" class="header-cta header-cta--full" @click="handleCta">
+          立即咨询
+        </button>
+      </div>
+    </div>
   </header>
 </template>
 
 <style scoped>
-.header {
-  position: sticky;
+.site-header {
+  position: fixed;
   top: 0;
-  z-index: 40;
-  background: #ffffff;
-  border-bottom: 1px solid rgba(16, 16, 20, 0.05);
-  transition: box-shadow 0.3s ease;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: 68px;
+  transition: background-color 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
 }
 
-.header.is-scrolled {
-  box-shadow: 0 4px 20px rgba(10, 12, 20, 0.05);
+.site-header.is-home-top {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
-.header__inner {
+.site-header.is-scrolled {
+  background: rgba(255, 255, 255, 0.98);
+  color: #0f172a;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.site-header__bar {
+  max-width: 1380px;
+  height: 68px;
+  margin: 0 auto;
+  padding: 0 32px;
   display: flex;
   align-items: center;
-  gap: 44px;
-  height: var(--header-height, 74px);
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.site-header__left {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  height: 100%;
 }
 
 .brand {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  flex: none;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
-.brand__logo {
-  max-height: 32px;
-  max-width: 160px;
-  object-fit: contain;
+.brand__img {
+  height: 32px;
+  width: auto;
 }
 
-.brand__g7 {
-  font-size: 24px;
-  font-weight: 900;
-  font-style: italic;
-  color: #4c2ce6;
-  letter-spacing: -0.04em;
-}
-
-.brand__name {
-  font-size: 19px;
-  font-weight: 800;
-  color: #4c2ce6;
+.brand__text {
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--c-brand);
 }
 
-.nav {
-  flex: 1;
-  min-width: 0;
+.site-header.is-home-top .brand__text {
+  color: #ffffff;
 }
 
-.nav__list {
+.primary-nav {
+  height: 100%;
+}
+
+.primary-nav__list {
   display: flex;
   align-items: center;
-  gap: 38px;
+  gap: 4px;
+  height: 100%;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.nav__item {
-  position: static;
+.primary-nav__item {
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
-.nav__link {
+.primary-nav__link {
   position: relative;
+  height: 100%;
+  padding: 0 14px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 24px 0;
-  font-size: 14.5px;
-  color: #2b2f38;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  text-decoration: none;
-  transition: color 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  color: inherit;
+  transition: color 0.18s ease;
 }
 
-/* 1:1 对齐四段视频：一级导航激活态仅为品牌紫文字，无底部横线 */
-.nav__link:hover,
-.nav__link.is-active {
-  color: #5b4be8;
-}
-
-.caret {
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: rotate(45deg) translateY(-2px);
-  transition: transform 0.25s ease;
-}
-
-.nav__button.is-open .caret {
-  transform: rotate(225deg) translateY(-2px);
-}
-
-/* 全宽浅灰蓝通栏下拉大菜单（1:1 对齐 产品与解决方案.jpg） */
-.mega-band {
+.primary-nav__link::after {
+  content: '';
   position: absolute;
-  top: 100%;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 2px;
+  background: var(--c-brand);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.site-header.is-home-top .primary-nav__link::after {
+  background: #ffffff;
+}
+
+.primary-nav__link:hover::after,
+.primary-nav__link.is-active::after {
+  transform: scaleX(1);
+}
+
+.primary-nav__link.is-active {
+  font-weight: 600;
+  color: var(--c-brand);
+}
+
+.site-header.is-home-top .primary-nav__link.is-active {
+  color: #ffffff;
+}
+
+.primary-nav__caret {
+  transition: transform 0.2s ease;
+  opacity: 0.75;
+}
+
+.primary-nav__caret.is-open {
+  transform: rotate(180deg);
+}
+
+.site-header__right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.header-hotline {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13.5px;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-hotline__label {
+  opacity: 0.75;
+}
+
+.header-hotline__num {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.header-cta {
+  height: 36px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 6px;
+  background: var(--c-brand);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+  white-space: nowrap;
+}
+
+.header-cta:hover {
+  background: var(--c-brand-dark);
+}
+
+.header-cta--full {
+  width: 100%;
+  height: 42px;
+}
+
+.mega-panel {
+  position: absolute;
+  top: 68px;
   left: 0;
   right: 0;
-  width: 100%;
-  background: #eaedf2;
-  padding: 40px 0 56px;
-  border-top: 1px solid rgba(16, 16, 20, 0.05);
-  box-shadow: 0 20px 40px rgba(10, 12, 20, 0.06);
-  z-index: 35;
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  padding: 28px 0 32px;
 }
 
-.mega-cols {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 36px;
-  max-width: 1120px;
+.mega-panel__inner {
+  max-width: 1240px;
   margin: 0 auto;
+  padding: 0 32px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 32px;
 }
 
 .mega-col__title {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1f2329;
-  padding-bottom: 14px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid #d4d8e1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+
+.mega-col__divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin-bottom: 12px;
 }
 
 .mega-col__list {
@@ -516,214 +538,121 @@ onBeforeUnmount(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.mega-col__list--2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 20px;
-}
-
-.mega-col__link {
-  display: inline-block;
-  border: none;
-  background: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: 13.5px;
-  color: #5f6470;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.18s ease;
-}
-
-.mega-col__link:hover {
-  color: #5b4be8;
-}
-
-.mega-simple-list {
-  list-style: none;
-  margin: 0 auto;
-  padding: 0;
-  max-width: 1120px;
-  display: flex;
-  gap: 36px;
-  flex-wrap: wrap;
-}
-
-.mega-band-enter-active,
-.mega-band-leave-active {
-  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.mega-band-enter-from,
-.mega-band-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-/* 右侧操作区 */
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  flex: none;
-}
-
-.lang {
-  border: none;
-  background: none;
-  font-size: 13.5px;
-  color: #2b2f38;
-  cursor: pointer;
-  padding: 4px 6px;
-}
-
-.lang:hover {
-  color: #5b4be8;
-}
-
-.actions__cta {
-  height: 38px;
-  padding: 0 22px;
-  border: none;
-  border-radius: 2px;
-  background: #0a0b0e;
-  color: #ffffff;
-  font-size: 13.5px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.actions__cta:hover {
-  background: #5b4be8;
-}
-
-.toggle {
-  display: none;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid var(--c-border-strong);
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.toggle__line,
-.toggle__line::before,
-.toggle__line::after {
-  display: block;
-  width: 18px;
-  height: 1.5px;
-  background: var(--c-text);
-  transition: transform 0.25s ease;
-}
-
-.toggle__line {
-  position: relative;
-}
-
-.toggle__line::before,
-.toggle__line::after {
-  content: '';
-  position: absolute;
-  left: 0;
-}
-
-.toggle__line::before {
-  top: -6px;
-}
-
-.toggle__line::after {
-  top: 6px;
-}
-
-.toggle__line.is-open {
-  background: transparent;
-}
-
-.toggle__line.is-open::before {
-  top: 0;
-  transform: rotate(45deg);
-}
-
-.toggle__line.is-open::after {
-  top: 0;
-  transform: rotate(-45deg);
-}
-
-.mobile {
-  display: none;
-  border-top: 1px solid var(--c-border);
-  background: #fff;
-  padding: 12px 20px 24px;
-}
-
-.mobile__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.mobile__link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 14px 4px;
-  font-size: 15px;
-  color: var(--c-text);
-  border: none;
-  border-bottom: 1px solid var(--c-border);
-  background: none;
-  text-align: left;
-  text-decoration: none;
-}
-
-.mobile__sub {
-  list-style: none;
-  margin: 0;
-  padding: 6px 0 10px 14px;
-}
-
-.mobile__sublink {
-  display: block;
-  padding: 10px 4px;
-  font-size: 14px;
-  color: var(--c-text-muted);
-  text-decoration: none;
-}
-
-.mobile__btns {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.mobile__cta {
-  width: 100%;
+.mega-link {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
 }
 
-@media (max-width: 980px) {
-  .nav {
+.mega-link:hover {
+  background: #f8fafc;
+}
+
+.mega-link__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mega-link__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.mega-link:hover .mega-link__name {
+  color: var(--c-brand);
+}
+
+.mega-link__badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-brand);
+  background: var(--c-brand-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.mega-fade-enter-active,
+.mega-fade-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.mega-fade-enter-from,
+.mega-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.burger {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 9px 8px;
+  cursor: pointer;
+}
+
+.burger span {
+  display: block;
+  height: 2px;
+  background: currentColor;
+  margin: 4px 0;
+}
+
+.mobile-drawer {
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 24px 24px;
+}
+
+.mobile-drawer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mobile-drawer__link {
+  display: block;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 15px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.mobile-drawer__foot {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-drawer__phone {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+@media (max-width: 1080px) {
+  .primary-nav,
+  .header-hotline {
     display: none;
   }
-  .toggle {
-    display: inline-flex;
+  .burger {
+    display: inline-block;
   }
-  .mobile {
-    display: block;
-  }
-  .actions {
-    margin-left: auto;
-    gap: 12px;
+  .site-header__bar {
+    padding: 0 20px;
   }
 }
 </style>

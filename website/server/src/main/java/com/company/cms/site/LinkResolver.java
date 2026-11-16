@@ -14,14 +14,11 @@ import java.util.Set;
 
 /**
  * 统一动作对象 link 的校验与解析（文档 6.1）。
- *
- * 草稿只保存类型与输入字段，公开接口输出解析后的安全 URL/动作，
- * 官网不根据数据库内容自行拼接地址。
+ * 草稿只保存类型与输入字段，公开接口输出解析后的安全 URL/动作，同时核对目标内容已发布且类型严格一致。
  */
 @Component
 public class LinkResolver {
 
-    /** PAGE 白名单，键为后台保存值，值为官网固定路由。 */
     private static final Map<String, String> PAGES = Map.of(
             "HOME", "/",
             "PRODUCTS", "/products",
@@ -33,7 +30,6 @@ public class LinkResolver {
             "PRIVACY", "/privacy"
     );
 
-    /** 首页可跳转的锚点白名单。 */
     public static final Set<String> ANCHORS =
             Set.of("metrics", "services", "cases", "customers", "news", "consultation");
 
@@ -48,7 +44,6 @@ public class LinkResolver {
         this.contents = contents;
     }
 
-    /** 校验并归一化一个必填 link；返回 null 表示未填写（由调用方决定是否允许）。 */
     public ObjectNode normalize(JsonNode raw, String path, String label,
                                 SeedErrors errors) {
         if (raw == null || raw.isNull() || (raw.isObject() && raw.isEmpty())) {
@@ -133,13 +128,8 @@ public class LinkResolver {
         }
     }
 
-    /**
-     * 解析为公开动作。返回 null 表示该动作已失效（目标下线、表单关闭、锚点无内容），
-     * 调用方应过滤掉整条按钮/导航项，而不是输出死链接。
-     */
     public Map<String, Object> resolve(JsonNode link, String fallbackPath,
                                        boolean formEnabled, Set<String> availableAnchors) {
-        // 兼容早期只保存 path 的导航快照
         if (link == null && fallbackPath != null && !fallbackPath.isBlank()) {
             return pageAction(fallbackPath);
         }
@@ -155,7 +145,9 @@ public class LinkResolver {
             case "CONTENT": {
                 Long id = longOrNull(link.get("contentId"));
                 String contentType = text(link, "contentType");
-                if (id == null || contents.findPublishedById(id).isEmpty()) {
+                if (id == null || contents.findPublishedById(id)
+                        .filter(row -> row.contentType().name().equals(contentType))
+                        .isEmpty()) {
                     return null;
                 }
                 String base = switch (contentType) {
@@ -193,11 +185,14 @@ public class LinkResolver {
                 Map<String, Object> action = new LinkedHashMap<>();
                 action.put("type", "CONSULT");
                 Long id = longOrNull(link.get("contentId"));
+                String contentType = text(link, "contentType");
                 if (id != null) {
-                    if (contents.findPublishedById(id).isEmpty()) {
+                    if (contents.findPublishedById(id)
+                            .filter(row -> contentType.isEmpty() || row.contentType().name().equals(contentType))
+                            .isEmpty()) {
                         return null;
                     }
-                    action.put("contentType", text(link, "contentType"));
+                    action.put("contentType", contentType);
                     action.put("contentId", String.valueOf(id));
                 }
                 return action;
@@ -220,9 +215,12 @@ public class LinkResolver {
     /** 发布校验：目标必须存在且已发布、类型匹配。 */
     public boolean publishable(JsonNode link, String expectedContentType) {
         if (link == null || !link.isObject()) {
-            return false;
+            return true;
         }
         String type = text(link, "type").toUpperCase();
+        if ("NONE".equals(type) || type.isEmpty()) {
+            return true;
+        }
         if ("CONTENT".equals(type)) {
             Long id = longOrNull(link.get("contentId"));
             if (id == null) {
@@ -238,12 +236,17 @@ public class LinkResolver {
         }
         if ("CONSULT".equals(type)) {
             Long id = longOrNull(link.get("contentId"));
-            return id == null || contents.findPublishedById(id).isPresent();
+            String contentType = text(link, "contentType");
+            if (id == null) {
+                return true;
+            }
+            return contents.findPublishedById(id)
+                    .filter(row -> contentType.isEmpty() || row.contentType().name().equals(contentType))
+                    .isPresent();
         }
         return true;
     }
 
-    /** 提取 link 引用的内容 ID，供引用表与删除保护使用。 */
     public Long referencedContentId(JsonNode link) {
         if (link == null || !link.isObject()) {
             return null;
@@ -307,7 +310,6 @@ public class LinkResolver {
         }
     }
 
-    /** 校验错误收集器，避免把 List 到处传递。 */
     public static final class SeedErrors {
         private final java.util.List<FieldErrorItem> items = new java.util.ArrayList<>();
 

@@ -1,3 +1,4 @@
-# 开发阶段暂禁止搜索引擎抓取；正式域名与备案就绪后改为 Allow: / 并补充 Sitemap 地址
 User-agent: *
-Disallow: /
+Allow: /
+Disallow: /admin/
+Disallow: /api/admin/

@@ -174,6 +174,10 @@ onMounted(loadContact)
           <p class="kicker">DIRECT LINE</p>
           <h2 class="info__title">直接联系</h2>
           <dl class="info__list">
+            <div v-if="page?.companyName || site?.contact?.companyName" class="info__row">
+              <dt>公司名称</dt>
+              <dd>{{ page?.companyName || site?.contact?.companyName }}</dd>
+            </div>
             <div v-if="servicePhone" class="info__row">
               <dt>服务热线</dt>
               <dd>
@@ -186,9 +190,18 @@ onMounted(loadContact)
               <dt>商务合作</dt>
               <dd><a class="info__link" :href="`mailto:${businessEmail}`">{{ businessEmail }}</a></dd>
             </div>
-            <div v-if="page?.address" class="info__row">
+            <div v-if="page?.address || site?.contact?.address" class="info__row">
               <dt>总部地址</dt>
-              <dd>{{ page.address }}</dd>
+              <dd>
+                <span>{{ page?.address || site?.contact?.address }}</span>
+                <a
+                  v-if="page?.mapUrl && /^https?:\/\//i.test(page.mapUrl)"
+                  :href="page.mapUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="margin-left: 10px; font-size: 13px; color: var(--c-brand);"
+                >查看地图 →</a>
+              </dd>
             </div>
             <template v-if="extraEmails.length > 0">
               <div v-for="(item, idx) in extraEmails" :key="idx" class="info__row">
@@ -213,8 +226,8 @@ onMounted(loadContact)
             <h2 class="form__title">{{ page?.formTitle || '预约专业方案沟通' }}</h2>
             <p class="form__desc">留下联系方式与业务痛点，资深行业顾问将在 4 小时内与您接洽。</p>
           </div>
-          <div v-if="page && page.formEnabled === false" class="form-closed-notice">
-            <p>在线咨询通道维护中，如有业务咨询请直接拨打上方服务热线。</p>
+          <div v-if="!page || page.formEnabled === false" class="form-closed-notice">
+            <p>在线咨询通道暂未开启，如有业务咨询请直接拨打上方服务热线或发送邮件。</p>
           </div>
           <ConsultForm v-else source-position="CONTACT" :success-text="page?.successText" />
         </div>

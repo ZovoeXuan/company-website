@@ -118,4 +118,29 @@ class PublicVersionServiceTest {
         assertNull(notModified.getBody());
         assertEquals(etag, notModified.getHeaders().getETag());
     }
+
+    @Test
+    void doesNotCollideWhenReplacementKeepsSameCountAndVersionSum() {
+        LocalDateTime t1 = LocalDateTime.of(2026, 11, 12, 8, 0, 0);
+        Map<SiteConfigKey, PublicVersionService.ConfigMeta> configs = new EnumMap<>(SiteConfigKey.class);
+        configs.put(SiteConfigKey.SITE, new PublicVersionService.ConfigMeta("PUBLISHED", 1, t1));
+
+        Map<String, PublicVersionService.TypeStats> before = new HashMap<>();
+        before.put(ContentType.PRODUCT.name(), new PublicVersionService.TypeStats(2, 4, t1, "1:2,2:2"));
+
+        Map<String, PublicVersionService.TypeStats> after = new HashMap<>();
+        after.put(ContentType.PRODUCT.name(), new PublicVersionService.TypeStats(2, 4, t1, "1:1,3:3"));
+
+        AtomicReference<PublicVersionService.RawSnapshot> ref = new AtomicReference<>(
+                new PublicVersionService.RawSnapshot(configs, before, Map.of()));
+        PublicVersionService service = new PublicVersionService(ref::get);
+
+        PublicVersionService.VersionSnapshot s1 = service.currentVersion();
+        ref.set(new PublicVersionService.RawSnapshot(configs, after, Map.of()));
+        service.evictCache();
+        PublicVersionService.VersionSnapshot s2 = service.currentVersion();
+
+        assertNotEquals(s1.contentVersion(), s2.contentVersion());
+        assertNotEquals(s1.etag(), s2.etag());
+    }
 }

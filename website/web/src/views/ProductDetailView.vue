@@ -1,15 +1,4 @@
-<!-- 对应源码路径: website/web/src/views/ProductDetailView.vue -->
 <script setup lang="ts">
-/**
- * 产品详情页（同时满足《开发文档》6.5 与《参考站核对.md》2.5 & D1 的 7 段结构化版式）：
- * 1. 首屏：产品名称 + 一句话价值摘要 + 「立即咨询」按钮 + 首屏大图 (hero / cover)
- * 2. 核心能力 / 硬件感知模块（features[] / hardwareModules[]，如 ADAS / DSM / BSD 图文卡片）
- * 3. 算法与量化效果指标带（effectMetrics[]，如「事故率下降 17%」「风险识别率 99.2%」）
- * 4. 按角色拆分价值 Tab 区（roleTabs[]：司机端 / 安全员 / 车队长 切换）
- * 5. 端侧协同工具矩阵（terminalTools[]：WEB 管理端 + 移动 APP + 微信群实时播报）
- * 6. 富文本详情正文（bodyHtml，通过 ArticleBody 安全渲染）+ 相关标杆案例（relatedCases[] 含 outcomes 数字）
- * 7. 底部咨询转化行动区（自动携带 PRODUCT_DETAIL 与当前产品 ID）
- */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ArticleBody from '../../../shared/ArticleBody.vue'
@@ -40,27 +29,10 @@ const activeRoleIdx = ref(0)
 usePageMeta(() => ({
   title: data.value?.seo?.title || data.value?.title || '产品详情',
   description: data.value?.seo?.description || data.value?.summary || '',
+  noindex: !loading.value && !data.value,
 }))
 
 const heroMedia = computed(() => data.value?.hero || data.value?.cover || null)
-
-const DEFAULT_HARDWARE_MODULES: TitledItem[] = [
-  {
-    tag: 'ADAS 前向防碰撞',
-    title: '智能前向视觉感知终端',
-    description: '实时识别前车距离、车道偏离与行人穿行，毫秒级声光预警，降低追尾事故风险。',
-  },
-  {
-    tag: 'DSM 驾驶状态监测',
-    title: 'AI 驾驶员行为分析相机',
-    description: '精准识别闭眼疲劳、打哈欠、抽烟、接打手机及分心驾驶，联动语音播报主动干预。',
-  },
-  {
-    tag: 'BSD 盲区生命探测',
-    title: '右转与倒车盲点监测雷达',
-    description: '覆盖大型车辆右转内轮差与车尾盲区，声光报警提醒司机与车外行人双向避让。',
-  },
-]
 
 const hardwareList = computed<TitledItem[]>(() => {
   if (data.value?.hardwareModules && data.value.hardwareModules.length > 0) {
@@ -69,85 +41,30 @@ const hardwareList = computed<TitledItem[]>(() => {
   if (data.value?.features && data.value.features.length > 0) {
     return data.value.features
   }
-  return DEFAULT_HARDWARE_MODULES
+  return []
 })
-
-const DEFAULT_EFFECT_METRICS: OutcomeMetric[] = [
-  { displayValue: '17%↓', label: '车队百公里高危事故率平均下降' },
-  { displayValue: '99.2%', label: 'AI 高危风险场景识别准确率' },
-  { displayValue: '7×24h', label: '云端安全官全天候主动干预守护' },
-  { displayValue: '4倍↑', label: '车队安全管理人效提升' },
-]
 
 const effectMetrics = computed<OutcomeMetric[]>(() => {
   if (data.value?.effectMetrics && data.value.effectMetrics.length > 0) {
     return data.value.effectMetrics
   }
-  return DEFAULT_EFFECT_METRICS
+  return []
 })
-
-const DEFAULT_ROLE_TABS: ProductRoleTab[] = [
-  {
-    role: '司机端',
-    headline: '实时语音温和提醒，做司机的随车安全副驾',
-    bullets: [
-      '车距过近、分心疲劳时车内语音即时提醒，避免事后罚款',
-      '每日安全分自动生成，安全里程达标可获车队正向红包激励',
-      '一键语音播报路况与异常天气预警，行车更安心',
-    ],
-  },
-  {
-    role: '安全员',
-    headline: 'AI 自动分级过滤 95% 无效告警，只抓高危红档风险',
-    bullets: [
-      '系统自动按「红、黄、绿」三档对风险事件分级，告别人工盯屏疲劳',
-      '高危事件自动截取前后短视频与轨迹证据，一键下发约谈任务',
-      '闭环跟踪每次干预后的驾驶行为改善率，合规台账自动归档',
-    ],
-  },
-  {
-    role: '车队长 / 经营者',
-    headline: '看得见的安全ROI，大幅降低出险率与次年保费成本',
-    bullets: [
-      '车队整体安全分、百公里报警率、红档司机占比一屏掌控',
-      '联动保险风控体系，显著降低重大事故赔付支出与停运损失',
-      '支持多分子公司、多车队横向对标排行，数据驱动精细化管理',
-    ],
-  },
-]
 
 const roleTabs = computed<ProductRoleTab[]>(() => {
   if (data.value?.roleTabs && data.value.roleTabs.length > 0) {
     return data.value.roleTabs
   }
-  return DEFAULT_ROLE_TABS
+  return []
 })
 
 const currentRoleTab = computed(() => roleTabs.value[activeRoleIdx.value] ?? roleTabs.value[0])
-
-const DEFAULT_TERMINAL_TOOLS: ProductTerminalTool[] = [
-  {
-    name: 'WEB 数字化工作台',
-    badge: 'PC 端',
-    description: '全景地图实时监控、风险视频调阅、安全分大盘与合规报表一键导出。',
-  },
-  {
-    name: '移动管车 APP / 小程序',
-    badge: '移动端',
-    description: '随时随地接收高危告警推送、查看单车轨迹、在线批复安全整改闭环。',
-  },
-  {
-    name: '企业微信 / 微信群机器人',
-    badge: '即时协同',
-    description: '班前安全播报、红档事件实时推群、周度红黑榜自动晒单，管理零门槛。',
-  },
-]
 
 const terminalTools = computed<ProductTerminalTool[]>(() => {
   if (data.value?.terminalTools && data.value.terminalTools.length > 0) {
     return data.value.terminalTools
   }
-  return DEFAULT_TERMINAL_TOOLS
+  return []
 })
 
 function triggerConsult() {
@@ -155,7 +72,7 @@ function triggerConsult() {
     sourcePosition: 'PRODUCT_DETAIL',
     contentType: 'PRODUCT',
     contentId: id.value,
-    title: '预约产品展示',
+    title: '预约产品演示与报价',
     initialDemand: data.value?.title ? `咨询产品：${data.value.title}` : '',
   })
 }
@@ -165,11 +82,12 @@ async function load() {
   loading.value = true
   notFound.value = false
   error.value = ''
+  activeRoleIdx.value = 0
   try {
     data.value = await getProduct(id.value)
   } catch (err) {
     data.value = null
-    if (err instanceof ApiError && err.status === 404) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
       notFound.value = true
     } else {
       error.value = err instanceof ApiError ? err.message : '产品详情加载失败，请稍后重试'
@@ -207,55 +125,70 @@ onMounted(load)
     </div>
 
     <template v-else-if="data">
-      <!-- 1. 首屏：产品名 + 一句话价值 + 「立即咨询」 + 首屏视觉 -->
+      <!-- 1. 首屏：产品名 + 价值摘要 + 立即咨询 + 首屏视觉 -->
       <section class="pdetail-hero">
-        <div class="container pdetail-hero__grid">
+        <div class="container pdetail-hero__grid" :class="{ 'is-single': !heroMedia }">
           <div v-reveal class="pdetail-hero__text">
             <span v-if="data.categoryName" class="pdetail-hero__cat">{{ data.categoryName }}</span>
             <h1 class="pdetail-hero__title">{{ data.title }}</h1>
             <p v-if="data.summary" class="pdetail-hero__sub">{{ data.summary }}</p>
             <div class="pdetail-hero__actions">
-              <button type="button" class="pdetail-cta-btn" @click="triggerConsult">
+              <button type="button" class="btn btn--primary" @click="triggerConsult">
                 立即咨询
               </button>
               <RouterLink to="/products" class="pdetail-back-link">返回产品列表</RouterLink>
             </div>
           </div>
 
-          <div v-if="heroMedia" v-reveal="120" class="pdetail-hero__visual">
-            <img :src="heroMedia.url" :alt="heroMedia.alt || data.title" class="pdetail-hero__img" />
+          <div v-if="heroMedia" v-reveal="80" class="pdetail-hero__visual">
+            <video
+              v-if="heroMedia.type === 'VIDEO'"
+              :src="heroMedia.url"
+              class="pdetail-hero__img"
+              autoplay
+              muted
+              loop
+              playsinline
+            ></video>
+            <img v-else :src="heroMedia.url" :alt="heroMedia.alt || data.title" class="pdetail-hero__img" />
           </div>
         </div>
       </section>
 
-      <!-- 2. 硬件与核心能力模块（features[] / hardwareModules[]） -->
-      <section v-if="hardwareList.length" class="pdetail-sec">
+      <!-- 2. 核心能力模块（仅当该产品真实配置了 features / hardwareModules 时展示） -->
+      <section v-if="hardwareList.length > 0" class="pdetail-sec">
         <div class="container">
-          <h2 v-reveal class="pdetail-sec__title">核心感知与能力模块</h2>
+          <h2 v-reveal class="pdetail-sec__title">核心能力与功能模块</h2>
           <div class="pdetail-hw-grid">
             <article
               v-for="(item, idx) in hardwareList"
               :key="item.key || item.title || idx"
-              v-reveal="idx * 70"
+              v-reveal="idx * 50"
               class="pdetail-hw-card"
             >
+              <img
+                v-if="item.iconMediaId"
+                :src="`/api/public/media/${item.iconMediaId}`"
+                :alt="item.title"
+                class="pdetail-hw-card__icon"
+              />
               <span v-if="item.tag" class="pdetail-hw-card__tag">{{ item.tag }}</span>
               <h3 class="pdetail-hw-card__title">{{ item.title }}</h3>
-              <p class="pdetail-hw-card__desc">{{ item.description }}</p>
+              <p v-if="item.description" class="pdetail-hw-card__desc">{{ item.description }}</p>
             </article>
           </div>
         </div>
       </section>
 
-      <!-- 3. 算法与量化效果指标带（effectMetrics[]） -->
-      <section v-if="effectMetrics.length" class="pdetail-metrics-band">
+      <!-- 3. 量化效果指标带（仅当配置了 effectMetrics 时展示） -->
+      <section v-if="effectMetrics.length > 0" class="pdetail-metrics-band">
         <div class="container">
-          <h2 v-reveal class="pdetail-sec__title pdetail-sec__title--light">算法赋能与真实运营效果</h2>
+          <h2 v-reveal class="pdetail-sec__title pdetail-sec__title--light">量化应用成效</h2>
           <div class="pdetail-metrics-grid">
             <div
               v-for="(m, mIdx) in effectMetrics"
               :key="m.label + mIdx"
-              v-reveal="mIdx * 70"
+              v-reveal="mIdx * 50"
               class="pdetail-metric-item"
             >
               <strong class="pdetail-metric-item__val">{{ m.displayValue }}</strong>
@@ -265,12 +198,12 @@ onMounted(load)
         </div>
       </section>
 
-      <!-- 4. 按角色拆分价值 Tab 区（司机端 / 安全员 / 车队长） -->
-      <section v-if="roleTabs.length" class="pdetail-sec pdetail-sec--alt">
+      <!-- 4. 按角色价值 Tab 区（仅当配置了 roleTabs 时展示） -->
+      <section v-if="roleTabs.length > 0" class="pdetail-sec pdetail-sec--alt">
         <div class="container">
-          <h2 v-reveal class="pdetail-sec__title">全角色协同增效</h2>
+          <h2 v-reveal class="pdetail-sec__title">多角色协同赋能</h2>
 
-          <div v-reveal="80" class="pdetail-role-tabs" role="tablist">
+          <div v-reveal="60" class="pdetail-role-tabs" role="tablist">
             <button
               v-for="(rt, rIdx) in roleTabs"
               :key="rt.role"
@@ -285,7 +218,7 @@ onMounted(load)
             </button>
           </div>
 
-          <div v-if="currentRoleTab" v-reveal="120" class="pdetail-role-panel">
+          <div v-if="currentRoleTab" v-reveal="90" class="pdetail-role-panel">
             <h3 class="pdetail-role-panel__headline">{{ currentRoleTab.headline }}</h3>
             <ul class="pdetail-role-panel__list">
               <li v-for="(b, bIdx) in currentRoleTab.bullets" :key="bIdx">{{ b }}</li>
@@ -294,15 +227,15 @@ onMounted(load)
         </div>
       </section>
 
-      <!-- 5. 端侧工具矩阵（WEB + APP + 微信群） -->
-      <section v-if="terminalTools.length" class="pdetail-sec">
+      <!-- 5. 终端与协同工具矩阵（仅当配置了 terminalTools 时展示） -->
+      <section v-if="terminalTools.length > 0" class="pdetail-sec">
         <div class="container">
-          <h2 v-reveal class="pdetail-sec__title">多端工具无缝触达</h2>
+          <h2 v-reveal class="pdetail-sec__title">多端协同支持</h2>
           <div class="pdetail-hw-grid">
             <div
               v-for="(tool, tIdx) in terminalTools"
               :key="tool.name + tIdx"
-              v-reveal="tIdx * 70"
+              v-reveal="tIdx * 50"
               class="pdetail-tool-card"
             >
               <span v-if="tool.badge" class="pdetail-tool-card__badge">{{ tool.badge }}</span>
@@ -320,15 +253,41 @@ onMounted(load)
         </div>
       </section>
 
-      <!-- 7. 相关标杆案例（relatedCases[]，展示成果数字 outcomes） -->
-      <section v-if="data.relatedCases?.length" class="pdetail-sec pdetail-sec--alt">
+      <!-- 7. 关联解决方案 (relatedSolutions) -->
+      <section v-if="data.relatedSolutions?.length" class="pdetail-sec pdetail-sec--alt">
         <div class="container">
-          <h2 v-reveal class="pdetail-sec__title">标杆客户实践案例</h2>
+          <h2 v-reveal class="pdetail-sec__title">适用行业解决方案</h2>
+          <div class="pdetail-hw-grid">
+            <RouterLink
+              v-for="sol in data.relatedSolutions"
+              :key="sol.id"
+              :to="`/solutions/${sol.id}`"
+              class="pdetail-case-card"
+            >
+              <div v-if="sol.cover" class="pdetail-case-card__media">
+                <img :src="sol.cover.url" :alt="sol.cover.alt || sol.title" loading="lazy" />
+              </div>
+              <div class="pdetail-case-card__body">
+                <span v-if="sol.industry || sol.categoryName" class="pdetail-case-card__cust">
+                  {{ sol.industry || sol.categoryName }}
+                </span>
+                <h3 class="pdetail-case-card__title">{{ sol.title }}</h3>
+                <p v-if="sol.summary" class="pdetail-case-card__sum">{{ sol.summary }}</p>
+              </div>
+            </RouterLink>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. 关联标杆案例（relatedCases，展示成果数字 outcomes） -->
+      <section v-if="data.relatedCases?.length" class="pdetail-sec">
+        <div class="container">
+          <h2 v-reveal class="pdetail-sec__title">相关客户实践案例</h2>
           <div class="pdetail-hw-grid">
             <RouterLink
               v-for="(c, cIdx) in data.relatedCases"
               :key="c.id"
-              v-reveal="cIdx * 80"
+              v-reveal="cIdx * 60"
               :to="`/cases/${c.id}`"
               class="pdetail-case-card"
             >
@@ -339,17 +298,23 @@ onMounted(load)
                 <span v-if="c.customerName" class="pdetail-case-card__cust">{{ c.customerName }}</span>
                 <h3 class="pdetail-case-card__title">{{ c.title }}</h3>
                 <p v-if="c.summary" class="pdetail-case-card__sum">{{ c.summary }}</p>
+                <dl v-if="c.outcomes?.length" class="pdetail-case-card__outcomes">
+                  <div v-for="o in c.outcomes.slice(0, 2)" :key="o.label">
+                    <dt>{{ o.label }}</dt>
+                    <dd>{{ o.displayValue }}</dd>
+                  </div>
+                </dl>
               </div>
             </RouterLink>
           </div>
         </div>
       </section>
 
-      <!-- 8. 底部咨询转化行动区 -->
+      <!-- 9. 底部咨询转化行动区 -->
       <section class="pdetail-bottom-cta">
         <div class="container pdetail-bottom-cta__inner">
-          <h2 class="pdetail-bottom-cta__title">立即预约「{{ data.title }}」专属演示与方案报价</h2>
-          <button type="button" class="pdetail-cta-btn pdetail-cta-btn--light" @click="triggerConsult">
+          <h2 class="pdetail-bottom-cta__title">预约「{{ data.title }}」产品演示与技术交流</h2>
+          <button type="button" class="btn btn--primary" @click="triggerConsult">
             立即咨询
           </button>
         </div>
@@ -361,7 +326,7 @@ onMounted(load)
 <style scoped>
 .pdetail-page {
   background: #ffffff;
-  color: #1f2329;
+  color: #0f172a;
 }
 
 .state-box {
@@ -369,41 +334,47 @@ onMounted(load)
 }
 
 .pdetail-hero {
-  background: linear-gradient(135deg, #0d111d 0%, #1e1b4b 55%, #090a0f 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #1d4ed8 100%);
   color: #ffffff;
-  padding: 84px 0;
+  padding: 112px 0 72px;
 }
 
 .pdetail-hero__grid {
-  max-width: 1120px;
+  max-width: 1160px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
-  gap: 56px;
+  gap: 48px;
   align-items: center;
+}
+
+.pdetail-hero__grid.is-single {
+  grid-template-columns: 1fr;
 }
 
 .pdetail-hero__cat {
   display: inline-block;
   padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(99, 102, 241, 0.25);
-  color: #c7d2fe;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.25);
+  color: #93c5fd;
   font-size: 12px;
-  margin-bottom: 16px;
+  font-weight: 600;
+  margin-bottom: 14px;
 }
 
 .pdetail-hero__title {
-  font-size: clamp(32px, 4vw, 48px);
+  font-size: clamp(30px, 3.8vw, 44px);
   font-weight: 700;
-  margin: 0 0 18px;
+  color: #ffffff;
+  margin: 0 0 16px;
 }
 
 .pdetail-hero__sub {
   font-size: 16px;
-  line-height: 1.8;
-  color: rgba(255, 255, 255, 0.82);
-  margin: 0 0 32px;
+  line-height: 1.75;
+  color: #cbd5e1;
+  margin: 0 0 28px;
 }
 
 .pdetail-hero__actions {
@@ -412,36 +383,9 @@ onMounted(load)
   gap: 20px;
 }
 
-.pdetail-cta-btn {
-  height: 44px;
-  padding: 0 34px;
-  border: none;
-  border-radius: 2px;
-  background: #5b4be8;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.pdetail-cta-btn:hover {
-  background: #4338ca;
-}
-
-.pdetail-cta-btn--light {
-  background: #ffffff;
-  color: #101014;
-}
-
-.pdetail-cta-btn--light:hover {
-  background: #e0e7ff;
-  color: #4338ca;
-}
-
 .pdetail-back-link {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13.5px;
+  color: #cbd5e1;
+  font-size: 14px;
   text-decoration: none;
 }
 
@@ -451,23 +395,23 @@ onMounted(load)
 
 .pdetail-hero__img {
   width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .pdetail-sec {
-  padding: 80px 0;
+  padding: 72px 0;
 }
 
 .pdetail-sec--alt {
-  background: #f5f7fb;
+  background: #f8fafc;
 }
 
 .pdetail-sec__title {
   text-align: center;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
-  margin: 0 0 48px;
+  margin: 0 0 40px;
 }
 
 .pdetail-sec__title--light {
@@ -475,7 +419,7 @@ onMounted(load)
 }
 
 .pdetail-hw-grid {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -484,11 +428,17 @@ onMounted(load)
 
 .pdetail-hw-card,
 .pdetail-tool-card {
-  padding: 32px 28px;
-  border-radius: 8px;
+  padding: 28px 24px;
+  border-radius: 10px;
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.pdetail-hw-card__icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  margin-bottom: 14px;
 }
 
 .pdetail-hw-card__tag,
@@ -496,31 +446,31 @@ onMounted(load)
   display: inline-block;
   font-size: 12px;
   font-weight: 600;
-  color: #5b4be8;
-  background: #ede9fe;
+  color: var(--c-brand);
+  background: var(--c-brand-soft);
   padding: 3px 10px;
   border-radius: 4px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .pdetail-hw-card__title,
 .pdetail-tool-card__title {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .pdetail-hw-card__desc,
 .pdetail-tool-card__desc {
   font-size: 14px;
   line-height: 1.75;
-  color: #5f6470;
+  color: #475569;
   margin: 0;
 }
 
 .pdetail-metrics-band {
-  padding: 72px 0;
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  padding: 64px 0;
+  background: #0f172a;
   color: #ffffff;
 }
 
@@ -528,46 +478,46 @@ onMounted(load)
   max-width: 1080px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
   text-align: center;
 }
 
 .pdetail-metric-item__val {
   display: block;
-  font-size: 40px;
-  font-weight: 800;
-  color: #a5b4fc;
-  margin-bottom: 8px;
+  font-size: 36px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 6px;
 }
 
 .pdetail-metric-item__lbl {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  color: #cbd5e1;
 }
 
 .pdetail-role-tabs {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 28px;
 }
 
 .pdetail-role-tab {
-  padding: 10px 28px;
-  border-radius: 999px;
-  border: 1px solid #d0d5dd;
+  padding: 9px 24px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
   background: #ffffff;
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
   color: #334155;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .pdetail-role-tab.is-active {
-  background: #5b4be8;
-  border-color: #5b4be8;
+  background: var(--c-brand);
+  border-color: var(--c-brand);
   color: #ffffff;
 }
 
@@ -575,16 +525,16 @@ onMounted(load)
   max-width: 820px;
   margin: 0 auto;
   background: #ffffff;
-  padding: 36px 44px;
-  border-radius: 8px;
-  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.06);
+  padding: 32px 36px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
 }
 
 .pdetail-role-panel__headline {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
-  color: #1f2329;
-  margin: 0 0 18px;
+  color: #0f172a;
+  margin: 0 0 16px;
 }
 
 .pdetail-role-panel__list {
@@ -592,21 +542,27 @@ onMounted(load)
   padding-left: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   font-size: 14.5px;
   line-height: 1.75;
-  color: #4b5563;
+  color: #475569;
 }
 
 .pdetail-case-card {
   background: #ffffff;
-  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
   display: flex;
   flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pdetail-case-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .pdetail-case-card__media {
@@ -626,8 +582,8 @@ onMounted(load)
 
 .pdetail-case-card__cust {
   font-size: 12px;
-  font-weight: 700;
-  color: #5b4be8;
+  font-weight: 600;
+  color: var(--c-brand);
 }
 
 .pdetail-case-card__title {
@@ -636,14 +592,34 @@ onMounted(load)
 }
 
 .pdetail-case-card__sum {
-  font-size: 13px;
-  color: #6e7380;
+  font-size: 13.5px;
+  color: #64748b;
   margin: 0;
 }
 
+.pdetail-case-card__outcomes {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 16px;
+}
+
+.pdetail-case-card__outcomes dt {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.pdetail-case-card__outcomes dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-brand);
+}
+
 .pdetail-bottom-cta {
-  padding: 68px 0;
-  background: #090a0f;
+  padding: 64px 0;
+  background: #0f172a;
   color: #ffffff;
   text-align: center;
 }
@@ -652,18 +628,18 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .pdetail-bottom-cta__title {
-  font-size: 28px;
+  font-size: 24px;
+  color: #ffffff;
   margin: 0;
 }
 
 @media (max-width: 960px) {
   .pdetail-hero__grid,
-  .pdetail-hw-grid,
-  .pdetail-metrics-grid {
+  .pdetail-hw-grid {
     grid-template-columns: 1fr;
   }
 }

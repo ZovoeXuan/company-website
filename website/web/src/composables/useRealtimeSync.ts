@@ -19,7 +19,7 @@ let globalListenersAttached = false
 
 const BASE_POLL_MS = 30_000
 const BACKOFF_STEPS_MS = [30_000, 60_000, 120_000]
-const SYNC_STORAGE_KEYS = new Set(['site_last_published', 'g7_last_published', 'admin_data_updated'])
+const SYNC_STORAGE_KEYS = new Set(['site_last_published', 'admin_data_updated'])
 
 function clearPollTimer() {
   if (pollTimer !== null) {

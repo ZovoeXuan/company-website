@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listContents, type ContentView } from '@/api/content'
+import { getContent, listContents, type ContentView } from '@/api/content'
 
 const props = withDefaults(
   defineProps<{
@@ -66,6 +66,19 @@ async function ensureTitles() {
     for (const item of data.items) {
       titleMap.value[item.id] = item.title
     }
+    const stillMissing = props.modelValue.filter((id) => !titleMap.value[String(id)])
+    await Promise.all(
+      stillMissing.map(async (id) => {
+        try {
+          const detail = await getContent(String(id))
+          if (detail?.content?.title) {
+            titleMap.value[String(id)] = detail.content.title
+          }
+        } catch {
+          // ignore single item error
+        }
+      }),
+    )
   } catch {
     // 标题拉取失败时保留 #id 展示，不影响保存
   }

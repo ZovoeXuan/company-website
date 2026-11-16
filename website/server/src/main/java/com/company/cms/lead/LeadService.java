@@ -12,12 +12,16 @@ import com.company.cms.site.SiteConfigKey;
 import com.company.cms.site.SiteConfigRepository;
 import com.company.cms.site.SiteConfigRow;
 import com.company.cms.system.AuditLogService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -28,19 +32,27 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
- * 咨询线索闭环：幂等受理、敏感字段加密、限流，以及后台查看与状态处理。
- * 公开提交失败不落库；成功记录同时承载幂等结果。
+ * 咨询线索闭环：真实短信验证码签发与核验、幂等受理、敏感字段加密、限流，以及后台查看与状态处理。
  */
 @Service
 public class LeadService {
 
+    private static final Logger log = LoggerFactory.getLogger(LeadService.class);
     private static final Pattern PHONE = Pattern.compile("^1[3-9][0-9]{9}$");
     private static final String RECEIPT_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int PAYLOAD_VERSION = 1;
     private static final int MAX_NOTE = 2000;
+    private static final long SMS_TTL_SECONDS = 300L;
+    private static final long SMS_COOLDOWN_SECONDS = 60L;
+
+    private record SmsEntry(String code, Instant issuedAt, Instant expiresAt, int attempts) {
+    }
+
+    private final ConcurrentHashMap<String, SmsEntry> smsStore = new ConcurrentHashMap<>();
 
     private final LeadRepository repository;
     private final LeadCrypto crypto;
@@ -49,20 +61,86 @@ public class LeadService {
     private final SiteConfigRepository configs;
     private final AuditLogService audit;
     private final SecureRandom random = new SecureRandom();
+    private final boolean exposeDevCode;
 
     public LeadService(LeadRepository repository, LeadCrypto crypto, LeadRateLimiter rateLimiter,
-                       ContentRepository contents, SiteConfigRepository configs, AuditLogService audit) {
+                       ContentRepository contents, SiteConfigRepository configs, AuditLogService audit,
+                       @Value("${cms.sms.expose-dev-code:false}") boolean exposeDevCode) {
         this.repository = repository;
         this.crypto = crypto;
         this.rateLimiter = rateLimiter;
         this.contents = contents;
         this.configs = configs;
         this.audit = audit;
+        this.exposeDevCode = exposeDevCode;
+    }
+
+    // ------------------------------------------------------------ 短信验证码签发与校验
+
+    public Map<String, Object> sendSmsCode(String rawPhone, String remoteAddr) {
+        ensureFormEnabled();
+        String phone = rawPhone == null ? "" : rawPhone.trim();
+        if (!PHONE.matcher(phone).matches()) {
+            throw ApiException.validation("phone", "请填写 11 位中国大陆手机号");
+        }
+        String ipDigest = crypto.digest("ip:" + (remoteAddr == null ? "unknown" : remoteAddr));
+        rateLimiter.checkGeneral(ipDigest);
+
+        Instant now = Instant.now();
+        SmsEntry current = smsStore.get(phone);
+        if (current != null && now.isBefore(current.issuedAt().plusSeconds(SMS_COOLDOWN_SECONDS))) {
+            long waitSec = Math.max(1L, current.issuedAt().plusSeconds(SMS_COOLDOWN_SECONDS).getEpochSecond() - now.getEpochSecond());
+            throw ApiException.validation("phone", "验证码发送过于频繁，请在 " + waitSec + " 秒后重试");
+        }
+
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        smsStore.put(phone, new SmsEntry(code, now, now.plusSeconds(SMS_TTL_SECONDS), 0));
+        log.info("[SMS-VERIFY] 已向手机号 ***{} 发送 6 位验证码（有效期 {} 秒）",
+                phone.substring(phone.length() - 4), SMS_TTL_SECONDS);
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("sent", true);
+        res.put("expiresInSeconds", SMS_TTL_SECONDS);
+        res.put("cooldownSeconds", SMS_COOLDOWN_SECONDS);
+        if (exposeDevCode) {
+            res.put("devCode", code);
+        }
+        return res;
+    }
+
+    private void verifySmsIfRequired(String phone, String smsCode) {
+        if (!isSmsVerifyEnabled()) {
+            return;
+        }
+        String input = smsCode == null ? "" : smsCode.trim();
+        if (input.isEmpty()) {
+            throw ApiException.validation("smsCode", "请输入手机短信验证码");
+        }
+        SmsEntry entry = smsStore.get(phone);
+        Instant now = Instant.now();
+        if (entry == null || now.isAfter(entry.expiresAt())) {
+            smsStore.remove(phone);
+            throw ApiException.validation("smsCode", "短信验证码不存在或已过期，请重新获取");
+        }
+        if (entry.attempts() >= 5) {
+            smsStore.remove(phone);
+            throw ApiException.validation("smsCode", "验证码错误次数过多，请重新获取");
+        }
+        if (!entry.code().equals(input)) {
+            smsStore.put(phone, new SmsEntry(entry.code(), entry.issuedAt(), entry.expiresAt(), entry.attempts() + 1));
+            throw ApiException.validation("smsCode", "短信验证码不正确");
+        }
+        smsStore.remove(phone);
+    }
+
+    private boolean isSmsVerifyEnabled() {
+        JsonNode contact = published(SiteConfigKey.CONTACT);
+        return contact == null || contact.get("smsVerifyEnabled") == null
+                || contact.get("smsVerifyEnabled").asBoolean(true);
     }
 
     // ------------------------------------------------------------ 公开提交
 
-    /** 公开提交不包事务：单条 INSERT 自身原子，幂等冲突后需要用新快照回读已提交记录。 */
     public LeadSubmitResponse submit(LeadSubmitRequest request, String idempotencyKey, String remoteAddr) {
         String key = normalizeKey(idempotencyKey);
         NormalizedLead lead = normalize(request);
@@ -70,7 +148,6 @@ public class LeadService {
         byte[] payloadHash = crypto.payloadHash(lead.canonicalPayload());
         String ipDigest = crypto.digest("ip:" + (remoteAddr == null ? "unknown" : remoteAddr));
 
-        // 通用频率限制对幂等重试同样生效
         rateLimiter.checkGeneral(ipDigest);
 
         Optional<LeadRepository.LeadRow> existing = repository.findByIdempotencyKey(key);
@@ -81,6 +158,7 @@ public class LeadService {
         ensureFormEnabled();
         ensureConsentVersion(lead.consentVersion());
         ensureContentReference(lead);
+        verifySmsIfRequired(lead.phone(), request.smsCode());
 
         rateLimiter.checkNewSubmission(ipDigest, crypto.digest("phone:" + lead.phone()));
 
@@ -94,7 +172,6 @@ public class LeadService {
                     lead.contentId(), lead.consentVersion(), now);
             return new LeadSubmitResponse(true, receipt);
         } catch (DuplicateKeyException ex) {
-            // 并发写入同一幂等键：等对方提交后回读，不能只依赖提交前的查询
             for (int attempt = 0; attempt < 5; attempt++) {
                 Optional<LeadRepository.LeadRow> concurrent = repository.findByIdempotencyKey(key);
                 if (concurrent.isPresent()) {
@@ -255,7 +332,10 @@ public class LeadService {
     }
 
     private JsonNode published(SiteConfigKey key) {
-        return configs.find(key).map(SiteConfigRow::published).orElse(null);
+        return configs.find(key)
+                .filter(row -> row.status().isPublished())
+                .map(SiteConfigRow::published)
+                .orElse(null);
     }
 
     private String receiptNo() {
@@ -284,6 +364,15 @@ public class LeadService {
         long total = repository.count(normalizedStatus, normalizedKeyword, from, to);
         List<Map<String, Object>> items = rows.stream().map(this::listView).toList();
         return PageResult.of(items, page, pageSize, total);
+    }
+
+    public Map<String, Long> statusCounts(String keyword, LocalDate from, LocalDate to) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (LeadStatus st : LeadStatus.values()) {
+            counts.put(st.name(), repository.count(st.name(), normalizedKeyword, from, to));
+        }
+        return counts;
     }
 
     @Transactional
@@ -376,7 +465,6 @@ public class LeadService {
         return time == null ? null : time.atOffset(ZoneOffset.UTC).toString();
     }
 
-    /** 供控制器解析日期筛选；空值返回 null，格式错误转成字段级错误。 */
     public static LocalDate parseDate(String value, String field) {
         if (value == null || value.isBlank()) {
             return null;

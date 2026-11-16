@@ -490,9 +490,10 @@ public class HomeAggregateService {
 
     private boolean formEnabled() {
         return configs.find(SiteConfigKey.CONTACT)
+                .filter(row -> row.status().isPublished())
                 .map(SiteConfigRow::published)
-                .map(json -> json.get("formEnabled") == null || json.get("formEnabled").asBoolean(true))
-                .orElse(true);
+                .map(json -> json.get("formEnabled") != null && json.get("formEnabled").asBoolean(false))
+                .orElse(false);
     }
 
     private String text(JsonNode node, String field) {

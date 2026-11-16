@@ -172,12 +172,15 @@ export function submitLead(
 }
 
 /** 单页接口返回 {code, content}，这里统一拆开。 */
-/** 小鑫问答：服务端代理调用后台配置的大模型，密钥不经过浏览器。 */
-export function askXiaoqi(
-  question: string,
-  history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
-): Promise<{ answer: string }> {
-  return apiPost<{ answer: string }>('/api/public/xiaoqi/chat', { question, history })
+export interface SmsCodeResponse {
+  sent: boolean
+  expiresInSeconds: number
+  cooldownSeconds: number
+  devCode?: string
+}
+
+export function sendLeadSmsCode(phone: string): Promise<SmsCodeResponse> {
+  return apiPost<SmsCodeResponse>('/api/public/leads/sms-code', { phone })
 }
 
 async function getPage<T>(code: string): Promise<T> {

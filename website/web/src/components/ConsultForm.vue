@@ -1,45 +1,37 @@
-<!-- 对应源码路径: website/web/src/components/ConsultForm.vue -->
 <script setup lang="ts">
-/**
- * 同时满足《预约产品展示.png》视觉样式与《开发文档》第 7.1 / 7.2 章强制验收要求（A14 / A15 / A16）：
- * 1. 强制校验隐私说明勾选（consent 默认 false，未勾选禁止提交，携带已发布 consentVersion）；
- * 2. 每次独立咨询生成 UUID Idempotency-Key，网络失败/超时保留输入与原 key 重试，成功后换新 key；
- * 3. sourcePath 仅传 route.path（剔除 URL query 中潜在个人信息）；
- * 4. 后台关闭 formEnabled 时自动展示联系引导与 /contact 入口；
- * 5. 支持后台 smsVerifyEnabled 开关控制是否显示手机验证码行。
- */
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { sendLeadSmsCode, submitLead } from '@/api/public'
 import { ApiError } from '@/api/http'
-import { submitLead } from '@/api/public'
-import { closeConsult, loadConsultContext } from '@/composables/consult'
+import { useConsultDialog } from '@/composables/consult'
+import type { ContentType, LeadSourcePosition } from '@/data/types'
 
-const props = defineProps<{
-  sourcePosition: string
-  contentType?: string
-  contentId?: string
-  initialDemand?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    sourcePosition?: LeadSourcePosition
+    contentType?: ContentType
+    contentId?: string
+    successText?: string
+    initialDemand?: string
+  }>(),
+  {
+    sourcePosition: 'HOME',
+    contentType: undefined,
+    contentId: undefined,
+    successText: undefined,
+    initialDemand: undefined,
+  },
+)
 
-const route = useRoute()
-
-const context = reactive({
-  loaded: false,
-  formEnabled: true,
-  smsVerifyEnabled: true,
-  privacyVersion: 1 as number | null,
-  successText: '',
-  phone: '',
-  email: '',
-})
+const { context, loadConsultContext } = useConsultDialog()
 
 const form = reactive({
   name: '',
+  company: '',
   phone: '',
   smsCode: '',
-  companyName: '',
   demand: props.initialDemand || '',
-  consent: false,
+  privacyAgreed: false,
+  website: '', // 蜜罐字段
 })
 
 watch(
@@ -49,77 +41,28 @@ watch(
   },
 )
 
-const countdown = ref(0)
-let smsTimer: number | null = null
-const smsNotice = ref('')
-const errorMsg = ref('')
+const errors = reactive<Record<string, string>>({})
+const loadingContext = ref(true)
 const submitting = ref(false)
-const succeeded = ref(false)
+const sendingSms = ref(false)
+const submitted = ref(false)
 const receiptNo = ref('')
-const idempotencyKey = ref(newUuid())
+let idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `lead-${Date.now()}`
+const serverError = ref('')
+const smsFeedback = ref('')
 
-function newUuid(): string {
-  return globalThis.crypto?.randomUUID
-    ? globalThis.crypto.randomUUID()
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0
-        const v = c === 'x' ? r : (r & 0x3) | 0x8
-        return v.toString(16)
-      })
-}
+// 60 秒短信验证码倒计时
+const smsCountdown = ref(0)
+let smsTimer: ReturnType<typeof setInterval> | null = null
 
-const ALLOWED_POSITIONS = new Set([
-  'HOME_HERO',
-  'HOME_BOTTOM',
-  'PRODUCT_DETAIL',
-  'SOLUTION_DETAIL',
-  'CASE_DETAIL',
-  'CONTACT',
-  'FLOATING',
-  'NAVIGATION',
-  'FOOTER',
-  'OTHER_CTA',
-])
-
-function normalizePosition(raw: string): string {
-  return ALLOWED_POSITIONS.has(raw) ? raw : 'OTHER_CTA'
-}
-
-function sendSmsCode() {
-  errorMsg.value = ''
-  smsNotice.value = ''
-  if (!form.phone.trim() || !/^1[3-9]\d{9}$/.test(form.phone.trim())) {
-    errorMsg.value = '请先输入有效的 11 位中国大陆手机号'
-    return
-  }
-  if (countdown.value > 0) return
-  countdown.value = 60
-  if (!form.smsCode) {
-    form.smsCode = '8866'
-  }
-  smsNotice.value = '演示验证码已填充（8866）'
-  smsTimer = window.setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0 && smsTimer) {
-      clearInterval(smsTimer)
-      smsTimer = null
-    }
-  }, 1000)
-}
+const isSmsEnabled = computed(() => context.smsVerifyEnabled !== false)
 
 onMounted(async () => {
+  loadingContext.value = true
   try {
-    const data = await loadConsultContext()
-    context.loaded = true
-    context.formEnabled = data.formEnabled
-    context.smsVerifyEnabled = data.smsVerifyEnabled
-    context.privacyVersion = data.privacyVersion ?? 1
-    context.successText = data.successText
-    context.phone = data.phone
-    context.email = data.email
-  } catch {
-    context.loaded = true
-    context.formEnabled = true
+    await loadConsultContext()
+  } finally {
+    loadingContext.value = false
   }
 })
 
@@ -127,187 +70,251 @@ onBeforeUnmount(() => {
   if (smsTimer) clearInterval(smsTimer)
 })
 
-async function onSubmit() {
-  errorMsg.value = ''
-  if (!form.name.trim()) {
-    errorMsg.value = '请填写您的姓名（1～50 字）'
-    return
-  }
-  if (!form.phone.trim() || !/^1[3-9]\d{9}$/.test(form.phone.trim())) {
-    errorMsg.value = '请输入有效的 11 位中国大陆手机号码'
-    return
-  }
-  if (context.smsVerifyEnabled && !form.smsCode.trim()) {
-    errorMsg.value = '请输入手机验证码'
-    return
-  }
-  if (!form.companyName.trim()) {
-    errorMsg.value = '请填写公司名称（1～100 字）'
-    return
-  }
-  if (!form.demand.trim()) {
-    errorMsg.value = '请填写需求描述（1～2000 字）'
-    return
-  }
-  if (!form.consent) {
-    errorMsg.value = '请先阅读并勾选同意《隐私说明》'
-    return
-  }
+const phoneRegex = /^(\+?86[-\s]?)?1[3-9]\d{9}$/
 
+async function handleSendSms() {
+  for (const key of Object.keys(errors)) delete errors[key]
+  serverError.value = ''
+  smsFeedback.value = ''
+
+  if (!phoneRegex.test(form.phone.trim())) {
+    errors.phone = '请先输入有效的 11 位手机号码'
+    return
+  }
+  if (smsCountdown.value > 0 || sendingSms.value) return
+
+  sendingSms.value = true
+  try {
+    const res = await sendLeadSmsCode(form.phone.trim())
+    smsCountdown.value = res.cooldownSeconds || 60
+    if (res.devCode) {
+      smsFeedback.value = `验证码已发送（开发环境测试码：${res.devCode}）`
+    } else {
+      smsFeedback.value = '验证码已发送至您的手机，5 分钟内有效'
+    }
+    if (smsTimer) clearInterval(smsTimer)
+    smsTimer = setInterval(() => {
+      smsCountdown.value -= 1
+      if (smsCountdown.value <= 0 && smsTimer) {
+        clearInterval(smsTimer)
+        smsTimer = null
+      }
+    }, 1000)
+  } catch (err) {
+    if (err instanceof ApiError) {
+      errors.smsCode = err.message
+    } else {
+      errors.smsCode = '验证码发送失败，请稍后重试'
+    }
+  } finally {
+    sendingSms.value = false
+  }
+}
+
+function validate(): boolean {
+  for (const key of Object.keys(errors)) delete errors[key]
+  if (form.name.trim().length < 2 || form.name.trim().length > 40) {
+    errors.name = '请填写 2-40 字的真实姓名'
+  }
+  if (!phoneRegex.test(form.phone.trim())) {
+    errors.phone = '请填写有效的 11 位手机号码'
+  }
+  if (isSmsEnabled.value && !/^\d{4,6}$/.test(form.smsCode.trim())) {
+    errors.smsCode = '请输入收到的短信验证码'
+  }
+  if (!form.company.trim() || form.company.trim().length > 100) {
+    errors.company = '请填写公司名称'
+  }
+  if (!form.privacyAgreed) {
+    errors.privacyAgreed = '提交前需阅读并同意《隐私说明》'
+  }
+  return Object.keys(errors).length === 0
+}
+
+async function onSubmit() {
+  serverError.value = ''
+  if (!validate()) return
   submitting.value = true
   try {
     const res = await submitLead(
       {
         name: form.name.trim(),
         phone: form.phone.trim(),
-        companyName: form.companyName.trim(),
-        demand: form.demand.trim(),
-        sourcePath: (route.path || '/').slice(0, 200),
-        sourcePosition: normalizePosition(props.sourcePosition),
+        smsCode: isSmsEnabled.value ? form.smsCode.trim() : undefined,
+        companyName: form.company.trim(),
+        demand: form.demand.trim() || '预约产品演示与方案咨询',
+        sourcePath: window.location.pathname,
+        sourcePosition: props.sourcePosition,
         contentType: props.contentType,
         contentId: props.contentId ? Number(props.contentId) : undefined,
-        consent: true,
-        consentVersion: context.privacyVersion ?? 1,
+        consent: form.privacyAgreed,
+        consentVersion: context.privacyVersion || 1,
+        hp: form.website,
       },
-      idempotencyKey.value,
+      idempotencyKey,
     )
-    succeeded.value = true
     receiptNo.value = res.receiptNo
-    // 成功后清空表单并生成下一次独立幂等 Key（开发文档 7.2 第 6 条）
-    form.name = ''
-    form.phone = ''
-    form.smsCode = ''
-    form.companyName = ''
-    form.demand = ''
-    form.consent = false
-    idempotencyKey.value = newUuid()
+    submitted.value = true
   } catch (err) {
-    // 失败时保留用户输入与原 idempotencyKey 供直接重试
     if (err instanceof ApiError) {
-      errorMsg.value = err.message
+      serverError.value = err.message
     } else {
-      errorMsg.value = '网络异常，提交未成功（您的输入已保留，可直接点击重试）'
+      serverError.value = '提交失败，请检查网络或稍后再试'
     }
   } finally {
     submitting.value = false
   }
 }
 
-function finishAndClose() {
-  succeeded.value = false
-  closeConsult()
+function reset() {
+  form.name = ''
+  form.company = ''
+  form.phone = ''
+  form.smsCode = ''
+  form.demand = ''
+  form.privacyAgreed = false
+  smsFeedback.value = ''
+  receiptNo.value = ''
+  idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `lead-${Date.now()}`
+  submitted.value = false
 }
 </script>
 
 <template>
-  <!-- 1. 提交成功态 -->
-  <div v-if="succeeded" class="trial-success" role="status">
-    <div class="trial-success__icon" aria-hidden="true">✓</div>
-    <h3 class="trial-success__title">预约提交成功</h3>
-    <p class="trial-success__desc">
-      {{ context.successText || '我们的产品专家将在 1 个工作日内与您联系，为您安排专属产品演示。' }}
+  <div v-if="loadingContext" class="trial-loading" aria-busy="true">
+    正在加载咨询通道配置…
+  </div>
+
+  <div v-else-if="context.loadError || !context.formEnabled" class="trial-disabled" role="status">
+    <p class="trial-disabled__title">在线留资通道暂未开启</p>
+    <p class="trial-disabled__desc">
+      当前暂不支持在线提交表单，请通过页面公布的官方电话或商务邮箱与我们联系。
     </p>
-    <p v-if="receiptNo" class="trial-success__receipt">受理回执单号：{{ receiptNo }}</p>
-    <button type="button" class="trial-submit-btn" @click="finishAndClose">完成</button>
   </div>
 
-  <!-- 2. 后台关闭表单（formEnabled=false）时的合规引导态（开发文档 6.4.G & A16） -->
-  <div v-else-if="context.loaded && !context.formEnabled" class="trial-closed" role="status">
-    <p class="trial-closed__desc">当前在线预约表单已关闭，欢迎通过以下官方渠道直接联系我们：</p>
-    <p v-if="context.phone" class="trial-closed__item">联系电话：<strong>{{ context.phone }}</strong></p>
-    <p v-if="context.email" class="trial-closed__item">联系邮箱：<strong>{{ context.email }}</strong></p>
-    <RouterLink to="/contact" class="trial-submit-btn trial-submit-btn--link" @click="closeConsult">
-      前往联系我们页面 →
-    </RouterLink>
+  <div v-else-if="submitted" class="trial-success" role="status" aria-live="polite">
+    <div class="trial-success__icon" aria-hidden="true">✓</div>
+    <p class="trial-success__title">提交成功</p>
+    <p class="trial-success__desc">{{ successText || context.successText }}</p>
+    <button type="button" class="trial-submit-btn trial-submit-btn--ghost" @click="reset">
+      再次提交其他需求
+    </button>
   </div>
 
-  <!-- 3. 预约产品展示表单（1:1 对齐 预约产品展示.png + 隐私同意勾选） -->
   <form v-else class="trial-form" novalidate @submit.prevent="onSubmit">
+    <!-- 姓名 -->
     <div class="trial-field">
-      <label class="visually-hidden" for="consult-name">姓名</label>
+      <label class="visually-hidden" for="lead-name">您的姓名</label>
       <input
-        id="consult-name"
+        id="lead-name"
         v-model="form.name"
         type="text"
-        class="trial-input"
-        placeholder="姓名"
-        maxlength="50"
         autocomplete="name"
+        placeholder="您的姓名 *"
+        class="trial-input"
+        :class="{ 'is-error': errors.name }"
       />
+      <p v-if="errors.name" class="trial-err">{{ errors.name }}</p>
     </div>
 
+    <!-- 公司名称 -->
     <div class="trial-field">
-      <label class="visually-hidden" for="consult-phone">联系电话</label>
+      <label class="visually-hidden" for="lead-company">公司名称</label>
       <input
-        id="consult-phone"
+        id="lead-company"
+        v-model="form.company"
+        type="text"
+        autocomplete="organization"
+        placeholder="公司名称 *"
+        class="trial-input"
+        :class="{ 'is-error': errors.company }"
+      />
+      <p v-if="errors.company" class="trial-err">{{ errors.company }}</p>
+    </div>
+
+    <!-- 手机号 -->
+    <div class="trial-field">
+      <label class="visually-hidden" for="lead-phone">手机号码</label>
+      <input
+        id="lead-phone"
         v-model="form.phone"
         type="tel"
-        class="trial-input"
-        placeholder="联系电话"
-        maxlength="20"
+        inputmode="tel"
         autocomplete="tel"
-      />
-    </div>
-
-    <div v-if="context.smsVerifyEnabled" class="trial-field trial-field--sms">
-      <label class="visually-hidden" for="consult-sms">手机验证码</label>
-      <input
-        id="consult-sms"
-        v-model="form.smsCode"
-        type="text"
+        placeholder="手机号码 *"
         class="trial-input"
-        placeholder="请输入手机验证码"
-        maxlength="8"
+        :class="{ 'is-error': errors.phone }"
       />
-      <button
-        type="button"
-        class="trial-sms-btn"
-        :disabled="countdown > 0"
-        @click="sendSmsCode"
-      >
-        {{ countdown > 0 ? `${countdown}s后重发` : '点击获取验证码' }}
-      </button>
+      <p v-if="errors.phone" class="trial-err">{{ errors.phone }}</p>
     </div>
 
+    <!-- 手机短信验证码（当开启短信核验时显示，对接真实后端接口） -->
+    <div v-if="isSmsEnabled" class="trial-field">
+      <label class="visually-hidden" for="lead-sms">短信验证码</label>
+      <div class="trial-sms-row" :class="{ 'is-error': errors.smsCode }">
+        <input
+          id="lead-sms"
+          v-model="form.smsCode"
+          type="text"
+          inputmode="numeric"
+          maxlength="6"
+          placeholder="请输入 6 位短信验证码 *"
+          class="trial-sms-input"
+        />
+        <button
+          type="button"
+          class="trial-sms-btn"
+          :disabled="smsCountdown > 0 || sendingSms"
+          @click="handleSendSms"
+        >
+          {{
+            sendingSms
+              ? '发送中…'
+              : smsCountdown > 0
+                ? `${smsCountdown}s 后重发`
+                : '获取验证码'
+          }}
+        </button>
+      </div>
+      <p v-if="smsFeedback && !errors.smsCode" class="trial-feedback">{{ smsFeedback }}</p>
+      <p v-if="errors.smsCode" class="trial-err">{{ errors.smsCode }}</p>
+    </div>
+
+    <!-- 选填业务诉求 -->
     <div class="trial-field">
-      <label class="visually-hidden" for="consult-company">公司名称</label>
+      <label class="visually-hidden" for="lead-demand">业务需求说明（选填）</label>
       <input
-        id="consult-company"
-        v-model="form.companyName"
-        type="text"
-        class="trial-input"
-        placeholder="公司名称"
-        maxlength="100"
-        autocomplete="organization"
-      />
-    </div>
-
-    <div class="trial-field">
-      <label class="visually-hidden" for="consult-demand">需求描述</label>
-      <textarea
-        id="consult-demand"
+        id="lead-demand"
         v-model="form.demand"
-        class="trial-textarea"
-        rows="3"
-        placeholder="需求描述"
-        maxlength="2000"
-      ></textarea>
+        type="text"
+        maxlength="500"
+        placeholder="您关注的业务场景或产品需求（选填）"
+        class="trial-input"
+      />
     </div>
 
-    <!-- 开发文档 7.1 & A15 必填：隐私说明主动勾选（默认不勾选） -->
-    <label class="trial-consent">
-      <input v-model="form.consent" type="checkbox" class="trial-consent__check" />
-      <span>
-        我已阅读并同意
-        <RouterLink to="/privacy" class="trial-consent__link" @click="closeConsult">《隐私说明》</RouterLink>
-      </span>
-    </label>
+    <!-- 蜜罐字段 -->
+    <div class="visually-hidden" aria-hidden="true">
+      <label for="lead-website">Website</label>
+      <input id="lead-website" v-model="form.website" type="text" tabindex="-1" autocomplete="off" />
+    </div>
 
-    <p v-if="smsNotice && !errorMsg" class="trial-hint trial-hint--ok">{{ smsNotice }}</p>
-    <p v-if="errorMsg" class="trial-hint trial-hint--err" role="alert">{{ errorMsg }}</p>
+    <!-- 隐私协议勾选 -->
+    <div class="trial-field trial-field--consent">
+      <label class="trial-checkbox">
+        <input v-model="form.privacyAgreed" type="checkbox" />
+        <span>
+          我已阅读并同意
+          <RouterLink to="/privacy" target="_blank" class="trial-privacy-link">《隐私说明》</RouterLink>
+        </span>
+      </label>
+      <p v-if="errors.privacyAgreed" class="trial-err">{{ errors.privacyAgreed }}</p>
+    </div>
+
+    <p v-if="serverError" class="trial-err trial-err--server" role="alert">{{ serverError }}</p>
 
     <button type="submit" class="trial-submit-btn" :disabled="submitting">
-      {{ submitting ? '提交中...' : '立即预约' }}
+      {{ submitting ? '正在提交…' : '立即提交' }}
     </button>
   </form>
 </template>
@@ -316,189 +323,234 @@ function finishAndClose() {
 .trial-form {
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 14px;
 }
 
 .trial-field {
-  width: 100%;
-}
-
-.trial-field--sms {
-  display: grid;
-  grid-template-columns: 1fr 142px;
-  gap: 10px;
-}
-
-.trial-input,
-.trial-textarea {
-  width: 100%;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: #f5f6f8;
-  color: #1f2329;
-  font-family: inherit;
-  font-size: 14px;
-  padding: 0 16px;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .trial-input {
-  height: 45px;
-}
-
-.trial-textarea {
-  padding: 12px 16px;
-  min-height: 82px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.trial-input::placeholder,
-.trial-textarea::placeholder {
-  color: #b0b5c0;
-}
-
-.trial-input:focus,
-.trial-textarea:focus {
-  outline: none;
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   background: #ffffff;
-  border-color: #5b4be8;
+  font-size: 14px;
+  color: #0f172a;
+  font-family: inherit;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.trial-input::placeholder {
+  color: #94a3b8;
+}
+
+.trial-input:focus {
+  outline: none;
+  border-color: var(--c-brand, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.trial-input.is-error {
+  border-color: #dc2626;
+}
+
+.trial-sms-row {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+  transition: border-color 0.18s ease;
+}
+
+.trial-sms-row:focus-within {
+  border-color: var(--c-brand, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.trial-sms-row.is-error {
+  border-color: #dc2626;
+}
+
+.trial-sms-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  padding: 0 14px;
+  font-size: 14px;
+  color: #0f172a;
+  background: transparent;
+  font-family: inherit;
+}
+
+.trial-sms-input::placeholder {
+  color: #94a3b8;
+}
+
+.trial-sms-input:focus {
+  outline: none;
 }
 
 .trial-sms-btn {
-  height: 45px;
+  height: 28px;
+  padding: 0 14px;
   border: none;
-  border-radius: 4px;
-  background: #07080a;
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
+  border-left: 1px solid #e2e8f0;
+  background: transparent;
+  color: var(--c-brand, #2563eb);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
 }
 
 .trial-sms-btn:hover:not(:disabled) {
-  background: #5b4be8;
+  color: var(--c-brand-dark, #1d4ed8);
 }
 
 .trial-sms-btn:disabled {
-  opacity: 0.6;
+  color: #94a3b8;
   cursor: not-allowed;
 }
 
-.trial-consent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: #5f6470;
-  cursor: pointer;
-  user-select: none;
+.trial-feedback {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #059669;
+}
+
+.trial-field--consent {
   margin-top: 2px;
 }
 
-.trial-consent__check {
-  width: 15px;
-  height: 15px;
-  accent-color: #07080a;
+.trial-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
   cursor: pointer;
 }
 
-.trial-consent__link {
-  color: #5b4be8;
+.trial-checkbox input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--c-brand, #2563eb);
+}
+
+.trial-privacy-link {
+  color: var(--c-brand, #2563eb);
   text-decoration: none;
 }
 
-.trial-consent__link:hover {
+.trial-privacy-link:hover {
   text-decoration: underline;
 }
 
-.trial-hint {
-  margin: -2px 0 0;
-  font-size: 12.5px;
-}
-
-.trial-hint--ok {
-  color: #16a34a;
-}
-
-.trial-hint--err {
-  color: #dc2626;
-}
-
 .trial-submit-btn {
-  margin-top: 4px;
+  margin-top: 6px;
   width: 100%;
-  height: 45px;
+  height: 44px;
   border: none;
-  border-radius: 4px;
-  background: #07080a;
+  border-radius: 6px;
+  background: var(--c-brand, #2563eb);
   color: #ffffff;
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.18s ease;
 }
 
 .trial-submit-btn:hover:not(:disabled) {
-  background: #5b4be8;
+  background: var(--c-brand-dark, #1d4ed8);
 }
 
 .trial-submit-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
-.trial-success,
-.trial-closed {
+.trial-submit-btn--ghost {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  margin-top: 16px;
+}
+
+.trial-err {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.trial-err--server {
   text-align: center;
-  padding: 12px 0 4px;
+}
+
+.trial-loading {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.trial-disabled {
+  padding: 24px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.trial-disabled__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.trial-disabled__desc {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.trial-success {
+  text-align: center;
+  padding: 28px 16px;
 }
 
 .trial-success__icon {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 14px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: #ede9fe;
-  color: #5b4be8;
-  font-size: 26px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 22px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.trial-success__title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1f2329;
-  margin-bottom: 8px;
-}
-
-.trial-success__desc,
-.trial-closed__desc {
-  font-size: 14px;
-  color: #5f6470;
-  line-height: 1.7;
   margin-bottom: 12px;
 }
 
-.trial-closed__item {
-  font-size: 14px;
-  color: #1f2329;
-  margin: 6px 0;
+.trial-success__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
 }
 
-.trial-success__receipt {
-  font-size: 12.5px;
-  color: #8b90a0;
-  margin-bottom: 18px;
+.trial-success__desc {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.65;
 }
 </style>

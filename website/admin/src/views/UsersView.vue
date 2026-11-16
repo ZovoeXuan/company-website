@@ -191,7 +191,7 @@ async function resetPassword(row: UserRow) {
         inputType: 'password',
         inputPlaceholder: '请输入至少 12 位新密码',
         inputValidator: (val) => {
-          if (!val || val.length < 6) return '密码长度至少 6 位（建议 12 位以上）'
+          if (!val || val.length < 12) return '密码长度至少 12 位'
           if (val.length > 128) return '密码长度不能超过 128 位'
           return true
         },

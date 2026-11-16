@@ -81,7 +81,7 @@ withDefaults(
 .page-head {
   position: relative;
   overflow: hidden;
-  padding: 128px 0 96px;
+  padding: 112px 0 64px;
 }
 
 .page-head--dark {
@@ -92,7 +92,7 @@ withDefaults(
 .page-head--light {
   background: var(--c-mist);
   color: var(--c-text);
-  padding: 112px 0 88px;
+  padding: 104px 0 56px;
 }
 
 .page-head__glow {
@@ -101,13 +101,13 @@ withDefaults(
   height: 620px;
   left: 8%;
   top: -40%;
-  background: radial-gradient(closest-side, rgba(91, 75, 232, 0.4), transparent 72%);
+  background: radial-gradient(closest-side, rgba(37, 99, 235, 0.28), transparent 72%);
   filter: blur(20px);
   pointer-events: none;
 }
 
 .page-head--light .page-head__glow {
-  background: radial-gradient(closest-side, rgba(91, 75, 232, 0.14), transparent 72%);
+  background: radial-gradient(closest-side, rgba(37, 99, 235, 0.1), transparent 72%);
 }
 
 .page-head__grid {
@@ -171,7 +171,7 @@ withDefaults(
 }
 
 .page-head__title {
-  font-size: clamp(44px, 7vw, 88px);
+  font-size: clamp(30px, 4.2vw, 48px);
   line-height: 1.04;
   font-weight: 600;
   letter-spacing: -0.045em;

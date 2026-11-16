@@ -80,7 +80,7 @@ public class PublicContentService {
         JsonNode json = row.published();
         Map<String, Object> detail = toSummary(row);
         copyIfPresent(json, detail, "bodyHtml", "seo", "author", "sourceName", "sourceUrl",
-                "quoteText", "quoteAuthor");
+                "quoteText", "quoteAuthor", "effectMetrics", "roleTabs", "terminalTools");
 
         detail.put("hero", media(longOrNull(json.get("heroMediaId")), text(json, "title")));
         detail.put("features", titledMediaItems(json.get("features"), "icon"));
@@ -124,7 +124,6 @@ public class PublicContentService {
         return detail;
     }
 
-    /** features 带可选图标，图标解析为公开媒体对象。 */
     private List<Map<String, Object>> titledMediaItems(JsonNode source, String mediaField) {
         List<Map<String, Object>> items = new ArrayList<>();
         if (source == null || !source.isArray()) {
@@ -133,6 +132,10 @@ public class PublicContentService {
         for (JsonNode item : source) {
             Map<String, Object> view = new LinkedHashMap<>();
             view.put("title", text(item, "title"));
+            String tag = text(item, "tag");
+            if (!tag.isEmpty()) {
+                view.put("tag", tag);
+            }
             view.put("description", text(item, "description"));
             view.put("icon", media(longOrNull(item.get(mediaField + "MediaId")), text(item, "title")));
             items.add(view);
