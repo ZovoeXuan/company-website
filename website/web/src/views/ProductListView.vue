@@ -5,7 +5,11 @@ import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getProductCategories, getProducts } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { usePageHero } from '@/composables/usePageHero'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { PageResult, ProductSummary } from '@/data/types'
+
+const { hero: heroConfig, refreshHero } = usePageHero('products')
 
 const categories = ref<Array<{ id: string; name: string }>>([])
 const categoryId = ref<string | null>(null)
@@ -39,6 +43,16 @@ function selectCategory(id: string | null) {
 
 watch([categoryId, page], load)
 
+useRealtimeSync(['siteConfigVersion', 'contentVersion'], async (changed, force) => {
+  if (force || changed.includes('siteConfigVersion')) {
+    await refreshHero()
+  }
+  if (force || changed.includes('contentVersion')) {
+    categories.value = await getProductCategories().catch(() => categories.value)
+    await load()
+  }
+})
+
 onMounted(async () => {
   categories.value = await getProductCategories()
   await load()
@@ -48,10 +62,14 @@ onMounted(async () => {
 <template>
   <div>
     <PageHeader
-      title="产品中心"
-      description="从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。"
-      eyebrow="PRODUCTS"
-      tone="light"
+      :title="heroConfig?.title || '产品中心'"
+      :description="heroConfig?.subtitle ?? '从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。'"
+      :eyebrow="heroConfig?.eyebrow ?? 'PRODUCTS'"
+      :bg-type="heroConfig?.bgType || 'default'"
+      :bg-image="heroConfig?.bgImage"
+      :bg-video="heroConfig?.bgVideo"
+      :overlay-opacity="heroConfig?.overlayOpacity"
+      :tone="heroConfig?.bgType === 'image' || heroConfig?.bgType === 'video' ? 'dark' : 'light'"
       centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '产品中心' }]"
     />

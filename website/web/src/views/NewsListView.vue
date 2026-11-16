@@ -5,7 +5,11 @@ import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getNews, getNewsCategories } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { usePageHero } from '@/composables/usePageHero'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { Category, NewsSummary, PageResult } from '@/data/types'
+
+const { hero: heroConfig, refreshHero } = usePageHero('news')
 
 const page = ref(1)
 const categories = ref<Category[]>([])
@@ -72,6 +76,17 @@ const featuredNews = computed(() => result.value?.items[0] ?? null)
 const gridNews = computed(() => (result.value?.items ?? []).slice(1))
 
 watch(page, load)
+
+useRealtimeSync(['siteConfigVersion', 'contentVersion'], async (changed, force) => {
+  if (force || changed.includes('siteConfigVersion')) {
+    await refreshHero()
+  }
+  if (force || changed.includes('contentVersion')) {
+    await loadCategories()
+    await load()
+  }
+})
+
 onMounted(async () => {
   await loadCategories()
   await load()
@@ -81,10 +96,14 @@ onMounted(async () => {
 <template>
   <div>
     <PageHeader
-      title="企业新闻与行业洞察"
-      description="关注物流与供应链前沿技术、业务动态与标杆企业数字化实践。"
-      eyebrow="NEWSROOM"
-      tone="light"
+      :title="heroConfig?.title || '企业新闻与行业洞察'"
+      :description="heroConfig?.subtitle ?? '关注物流与供应链前沿技术、业务动态与标杆企业数字化实践。'"
+      :eyebrow="heroConfig?.eyebrow ?? 'NEWSROOM'"
+      :bg-type="heroConfig?.bgType || 'default'"
+      :bg-image="heroConfig?.bgImage"
+      :bg-video="heroConfig?.bgVideo"
+      :overlay-opacity="heroConfig?.overlayOpacity"
+      :tone="heroConfig?.bgType === 'image' || heroConfig?.bgType === 'video' ? 'dark' : 'light'"
       centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '新闻中心' }]"
     />

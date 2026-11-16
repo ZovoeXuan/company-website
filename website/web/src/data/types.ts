@@ -81,7 +81,26 @@ export interface XiaoQiConfig {
   systemPrompt?: string
 }
 
+export interface PageHeroConfig {
+  title?: string
+  subtitle?: string
+  eyebrow?: string
+  bgType?: 'default' | 'image' | 'video'
+  bgImage?: string
+  bgVideo?: string
+  overlayOpacity?: number
+}
+
+export interface PublicVersionInfo {
+  siteConfigVersion: string
+  homeVersion: string
+  aboutVersion: string
+  contentVersion: string
+  publishedAt: string | null
+}
+
 export interface SiteConfig {
+  siteConfigVersion?: string
   siteName: string
   slogan: string
   logoUrl?: string | null
@@ -93,6 +112,12 @@ export interface SiteConfig {
   megaCta?: { text: string; linkText: string } | null
   xiaoqiConfig?: XiaoQiConfig | null
   contactEmails?: ContactEmailItem[]
+  pageHeroes?: {
+    news?: PageHeroConfig
+    cases?: PageHeroConfig
+    products?: PageHeroConfig
+    solutions?: PageHeroConfig
+  }
   contact: {
     companyName?: string
     phone: string
@@ -420,6 +445,19 @@ export interface AboutQualificationItem {
 export interface AboutPage {
   title?: string
   heroTitle?: string
+  heroSubtitle?: string
+  heroEyebrow?: string
+  heroBgType?: 'default' | 'image' | 'video'
+  heroBgImage?: string
+  heroBgVideo?: string
+  showHeroLogoMark?: boolean
+  showIntro?: boolean
+  showIntroImage?: boolean
+  introImageMode?: 'none' | 'image' | 'radar' | 'auto'
+  showCeoLetter?: boolean
+  showQualifications?: boolean
+  showMilestones?: boolean
+  showOffices?: boolean
   introTitle?: string
   intro: string
   introImage?: string

@@ -16,7 +16,7 @@ def main():
     root = os.path.dirname(os.path.abspath(__file__))
     if not os.path.exists(os.path.join(root, "website")):
         print("[提示] 当前目录下未检测到 website/ 文件夹，将自动按相对路径创建或覆盖目标文件。")
-
+ ，
     backup_dir = os.path.join(root, f".upgrade_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     updated_count = 0
 

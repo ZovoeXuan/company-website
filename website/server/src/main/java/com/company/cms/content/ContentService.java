@@ -9,6 +9,7 @@ import com.company.cms.common.PageQuery;
 import com.company.cms.common.PageResult;
 import com.company.cms.media.MediaService;
 import com.company.cms.media.MediaRefRepository;
+import com.company.cms.site.PublicVersionService;
 import com.company.cms.system.AuditLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,11 +47,13 @@ public class ContentService {
     private final AuditLogService audit;
     private final ObjectMapper objectMapper;
     private final HtmlSanitizer htmlSanitizer;
+    private final PublicVersionService versionService;
 
     public ContentService(ContentRepository contents, CategoryRepository categories,
                           MediaService mediaService, MediaRefRepository mediaRefs,
                           ContentRefRepository contentRefs, AuditLogService audit,
-                          ObjectMapper objectMapper, HtmlSanitizer htmlSanitizer) {
+                          ObjectMapper objectMapper, HtmlSanitizer htmlSanitizer,
+                          PublicVersionService versionService) {
         this.contents = contents;
         this.categories = categories;
         this.mediaService = mediaService;
@@ -59,6 +62,7 @@ public class ContentService {
         this.audit = audit;
         this.objectMapper = objectMapper;
         this.htmlSanitizer = htmlSanitizer;
+        this.versionService = versionService;
     }
 
     // ---------- 查询 ----------
@@ -168,6 +172,7 @@ public class ContentService {
 
         audit.success(actor.id(), "CONTENT_PUBLISH", "CONTENT", id,
                 "发布 " + row.contentType().name() + "：" + text(normalized, "title"));
+        versionService.evictAfterCommitOrNow();
     }
 
     @Transactional
@@ -179,6 +184,7 @@ public class ContentService {
         }
         audit.success(actor.id(), "CONTENT_OFFLINE", "CONTENT", id,
                 "下线 " + row.contentType().name() + "：" + row.publishedTitle());
+        versionService.evictAfterCommitOrNow();
     }
 
     @Transactional

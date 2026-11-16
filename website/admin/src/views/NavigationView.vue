@@ -86,7 +86,7 @@ const DEFAULT_MEGA_COLUMNS: MegaColumn[] = [
         path: '',
         isVideo: true,
         videoTitle: '紫宝盒 | 物流行业首款全场景AI工具产品演示',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        videoUrl: '',
       },
     ],
   },

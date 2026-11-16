@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { getHome, getSite } from '@/api/public'
 import { openConsult } from '@/composables/consult'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import { vReveal } from '@/directives/reveal'
 import type {
   HomeHeroItem,
@@ -327,28 +328,20 @@ async function load() {
   }
 }
 
-function handleRealtimeSync(e?: StorageEvent | Event) {
-  if (e instanceof StorageEvent) {
-    if (e.key === 'g7_last_published') {
-      load()
-    }
-  } else {
-    load()
-  }
+function loadOnMounted() {
+  load()
 }
 
+useRealtimeSync(['homeVersion', 'contentVersion', 'siteConfigVersion'], () => {
+  void load()
+})
+
 onMounted(() => {
-  load()
-  window.addEventListener('storage', handleRealtimeSync)
-  window.addEventListener('focus', () => load())
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') load()
-  })
+  loadOnMounted()
 })
 
 onBeforeUnmount(() => {
   if (heroTimer) clearInterval(heroTimer)
-  window.removeEventListener('storage', handleRealtimeSync)
 })
 </script>
 

@@ -17,10 +17,37 @@ import type {
   PrivacyPage,
   ProductDetail,
   ProductSummary,
+  PublicVersionInfo,
   SiteConfig,
   SolutionDetail,
   SolutionSummary,
 } from '@/data/types'
+
+export type VersionPollResult =
+  | { status: 304; etag: string | null }
+  | { status: 200; etag: string | null; data: PublicVersionInfo }
+
+export async function getPublicVersion(ifNoneMatch?: string | null): Promise<VersionPollResult> {
+  const base = import.meta.env.VITE_API_BASE ?? ''
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (ifNoneMatch) headers['If-None-Match'] = ifNoneMatch
+  const response = await fetch(`${base}/api/public/version`, {
+    method: 'GET',
+    credentials: 'include',
+    headers,
+    cache: 'no-store',
+  })
+  const nextEtag = response.headers.get('ETag') ?? ifNoneMatch ?? null
+  if (response.status === 304) {
+    return { status: 304, etag: nextEtag }
+  }
+  const text = await response.text()
+  const body = text ? JSON.parse(text) : null
+  if (!response.ok || body?.code !== 'OK' || !body?.data) {
+    throw new Error(body?.message ?? `Version check failed (${response.status})`)
+  }
+  return { status: 200, etag: nextEtag, data: body.data as PublicVersionInfo }
+}
 
 export function getSite(): Promise<SiteConfig> {
   return apiGet<SiteConfig>('/api/public/site-config')

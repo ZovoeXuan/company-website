@@ -5,8 +5,12 @@ import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getCases, getCaseCategories } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { usePageHero } from '@/composables/usePageHero'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import { openVideo } from '@/composables/videoModal'
 import type { CaseSummary, Category, PageResult } from '@/data/types'
+
+const { hero: heroConfig, refreshHero } = usePageHero('cases')
 
 /** 行业筛选项来自已发布的案例分类，不写死在前端。 */
 const industries = ref<Category[]>([])
@@ -42,13 +46,26 @@ function selectIndustry(value: string | null) {
 function playCaseVideo(item: CaseSummary, event: Event) {
   event.preventDefault()
   event.stopPropagation()
+  const videoUrl = (item as any).videoUrl || ''
+  if (!videoUrl) return
   openVideo({
     title: `${item.customerName || '客户案例'} | ${item.title}`,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+    url: videoUrl,
   })
 }
 
 watch([industry, page], load)
+
+useRealtimeSync(['siteConfigVersion', 'contentVersion'], async (changed, force) => {
+  if (force || changed.includes('siteConfigVersion')) {
+    await refreshHero()
+  }
+  if (force || changed.includes('contentVersion')) {
+    industries.value = await getCaseCategories().catch(() => industries.value)
+    await load()
+  }
+})
+
 onMounted(async () => {
   try {
     industries.value = await getCaseCategories()
@@ -62,10 +79,14 @@ onMounted(async () => {
 <template>
   <div>
     <PageHeader
-      title="客户成功故事"
-      description="每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。"
-      eyebrow="CUSTOMER STORIES"
-      tone="light"
+      :title="heroConfig?.title || '客户成功故事'"
+      :description="heroConfig?.subtitle ?? '每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。'"
+      :eyebrow="heroConfig?.eyebrow ?? 'CUSTOMER STORIES'"
+      :bg-type="heroConfig?.bgType || 'default'"
+      :bg-image="heroConfig?.bgImage"
+      :bg-video="heroConfig?.bgVideo"
+      :overlay-opacity="heroConfig?.overlayOpacity"
+      :tone="heroConfig?.bgType === 'image' || heroConfig?.bgType === 'video' ? 'dark' : 'light'"
       centered
       :crumbs="[{ label: '首页', path: '/' }, { label: '客户案例' }]"
     />

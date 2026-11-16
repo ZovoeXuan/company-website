@@ -143,11 +143,13 @@ function isTwoColGrid(col: MegaColumn): boolean {
 
 function handleMegaAction(subItem: MegaSubItem) {
   openMenu.value = null
-  if (subItem.isVideo) {
+  if (subItem.isVideo && subItem.videoUrl) {
     openVideo({
       title: subItem.videoTitle || '产品操作视频演示',
-      url: subItem.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      url: subItem.videoUrl,
     })
+  } else if (subItem.isVideo) {
+    openConsult({ sourcePosition: 'MEGA_VIDEO', title: '预约产品视频与实景演示' })
   }
 }
 

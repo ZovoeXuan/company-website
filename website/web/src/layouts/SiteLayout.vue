@@ -6,17 +6,18 @@ import SiteFooter from '@/components/SiteFooter.vue'
 import ConsultDialog from '@/components/ConsultDialog.vue'
 import VideoModal from '@/components/VideoModal.vue'
 import { ApiError } from '@/api/http'
-import { getSite } from '@/api/public'
+import { getCachedSiteStrict } from '@/composables/usePageHero'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { SiteConfig } from '@/data/types'
 
 const route = useRoute()
 const config = ref<SiteConfig | null>(null)
 const notice = ref('')
 
-async function loadSite() {
+async function loadSite(force = false) {
   notice.value = ''
   try {
-    config.value = await getSite()
+    config.value = await getCachedSiteStrict(force)
   } catch (error) {
     notice.value =
       error instanceof ApiError && error.code === 'NOT_FOUND'
@@ -25,7 +26,13 @@ async function loadSite() {
   }
 }
 
-onMounted(loadSite)
+useRealtimeSync(['siteConfigVersion'], () => {
+  void loadSite(true)
+})
+
+onMounted(() => {
+  void loadSite(false)
+})
 </script>
 
 <template>
@@ -45,7 +52,7 @@ onMounted(loadSite)
     <main id="main" class="site__main" tabindex="-1">
       <div v-if="notice" class="container notice" role="status">
         <span>{{ notice }}</span>
-        <button type="button" class="notice__retry" @click="loadSite">重试</button>
+        <button type="button" class="notice__retry" @click="loadSite(true)">重试</button>
       </div>
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">

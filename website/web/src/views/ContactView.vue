@@ -2,13 +2,16 @@
 import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ConsultForm from '@/components/ConsultForm.vue'
-import { getContactPage, getSite } from '@/api/public'
+import { getAbout, getContactPage, getSite } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
-import type { ContactPage, SiteConfig } from '@/data/types'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
+import { isPlaceholderContact, resolvePublicContactEmails } from '@/utils/siteDisplay'
+import type { AboutPage, ContactPage, SiteConfig } from '@/data/types'
 
 const site = ref<SiteConfig | null>(null)
 const page = ref<ContactPage | null>(null)
-const activeCity = ref('chengdu')
+const about = ref<AboutPage | null>(null)
+const activeCity = ref('')
 
 usePageMeta(() => ({
   title: page.value?.title || '联系我们',
@@ -22,95 +25,63 @@ interface BranchOffice {
   phone: string
   address: string
   photo: string
-  lat: number
-  lng: number
+  mapX: number
+  mapY: number
 }
 
-const branches: BranchOffice[] = [
-  {
-    id: 'shenzhen',
-    city: '深圳',
-    name: '深圳总部',
-    phone: '0755-26944168',
-    address: '深圳市南山区滨海大道3369号有线信息传输大厦9层',
-    photo: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80',
-    lat: 22.53,
-    lng: 113.93,
-  },
-  {
-    id: 'beijing',
-    city: '北京',
-    name: '北京总部',
-    phone: '010-62961800',
-    address: '北京市海淀区中关村南大街1号中鼎大厦 / 联想园区N7栋2层',
-    photo: 'https://images.unsplash.com/photo-1508873696983-2df5293cb32f?auto=format&fit=crop&w=600&q=80',
-    lat: 39.95,
-    lng: 116.32,
-  },
-  {
-    id: 'chengdu',
-    city: '成都',
-    name: '成都分部',
-    phone: '028-83358692',
-    address: '成都市天府新区兴隆湖畔路西段99号天府新经济产业园D区B6栋28楼',
-    photo: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=600&q=80',
-    lat: 30.41,
-    lng: 104.09,
-  },
-  {
-    id: 'guangzhou',
-    city: '广州',
-    name: '广州分部',
-    phone: '020-81075656',
-    address: '广州市越秀区中山六路238号越秀新都会大厦西座22楼22C04-22C07室',
-    photo: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80',
-    lat: 23.12,
-    lng: 113.25,
-  },
-  {
-    id: 'shanghai',
-    city: '上海',
-    name: '上海分部',
-    phone: '021-64058562',
-    address: '上海市闵行区虹莘路3999号MT1栋9层918',
-    photo: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80',
-    lat: 31.15,
-    lng: 121.38,
-  },
-  {
-    id: 'xian',
-    city: '西安',
-    name: '西安分部',
-    phone: '029-81107733',
-    address: '西安市雁塔区天谷七路996号国家数字出版基地D座8楼802、803室',
-    photo: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80',
-    lat: 34.21,
-    lng: 108.86,
-  },
-  {
-    id: 'tianjin',
-    city: '天津',
-    name: '天津分部',
-    phone: '022-87895668',
-    address: '天津市滨海高新区华苑产业区海泰发展六道6号海泰绿色产业基地',
-    photo: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=600&q=80',
-    lat: 39.11,
-    lng: 117.11,
-  },
-]
-
-const currentBranch = computed(() => {
-  return branches.find((b) => b.id === activeCity.value) || branches[2]
+const branches = computed<BranchOffice[]>(() => {
+  if (about.value?.showOffices === false) return []
+  const offices = about.value?.offices
+  if (!Array.isArray(offices)) return []
+  return offices.map((off, idx) => ({
+    id: `${off.city || 'office'}-${idx}`,
+    city: off.city || '',
+    name: off.city || '',
+    phone: isPlaceholderContact(off.phone) ? '' : (off.phone || '').trim(),
+    address: off.address || '',
+    photo: off.image || '',
+    mapX: typeof off.mapX === 'number' ? off.mapX : 66,
+    mapY: typeof off.mapY === 'number' ? off.mapY : 48,
+  }))
 })
 
-onMounted(async () => {
-  const [siteConfig, contactPage] = await Promise.all([
+const currentBranch = computed(() => {
+  return branches.value.find((b) => b.id === activeCity.value) || branches.value[0] || null
+})
+
+const servicePhone = computed(() => {
+  const candidate = page.value?.phone || site.value?.contact?.phone
+  return isPlaceholderContact(candidate) ? '' : candidate!.trim()
+})
+
+const businessEmail = computed(() => {
+  const candidate = page.value?.email || site.value?.contact?.email
+  return isPlaceholderContact(candidate) ? '' : candidate!.trim()
+})
+
+const extraEmails = computed(() =>
+  resolvePublicContactEmails(site.value?.contactEmails, null),
+)
+
+async function loadContact() {
+  const [siteConfig, contactPage, aboutPage] = await Promise.all([
     getSite().catch(() => null),
     getContactPage().catch(() => null),
+    getAbout().catch(() => null),
   ])
   site.value = siteConfig
   page.value = contactPage
+  about.value = aboutPage
+  if (branches.value.length > 0 && !branches.value.some((b) => b.id === activeCity.value)) {
+    activeCity.value = branches.value[0].id
+  }
+}
+
+useRealtimeSync(['siteConfigVersion', 'aboutVersion'], () => {
+  void loadContact()
 })
+
+onMounted(loadContact)
 </script>
 
 <template>
@@ -124,13 +95,13 @@ onMounted(async () => {
       :crumbs="[{ label: '首页', path: '/' }, { label: '联系我们' }]"
     />
 
-    <!-- 对齐视频：全国分支网点交互视窗 (frame 238s) -->
-    <section class="section section--surface branch-section">
+    <!-- 全国分支网点交互视窗：单源读取 ABOUT.offices，未配置或关闭时不显示 -->
+    <section v-if="branches.length > 0 && currentBranch" class="section section--surface branch-section">
       <div class="container">
         <div class="section-head">
           <p class="kicker">NATIONAL NETWORK</p>
           <h2 class="section-title">全国服务分支网络</h2>
-          <p class="section-sub">总部设于深圳与北京，在全国核心物流枢纽城市设有直属技术与服务中心</p>
+          <p class="section-sub">本地化技术支持与专属客户服务团队</p>
         </div>
 
         <div class="branch-layout">
@@ -140,10 +111,10 @@ onMounted(async () => {
               v-for="b in branches"
               :key="b.id"
               class="branch-card"
-              :class="{ 'is-active': activeCity === b.id }"
+              :class="{ 'is-active': currentBranch.id === b.id }"
               tabindex="0"
               role="button"
-              :aria-pressed="activeCity === b.id"
+              :aria-pressed="currentBranch.id === b.id"
               @click="activeCity = b.id"
               @keydown.enter="activeCity = b.id"
             >
@@ -151,11 +122,11 @@ onMounted(async () => {
                 <h3 class="branch-card__city">{{ b.city }}</h3>
                 <span class="branch-card__tag">{{ b.name }}</span>
               </div>
-              <p class="branch-card__phone">
+              <p v-if="b.phone" class="branch-card__phone">
                 <span class="branch-card__label">电话：</span>
                 <a :href="`tel:${b.phone.replace(/[\s-]/g, '')}`" @click.stop>{{ b.phone }}</a>
               </p>
-              <p class="branch-card__address">
+              <p v-if="b.address" class="branch-card__address">
                 <span class="branch-card__label">地址：</span>
                 {{ b.address }}
               </p>
@@ -164,11 +135,11 @@ onMounted(async () => {
 
           <!-- 右侧：办公空间实景与中国地图网点可视化 -->
           <div class="branch-preview" v-reveal="100">
-            <div class="branch-preview__visual">
+            <div v-if="currentBranch.photo" class="branch-preview__visual">
               <img :src="currentBranch.photo" :alt="currentBranch.name" class="branch-preview__img" />
               <div class="branch-preview__caption">
                 <p class="branch-preview__city-title">{{ currentBranch.name }}</p>
-                <p class="branch-preview__city-addr">{{ currentBranch.address }}</p>
+                <p v-if="currentBranch.address" class="branch-preview__city-addr">{{ currentBranch.address }}</p>
               </div>
             </div>
 
@@ -179,10 +150,10 @@ onMounted(async () => {
                   v-for="b in branches"
                   :key="b.id"
                   class="map-pin"
-                  :class="{ 'is-active': activeCity === b.id }"
+                  :class="{ 'is-active': currentBranch.id === b.id }"
                   :style="{
-                    left: `${((b.lng - 100) / 24) * 80 + 10}%`,
-                    top: `${((42 - b.lat) / 22) * 80 + 10}%`
+                    left: `${b.mapX}%`,
+                    top: `${b.mapY}%`
                   }"
                   @click="activeCity = b.id"
                 >
@@ -203,29 +174,31 @@ onMounted(async () => {
           <p class="kicker">DIRECT LINE</p>
           <h2 class="info__title">直接联系</h2>
           <dl class="info__list">
-            <div v-if="page?.phone || site?.contact.phone" class="info__row">
+            <div v-if="servicePhone" class="info__row">
               <dt>服务热线</dt>
               <dd>
-                <a class="info__link info__link--phone" :href="`tel:${(page?.phone || site?.contact.phone || '').replace(/[\s-]/g, '')}`">
-                  {{ page?.phone || site?.contact.phone }}
+                <a class="info__link info__link--phone" :href="`tel:${servicePhone.replace(/[\s-]/g, '')}`">
+                  {{ servicePhone }}
                 </a>
               </dd>
             </div>
-            <div v-if="page?.email || site?.contact.email" class="info__row">
+            <div v-if="businessEmail" class="info__row">
               <dt>商务合作</dt>
-              <dd><a class="info__link" :href="`mailto:${page?.email || site?.contact.email}`">{{ page?.email || site?.contact.email }}</a></dd>
+              <dd><a class="info__link" :href="`mailto:${businessEmail}`">{{ businessEmail }}</a></dd>
             </div>
             <div v-if="page?.address" class="info__row">
               <dt>总部地址</dt>
               <dd>{{ page.address }}</dd>
             </div>
-            <div class="info__row">
-              <dt>媒体联系</dt>
-              <dd><a class="info__link" href="mailto:connect@g7.com.cn">connect@g7.com.cn</a></dd>
-            </div>
-            <div class="info__row">
-              <dt>廉洁举报</dt>
-              <dd><a class="info__link" href="mailto:jiancha@g7.com.cn">jiancha@g7.com.cn</a></dd>
+            <template v-if="extraEmails.length > 0">
+              <div v-for="(item, idx) in extraEmails" :key="idx" class="info__row">
+                <dt>{{ item.desc || '联系邮箱' }}</dt>
+                <dd><a class="info__link" :href="`mailto:${item.email}`">{{ item.email }}</a></dd>
+              </div>
+            </template>
+            <div v-else-if="!businessEmail" class="info__row">
+              <dt>官方邮箱</dt>
+              <dd>暂未公开</dd>
             </div>
             <div v-if="page?.hours || site?.contact.hours" class="info__row">
               <dt>服务时间</dt>

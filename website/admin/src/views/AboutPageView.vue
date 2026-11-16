@@ -3,8 +3,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ConfigPanel from '@/components/ConfigPanel.vue'
+import MediaPicker from '@/components/MediaPicker.vue'
 import { useConfig } from '@/composables/useConfig'
 import { ApiError, upload } from '@/api/http'
+import type { MediaItem } from '@/api/content'
 
 interface Milestone {
   year: string
@@ -15,6 +17,8 @@ interface Milestone {
 interface Qualification {
   name: string
   description: string
+  mediaId?: string | number | null
+  imageUrl?: string
 }
 
 interface ValueItemForm {
@@ -55,7 +59,7 @@ interface StoryItemForm {
   videoUrl: string
 }
 
-const DEFAULT_INTRO = `示例科技有限公司是一家领先的工业物联网科技和软件服务公司。为企业客户提供从设备接入、数据采集、能源监测到智能调度、自动运营的一体化数字化平台，连接企业运营全流程并以数据和AI驱动决策，助力客户降本增效。\n\n公司的客户覆盖超80%行业头部企业以及数万家中小企业，服务网络覆盖全国核心产业园区。`
+const DEFAULT_INTRO = `鑫链科技有限公司是一家领先的工业物联网科技和软件服务公司。为企业客户提供从设备接入、数据采集、能源监测到智能调度、自动运营的一体化数字化平台，连接企业运营全流程并以数据和AI驱动决策，助力客户降本增效。\n\n公司的客户覆盖超80%行业头部企业以及数万家中小企业，服务网络覆盖全国核心产业园区。`
 
 const DEFAULT_CEO_QUOTE = '“我谨代表公司全体员工，向在这个不凡时代中努力前行的奋斗者致以崇高的敬意！”'
 const DEFAULT_CEO_TITLE = '从微不足道开始改变世界'
@@ -79,10 +83,10 @@ const DEFAULT_RESOURCES_LIST: ResourceItemForm[] = [
   { category: '企业资料', title: '安全管家', logoText: '安全管家 · 主动安全托管', logoColor: '#2563eb', url: '', isVideo: false },
   { category: '企业资料', title: '财运通', logoText: '财运通 · 数字化资产结算', logoColor: '#0284c7', url: '', isVideo: false },
   { category: '企业资料', title: '冷链管家', logoText: '冷链管家 · 全程温控可视', logoColor: '#0d9488', url: '', isVideo: false },
-  { category: '客户视频', title: '标杆案例', logoText: '优秀客户标杆', logoColor: '#16a34a', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
-  { category: '客户视频', title: '示范工程', logoText: '产业数字化工程', logoColor: '#0284c7', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
-  { category: '客户视频', title: '智慧物流', logoText: '物流数字化转型', logoColor: '#dc2626', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
-  { category: '客户视频', title: '智能工厂', logoText: '智能工厂示范', logoColor: '#d97706', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', isVideo: true },
+  { category: '客户视频', title: '标杆案例', logoText: '优秀客户标杆', logoColor: '#16a34a', url: '', isVideo: true },
+  { category: '客户视频', title: '示范工程', logoText: '产业数字化工程', logoColor: '#0284c7', url: '', isVideo: true },
+  { category: '客户视频', title: '智慧物流', logoText: '物流数字化转型', logoColor: '#dc2626', url: '', isVideo: true },
+  { category: '客户视频', title: '智能工厂', logoText: '智能工厂示范', logoColor: '#d97706', url: '', isVideo: true },
   { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队管理白皮书', logoColor: '#0284c7', url: '', isVideo: false },
   { category: '行业报告', title: '2026数字化转型实践蓝皮书', logoText: '数字化转型大数据报告', logoColor: '#2563eb', url: '', isVideo: false },
   { category: '行业报告', title: '中国物联网安全AI治理报告', logoText: '工业安全AI治理报告', logoColor: '#4f46e5', url: '', isVideo: false },
@@ -96,24 +100,10 @@ const DEFAULT_RESOURCES_LIST: ResourceItemForm[] = [
 const DEFAULT_STORIES_LIST: StoryItemForm[] = [
   {
     company: '标杆客户',
-    author: '张先生 董事长',
+    author: '客户代表',
     quote: '通过全流程数字运营体系，合规率提升至99.8%，全程实时可视。',
     logoText: '标杆客户',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    company: '滨拓物流',
-    author: '王滨 滨拓物流总经理',
-    quote: '全场景物联网终端与AI安全管家，让我们车队的百万公里事故率下降超过70%。',
-    logoText: '滨拓物流',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    company: '天佑物流',
-    author: '李天佑 董事长',
-    quote: '财运通自动结算与智能调度彻底改变了我们的现金流与运力周转效率。',
-    logoText: 'tianyou天佑',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    videoUrl: '',
   },
 ]
 
@@ -262,11 +252,51 @@ function resolveAvatar(url?: string): string {
   return url
 }
 
+const mediaPickerOpen = ref(false)
+const mediaPickerKind = ref<'IMAGE' | 'VIDEO' | 'ALL'>('IMAGE')
+const mediaPickerTarget = ref<string>('')
+
+function openMediaPicker(target: string, kind: 'IMAGE' | 'VIDEO' | 'ALL' = 'IMAGE') {
+  mediaPickerTarget.value = target
+  mediaPickerKind.value = kind
+  mediaPickerOpen.value = true
+}
+
+function onMediaPicked(item: MediaItem) {
+  if (mediaPickerTarget.value === 'aboutHeroImg') {
+    form.heroBgImage = item.url
+  } else if (mediaPickerTarget.value === 'aboutHeroVid') {
+    form.heroBgVideo = item.url
+  } else if (mediaPickerTarget.value === 'aboutIntroImg') {
+    form.introImage = item.url
+  } else if (mediaPickerTarget.value.startsWith('qual-img-')) {
+    const idx = Number(mediaPickerTarget.value.replace('qual-img-', ''))
+    if (form.qualifications[idx]) {
+      form.qualifications[idx].imageUrl = item.url
+      form.qualifications[idx].mediaId = item.id
+    }
+  }
+  mediaPickerOpen.value = false
+}
+
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('ABOUT')
 
 const form = reactive({
   heroTitle: '以物联网技术和软件服务改变行业未来',
+  heroSubtitle: '',
+  heroEyebrow: '',
+  heroBgType: 'default' as 'default' | 'image' | 'video',
+  heroBgImage: '',
+  heroBgVideo: '',
+  showHeroLogoMark: false,
+  showIntro: true,
+  showIntroImage: false,
+  introImageMode: 'none' as 'none' | 'image' | 'radar',
+  showCeoLetter: true,
+  showQualifications: true,
+  showMilestones: true,
+  showOffices: true,
   introTitle: '关于我们',
   intro: '',
   introImage: '',
@@ -296,6 +326,20 @@ function fill() {
   const draft = view.value?.draft
   if (!draft) return
   form.heroTitle = draft.heroTitle ?? '以物联网技术和软件服务改变行业未来'
+  form.heroSubtitle = draft.heroSubtitle ?? ''
+  form.heroEyebrow = draft.heroEyebrow ?? ''
+  form.heroBgType = draft.heroBgType ?? 'default'
+  form.heroBgImage = draft.heroBgImage ?? ''
+  form.heroBgVideo = draft.heroBgVideo ?? ''
+  form.showHeroLogoMark = draft.showHeroLogoMark === true
+  form.showIntro = draft.showIntro !== false
+  const hasImg = !draft.introImage ? false : true
+  form.showIntroImage = draft.showIntroImage === true || (draft.showIntroImage === undefined ? hasImg : false)
+  form.introImageMode = (draft.introImageMode ?? (hasImg ? 'image' : 'none')) as any
+  form.showCeoLetter = draft.showCeoLetter !== false
+  form.showQualifications = draft.showQualifications !== false
+  form.showMilestones = draft.showMilestones !== false
+  form.showOffices = draft.showOffices !== false
   form.introTitle = (draft.introTitle && !draft.introTitle.includes('G7') && !draft.introTitle.includes('易流')) ? draft.introTitle : '关于我们'
   form.intro = (draft.intro && !draft.intro.includes('G7') && !draft.intro.includes('易流')) ? draft.intro : DEFAULT_INTRO
   form.introImage = draft.introImage ?? ''
@@ -441,6 +485,19 @@ async function onSave(): Promise<boolean> {
   const payload: Record<string, any> = {
     ...(view.value?.draft ?? {}),
     heroTitle: form.heroTitle,
+    heroSubtitle: form.heroSubtitle,
+    heroEyebrow: form.heroEyebrow,
+    heroBgType: form.heroBgType,
+    heroBgImage: form.heroBgImage,
+    heroBgVideo: form.heroBgVideo,
+    showHeroLogoMark: form.showHeroLogoMark,
+    showIntro: form.showIntro,
+    showIntroImage: form.showIntroImage,
+    introImageMode: form.introImageMode,
+    showCeoLetter: form.showCeoLetter,
+    showQualifications: form.showQualifications,
+    showMilestones: form.showMilestones,
+    showOffices: form.showOffices,
     introTitle: form.introTitle,
     intro: form.intro,
     introImage: form.introImage,
@@ -527,39 +584,109 @@ onMounted(async () => {
       <!-- Tab 1: 企业简介与 CEO 信件 -->
       <el-tab-pane label="1. 企业简介 & CEO的一封信" name="intro">
         <el-form label-width="140px" class="form">
-          <el-form-item label="顶部首屏大标题">
-            <el-input v-model="form.heroTitle" maxlength="100" show-word-limit />
+          <el-divider content-position="left">顶部首屏横幅（支持图片/视频背景可换、自定义标题/副标题/标签）</el-divider>
+          <el-form-item label="首屏大标题">
+            <el-input v-model="form.heroTitle" maxlength="100" show-word-limit placeholder="例如：以物联网技术和软件服务改变公路货运" />
           </el-form-item>
-          <el-form-item label="简介区块标题">
-            <el-input v-model="form.introTitle" maxlength="60" show-word-limit />
+          <el-form-item label="首屏副标题">
+            <el-input v-model="form.heroSubtitle" maxlength="200" show-word-limit placeholder="选填，展示在首屏大标题下方" />
           </el-form-item>
-          <el-form-item label="企业简介正文">
-            <el-input
-              v-model="form.intro"
-              type="textarea"
-              :rows="5"
-              maxlength="2000"
-              show-word-limit
-              placeholder="每段一行，留空时展示标准简介文案"
-            />
+          <el-form-item label="首屏眉标/标签">
+            <el-input v-model="form.heroEyebrow" maxlength="50" show-word-limit placeholder="选填，例如：ABOUT US / 关于我们" style="width: 320px" />
+          </el-form-item>
+          <el-form-item label="首屏背景类型">
+            <el-radio-group v-model="form.heroBgType">
+              <el-radio-button value="default">默认深空流光</el-radio-button>
+              <el-radio-button value="image">自定义背景图片</el-radio-button>
+              <el-radio-button value="video">自定义背景视频</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="form.heroBgType === 'image'" label="自定义背景图片">
+            <div style="display: flex; gap: 10px; width: 100%; align-items: center">
+              <el-input v-model="form.heroBgImage" placeholder="输入图片 URL 或从素材库选择" />
+              <el-button @click="openMediaPicker('aboutHeroImg', 'IMAGE')">选择素材</el-button>
+              <el-button v-if="form.heroBgImage" link type="danger" @click="form.heroBgImage = ''">清除</el-button>
+            </div>
+            <div v-if="form.heroBgImage" style="margin-top: 8px">
+              <img :src="form.heroBgImage" style="max-height: 90px; border-radius: 4px; border: 1px solid #ddd" />
+            </div>
+          </el-form-item>
+          <el-form-item v-if="form.heroBgType === 'video'" label="自定义背景视频">
+            <div style="display: flex; gap: 10px; width: 100%; align-items: center">
+              <el-input v-model="form.heroBgVideo" placeholder="输入视频 URL (mp4/webm) 或从素材库选择" />
+              <el-button @click="openMediaPicker('aboutHeroVid', 'VIDEO')">选择视频</el-button>
+              <el-button v-if="form.heroBgVideo" link type="danger" @click="form.heroBgVideo = ''">清除</el-button>
+            </div>
+            <div v-if="form.heroBgVideo" style="margin-top: 8px">
+              <video :src="form.heroBgVideo" style="max-height: 90px; border-radius: 4px" muted autoplay loop></video>
+            </div>
+          </el-form-item>
+          <el-form-item label="字母Logo水印">
+            <el-switch v-model="form.showHeroLogoMark" active-text="显示大写字母水印" inactive-text="关闭水印（纯净标题）" />
           </el-form-item>
 
+          <el-divider content-position="left">企业简介区块配置</el-divider>
+          <el-form-item label="启用企业简介模块">
+            <el-switch v-model="form.showIntro" active-text="显示企业简介" inactive-text="隐藏此模块" />
+          </el-form-item>
+          <template v-if="form.showIntro">
+            <el-form-item label="简介区块标题">
+              <el-input v-model="form.introTitle" maxlength="60" show-word-limit />
+            </el-form-item>
+            <el-form-item label="企业简介正文">
+              <el-input
+                v-model="form.intro"
+                type="textarea"
+                :rows="5"
+                maxlength="2000"
+                show-word-limit
+                placeholder="每段一行，留空时展示标准简介文案"
+              />
+            </el-form-item>
+            <el-form-item label="右侧配图设置">
+              <el-switch v-model="form.showIntroImage" active-text="显示配图/动效" inactive-text="不放图片（文字全宽排版）" />
+            </el-form-item>
+            <template v-if="form.showIntroImage">
+              <el-form-item label="配图形式">
+                <el-radio-group v-model="form.introImageMode">
+                  <el-radio-button value="image">自定义图片</el-radio-button>
+                  <el-radio-button value="radar">科技雷达动效</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="form.introImageMode === 'image'" label="企业简介图片">
+                <div style="display: flex; gap: 10px; width: 100%; align-items: center">
+                  <el-input v-model="form.introImage" placeholder="输入图片 URL 或从素材库选择" />
+                  <el-button @click="openMediaPicker('aboutIntroImg', 'IMAGE')">选择素材</el-button>
+                  <el-button v-if="form.introImage" link type="danger" @click="form.introImage = ''">清除</el-button>
+                </div>
+                <div v-if="form.introImage" style="margin-top: 8px">
+                  <img :src="form.introImage" style="max-height: 120px; border-radius: 6px; border: 1px solid #ddd" />
+                </div>
+              </el-form-item>
+            </template>
+          </template>
+
           <el-divider content-position="left">CEO的一封信与全文弹窗配置</el-divider>
-          <el-form-item label="左侧背景卡金句">
-            <el-input v-model="form.ceoQuote" type="textarea" :rows="2" maxlength="200" />
+          <el-form-item label="启用CEO信件模块">
+            <el-switch v-model="form.showCeoLetter" active-text="显示CEO的一封信" inactive-text="隐藏此模块" />
           </el-form-item>
-          <el-form-item label="信件主标题">
-            <el-input v-model="form.ceoTitle" maxlength="80" />
-          </el-form-item>
-          <el-form-item label="签名文字">
-            <el-input v-model="form.ceoSignature" maxlength="30" style="width: 220px" />
-          </el-form-item>
-          <el-form-item label="卡片摘录(每段1行)">
-            <el-input v-model="form.ceoExcerptText" type="textarea" :rows="4" placeholder="每行一段，展示在右侧卡片上" />
-          </el-form-item>
-          <el-form-item label="弹窗全文(每段1行)">
-            <el-input v-model="form.ceoFullText" type="textarea" :rows="6" placeholder="点击「展开全部」弹窗中显示的完整信件段落" />
-          </el-form-item>
+          <template v-if="form.showCeoLetter">
+            <el-form-item label="左侧背景卡金句">
+              <el-input v-model="form.ceoQuote" type="textarea" :rows="2" maxlength="200" />
+            </el-form-item>
+            <el-form-item label="信件主标题">
+              <el-input v-model="form.ceoTitle" maxlength="80" />
+            </el-form-item>
+            <el-form-item label="签名文字">
+              <el-input v-model="form.ceoSignature" maxlength="30" style="width: 220px" />
+            </el-form-item>
+            <el-form-item label="卡片摘录(每段1行)">
+              <el-input v-model="form.ceoExcerptText" type="textarea" :rows="4" placeholder="每行一段，展示在右侧卡片上" />
+            </el-form-item>
+            <el-form-item label="弹窗全文(每段1行)">
+              <el-input v-model="form.ceoFullText" type="textarea" :rows="6" placeholder="点击「展开全部」弹窗中显示的完整信件段落" />
+            </el-form-item>
+          </template>
         </el-form>
       </el-tab-pane>
 
@@ -863,49 +990,99 @@ onMounted(async () => {
         </el-button>
       </el-tab-pane>
 
-      <!-- Tab 5: 发展历程 & 7 城联系网点 -->
-      <el-tab-pane label="5. 发展历程 & 7 城联系我们地图" name="milestones">
+      <!-- Tab 5: 发展历程 & 荣誉资质 & 全国网点 -->
+      <el-tab-pane label="5. 发展历程 & 荣誉资质 & 全国办公网点" name="milestones">
         <el-alert
           type="info"
           :closable="false"
           show-icon
           style="margin-bottom: 16px"
-          title="发展历程与 7 城网点说明：时间轴轮播与 7 城联系地图直接展示在官网「关于我们 - 企业简介」页面下方（亦同步在关于我们底部呈现）。修改后点击右上角「保存草稿」或「发布上线」即刻生效。"
+          title="发展历程、荣誉资质与全国网点说明：可分别开关各模块显隐，修改后点击右上角「保存草稿」或「发布上线」即刻生效。"
         />
-        <h3 class="sec-h">发展历程时间轴节点</h3>
-        <div v-for="(item, index) in form.milestones" :key="index" class="row-inline">
-          <el-input v-model="item.year" maxlength="4" placeholder="年份(2022)" style="width: 110px" />
-          <el-input v-model="item.title" maxlength="50" placeholder="节点主事件" style="width: 240px" />
-          <el-input v-model="item.description" maxlength="300" placeholder="多条事件可用分号 ； 分隔" style="flex: 1" />
-          <el-button link type="danger" @click="form.milestones.splice(index, 1)">删除</el-button>
-        </div>
-        <el-button size="small" @click="addMilestone">+ 添加发展历程</el-button>
+
+        <el-form label-width="150px" class="form" style="margin-bottom: 16px">
+          <el-form-item label="启用发展历程模块">
+            <el-switch v-model="form.showMilestones" active-text="显示发展历程" inactive-text="隐藏此模块" />
+          </el-form-item>
+        </el-form>
+
+        <template v-if="form.showMilestones">
+          <h3 class="sec-h">发展历程时间轴节点</h3>
+          <div v-for="(item, index) in form.milestones" :key="index" class="row-inline">
+            <el-input v-model="item.year" maxlength="4" placeholder="年份(2022)" style="width: 110px" />
+            <el-input v-model="item.title" maxlength="50" placeholder="节点主事件" style="width: 240px" />
+            <el-input v-model="item.description" maxlength="300" placeholder="多条事件可用分号 ； 分隔" style="flex: 1" />
+            <el-button link type="danger" @click="form.milestones.splice(index, 1)">删除</el-button>
+          </div>
+          <el-button size="small" @click="addMilestone">+ 添加发展历程</el-button>
+        </template>
 
         <el-divider />
-        <h3 class="sec-h">全国办公网点列表</h3>
-        <div v-for="(off, oIdx) in form.offices" :key="oIdx" class="card-box">
-          <div class="row-inline">
-            <el-input v-model="off.city" placeholder="城市名称（如：北京（总部））" style="width: 170px" />
-            <el-input v-model="off.phone" placeholder="联系电话（选填）" style="width: 160px" />
-            <el-input v-model="off.address" placeholder="详细办公地址" style="flex: 1" />
-            <el-button link type="danger" @click="form.offices.splice(oIdx, 1)">删除</el-button>
+
+        <el-form label-width="150px" class="form" style="margin-bottom: 16px">
+          <el-form-item label="启用荣誉资质模块">
+            <el-switch v-model="form.showQualifications" active-text="显示荣誉与资质" inactive-text="隐藏此模块" />
+          </el-form-item>
+        </el-form>
+
+        <template v-if="form.showQualifications">
+          <h3 class="sec-h">荣誉与资质认证列表</h3>
+          <div v-for="(q, qIdx) in form.qualifications" :key="qIdx" class="card-box">
+            <div class="row-inline">
+              <el-input v-model="q.name" placeholder="荣誉/资质名称（如：高新技术企业）" style="width: 240px" />
+              <el-input v-model="q.description" placeholder="描述（如：2021 年认定。）" style="flex: 1" />
+              <el-button link type="danger" @click="form.qualifications.splice(qIdx, 1)">删除</el-button>
+            </div>
+            <div class="row-inline">
+              <el-input v-model="q.imageUrl" placeholder="证书/徽章图片 URL（选填）" style="flex: 1" />
+              <el-button size="small" @click="openMediaPicker(`qual-img-${qIdx}`, 'IMAGE')">选择素材</el-button>
+              <el-button v-if="q.imageUrl" size="small" link type="danger" @click="q.imageUrl = ''">清除</el-button>
+            </div>
+            <div v-if="q.imageUrl" style="margin-top: 6px">
+              <img :src="q.imageUrl" style="max-height: 80px; border-radius: 4px; border: 1px solid #ddd" />
+            </div>
           </div>
-          <div class="row-inline">
-            <el-input v-model="off.image" placeholder="办公大楼实景照片 URL（选填）" style="flex: 1" />
-            <span>地图横坐标 X(%)：</span>
-            <el-input-number v-model="off.mapX" :min="10" :max="90" size="small" />
-            <span>纵坐标 Y(%)：</span>
-            <el-input-number v-model="off.mapY" :min="10" :max="90" size="small" />
+          <el-button size="small" @click="form.qualifications.push({ name: '', description: '', imageUrl: '' })">
+            + 添加荣誉与资质
+          </el-button>
+        </template>
+
+        <el-divider />
+
+        <el-form label-width="150px" class="form" style="margin-bottom: 16px">
+          <el-form-item label="启用全国网点模块">
+            <el-switch v-model="form.showOffices" active-text="显示全国网点" inactive-text="隐藏此模块" />
+          </el-form-item>
+        </el-form>
+
+        <template v-if="form.showOffices">
+          <h3 class="sec-h">全国办公网点列表</h3>
+          <div v-for="(off, oIdx) in form.offices" :key="oIdx" class="card-box">
+            <div class="row-inline">
+              <el-input v-model="off.city" placeholder="城市名称（如：北京（总部））" style="width: 170px" />
+              <el-input v-model="off.phone" placeholder="联系电话（选填）" style="width: 160px" />
+              <el-input v-model="off.address" placeholder="详细办公地址" style="flex: 1" />
+              <el-button link type="danger" @click="form.offices.splice(oIdx, 1)">删除</el-button>
+            </div>
+            <div class="row-inline">
+              <el-input v-model="off.image" placeholder="办公大楼实景照片 URL（选填）" style="flex: 1" />
+              <span>地图横坐标 X(%)：</span>
+              <el-input-number v-model="off.mapX" :min="10" :max="90" size="small" />
+              <span>纵坐标 Y(%)：</span>
+              <el-input-number v-model="off.mapY" :min="10" :max="90" size="small" />
+            </div>
           </div>
-        </div>
-        <el-button
-          size="small"
-          @click="form.offices.push({ city: '', phone: '', address: '', image: '', mapX: 65, mapY: 50 })"
-        >
-          + 添加城市办公网点
-        </el-button>
+          <el-button
+            size="small"
+            @click="form.offices.push({ city: '', phone: '', address: '', image: '', mapX: 65, mapY: 50 })"
+          >
+            + 添加城市办公网点
+          </el-button>
+        </template>
       </el-tab-pane>
     </el-tabs>
+
+    <MediaPicker v-model="mediaPickerOpen" :kind="mediaPickerKind" @select="onMediaPicked" />
   </ConfigPanel>
 </template>
 

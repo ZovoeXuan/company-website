@@ -695,7 +695,7 @@ onMounted(async () => {
             </div>
           </div>
 
-          <el-form label-width="140px">
+          <el-form label-width="160px">
             <el-form-item label="分组标题" required>
               <el-input v-model="grp.title" maxlength="30" show-word-limit placeholder="如：设备接入 / 健康与能源" />
             </el-form-item>

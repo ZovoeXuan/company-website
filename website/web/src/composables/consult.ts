@@ -1,6 +1,7 @@
 // 对应源码路径: website/web/src/composables/consult.ts
 import { reactive, ref } from 'vue'
 import { getContactPage, getSite } from '@/api/public'
+import { isPlaceholderContact } from '@/utils/siteDisplay'
 import type { SiteConfig } from '@/data/types'
 
 const siteCache = ref<SiteConfig | null>(null)
@@ -88,8 +89,12 @@ export async function loadConsultContext(): Promise<ConsultContext> {
     privacyVersion: site.privacyVersion ?? 1,
     formTitle: contact?.formTitle || '预约产品展示',
     successText: contact?.successText || '预约成功！我们的产品专家将在 1 个工作日内与您联系安排产品演示。',
-    phone: contact?.phone || site.contact?.phone || '',
-    email: contact?.email || site.contact?.email || '',
-    address: contact?.address || site.contact?.address || '',
+    phone: isPlaceholderContact(contact?.phone || site.contact?.phone)
+      ? ''
+      : (contact?.phone || site.contact?.phone || '').trim(),
+    email: isPlaceholderContact(contact?.email || site.contact?.email)
+      ? ''
+      : (contact?.email || site.contact?.email || '').trim(),
+    address: (contact?.address || site.contact?.address || '').trim(),
   }
 }

@@ -34,105 +34,28 @@ interface EnrichedCaseItem {
   coverUrl?: string
 }
 
-const DEFAULT_CASES: EnrichedCaseItem[] = [
-  {
-    id: '1',
-    title: '中铝物流集团：给每辆货车装上智慧大脑，筑牢大宗运输安全防线',
-    category: '大宗',
-    partnerBrand: '中铝物流',
-    partnerSub: 'CHINALCO LOGISTICS',
-    coverBg: 'linear-gradient(135deg, #1e293b 0%, #334155 55%, #0f172a 100%)',
-  },
-  {
-    id: '2',
-    title: '想念食品：用数字化打通从麦田到餐桌的每一公里安全与时效',
-    category: '食品/生鲜/医药',
-    partnerBrand: '想念食品',
-    partnerSub: 'XIANGNIAN FOOD',
-    coverBg: 'linear-gradient(135deg, #3f2e21 0%, #78350f 55%, #1c1917 100%)',
-  },
-  {
-    id: '3',
-    title: '津西钢铁：构建厂外物流全流程无人化、透明化协同平台',
-    category: '大宗',
-    partnerBrand: '津西钢铁',
-    partnerSub: 'JINXI IRON & STEEL',
-    coverBg: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0f172a 100%)',
-  },
-  {
-    id: '4',
-    title: '百年凤祥：AI 全程冷链温控守护食品安全“鲜”标准',
-    category: '食品/生鲜/医药',
-    partnerBrand: '凤祥食品',
-    partnerSub: 'FENGXIANG FOOD',
-    coverBg: 'linear-gradient(135deg, #064e3b 0%, #047857 55%, #022c22 100%)',
-  },
-  {
-    id: '5',
-    title: '华鼎如何一步步找到冷链配送最后两米的答案',
-    category: '食品/生鲜/医药',
-    partnerBrand: '华鼎冷链科技',
-    partnerSub: 'HUADING COLD CHAIN',
-    coverBg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #334155 100%)',
-  },
-  {
-    id: '6',
-    title: '物流运输运价内卷，华港集团如何靠安全管理守住生存空间',
-    category: '大宗',
-    partnerBrand: '华港国际',
-    partnerSub: 'HGI LOGISTICS',
-    coverBg: 'linear-gradient(135deg, #27272a 0%, #3f3f46 55%, #18181b 100%)',
-  },
-  {
-    id: '7',
-    title: '新疆晟祥物流：AI + 数字化赋能新能源重卡车队管理扩张',
-    category: '大宗',
-    partnerBrand: '晟祥物流',
-    partnerSub: 'SHENGXIANG',
-    coverBg: 'linear-gradient(135deg, #0c4a6e 0%, #0284c7 55%, #082f49 100%)',
-  },
-  {
-    id: '8',
-    title: '年运量700万吨，双汇物流用AI实现「聪明运营」',
-    category: '大物流',
-    partnerBrand: '双汇物流',
-    partnerSub: 'SHUANGHUI LOGISTICS',
-    coverBg: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 55%, #450a0a 100%)',
-  },
-  {
-    id: '9',
-    title: '连锁商超城配数字化标杆：实现全国 3000+ 门店准点率提升至 99.2%',
-    category: '快消/零售',
-    partnerBrand: '头部商超供应链',
-    partnerSub: 'RETAIL SUPPLY CHAIN',
-    coverBg: 'linear-gradient(135deg, #312e81 0%, #4338ca 55%, #1e1b4b 100%)',
-  },
-  {
-    id: '10',
-    title: '危化品运输主动安全与电子运单全闭环：高危风险事件下降 72%',
-    category: '危化',
-    partnerBrand: '万华化学物流生态',
-    partnerSub: 'HAZMAT SAFETY',
-    coverBg: 'linear-gradient(135deg, #134e4a 0%, #0f766e 55%, #042f2e 100%)',
-  },
+const CASE_COVER_GRADIENTS: string[] = [
+  'linear-gradient(135deg, #1e293b 0%, #334155 55%, #0f172a 100%)',
+  'linear-gradient(135deg, #3f2e21 0%, #78350f 55%, #1c1917 100%)',
+  'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0f172a 100%)',
+  'linear-gradient(135deg, #064e3b 0%, #047857 55%, #022c22 100%)',
+  'linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #334155 100%)',
+  'linear-gradient(135deg, #27272a 0%, #3f3f46 55%, #18181b 100%)',
+  'linear-gradient(135deg, #0c4a6e 0%, #0284c7 55%, #082f49 100%)',
+  'linear-gradient(135deg, #7f1d1d 0%, #991b1b 55%, #450a0a 100%)',
+  'linear-gradient(135deg, #312e81 0%, #4338ca 55%, #1e1b4b 100%)',
+  'linear-gradient(135deg, #134e4a 0%, #0f766e 55%, #042f2e 100%)',
 ]
 
 const allCases = computed<EnrichedCaseItem[]>(() => {
-  const mappedRemote: EnrichedCaseItem[] = remoteCases.value.map((c, idx) => ({
+  return remoteCases.value.map((c, idx) => ({
     id: String(c.id),
     title: c.title,
     category: c.industry || c.categoryName || '大宗',
     partnerBrand: c.customerName || c.title.split(/[×：:]/)[0].slice(0, 8) || '标杆客户',
     coverUrl: c.cover?.url,
-    coverBg: DEFAULT_CASES[idx % DEFAULT_CASES.length].coverBg,
+    coverBg: CASE_COVER_GRADIENTS[idx % CASE_COVER_GRADIENTS.length],
   }))
-  const merged = [...mappedRemote]
-  for (const defItem of DEFAULT_CASES) {
-    if (!merged.some((m) => m.title === defItem.title)) {
-      merged.push(defItem)
-    }
-  }
-  return merged
 })
 
 const filteredCases = computed(() => {
@@ -145,17 +68,13 @@ const filteredCases = computed(() => {
 })
 
 const pageSize = 8
-const totalPages = computed(() => Math.max(6, Math.ceil(filteredCases.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCases.value.length / pageSize)))
 
 const pagedCases = computed(() => {
   const list = filteredCases.value
   if (list.length === 0) return []
-  const start = ((currentPage.value - 1) * pageSize) % list.length
-  const out: EnrichedCaseItem[] = []
-  for (let i = 0; i < Math.min(pageSize, list.length); i++) {
-    out.push(list[(start + i) % list.length])
-  }
-  return out
+  const start = (currentPage.value - 1) * pageSize
+  return list.slice(start, start + pageSize)
 })
 
 function syncQueryToUrl() {
@@ -195,35 +114,11 @@ function goPage(p: number) {
 const DEFAULT_STORIES: AboutStoryItem[] = [
   {
     quote: '“与平台的深度合作，对公司各项经营指标都有显著提升。”',
-    author: '张太喜  双汇物流董事长',
-    company: '双汇物流',
-    logoText: 'SHUANGHUI 双汇物流',
+    author: '客户代表',
+    company: '标杆制造客户',
+    logoText: '标杆制造客户',
     cover: '',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    quote: '“统一多元的数据，加上精准的算法模型，帮助天佑完善了管理闭环。”',
-    author: '何镭  天佑物流标准/执行总监',
-    company: '天佑物流',
-    logoText: 'tianyou天佑',
-    cover: '',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    quote: '“「数字化」之后，一个往返我们就知道利润了。”',
-    author: '赵春波  滨拓物流总经理',
-    company: '滨拓物流',
-    logoText: '滨拓物流',
-    cover: '',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  },
-  {
-    quote: '通过IoT技术重构煤炭运输环节，让干线运输与装卸解耦，助力包头市煤炭物流绿色低碳转型。',
-    author: '华电能源包头公司',
-    company: '中国华电 CHD',
-    logoText: '中国华电 CHD',
-    cover: '',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    videoUrl: '',
   },
 ]
 
@@ -233,11 +128,10 @@ const storiesList = computed<AboutStoryItem[]>(() => {
 })
 
 function playStoryVideo(story: AboutStoryItem) {
+  if (!story.videoUrl) return
   openVideo({
     title: `${story.company} · 客户成功故事`,
-    url:
-      story.videoUrl ||
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: story.videoUrl,
   })
 }
 

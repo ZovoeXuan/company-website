@@ -6,6 +6,7 @@ import com.company.cms.common.ErrorCode;
 import com.company.cms.common.FieldErrorItem;
 import com.company.cms.common.PageQuery;
 import com.company.cms.common.PageResult;
+import com.company.cms.site.PublicVersionService;
 import com.company.cms.system.AuditLogService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -27,11 +28,14 @@ public class CategoryService {
     private final CategoryRepository repository;
     private final AuditLogService audit;
     private final ObjectMapper objectMapper;
+    private final PublicVersionService versionService;
 
-    public CategoryService(CategoryRepository repository, AuditLogService audit, ObjectMapper objectMapper) {
+    public CategoryService(CategoryRepository repository, AuditLogService audit,
+                           ObjectMapper objectMapper, PublicVersionService versionService) {
         this.repository = repository;
         this.audit = audit;
         this.objectMapper = objectMapper;
+        this.versionService = versionService;
     }
 
     public PageResult<CategoryView> list(String typeRaw, String keyword, PageQuery query) {
@@ -115,6 +119,7 @@ public class CategoryService {
 
         audit.success(actor.id(), "CATEGORY_PUBLISH", "CATEGORY", id,
                 "发布分类 " + row.draftName());
+        versionService.evictAfterCommitOrNow();
     }
 
     @Transactional
@@ -131,6 +136,7 @@ public class CategoryService {
             throw new ApiException(ErrorCode.VERSION_CONFLICT, "分类状态已变化，请刷新后重试");
         }
         audit.success(actor.id(), "CATEGORY_OFFLINE", "CATEGORY", id, "下线分类 " + row.publishedName());
+        versionService.evictAfterCommitOrNow();
     }
 
     @Transactional

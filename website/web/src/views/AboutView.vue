@@ -6,6 +6,8 @@ import { getAbout, getNews, getSite } from '@/api/public'
 import { openConsult } from '@/composables/consult'
 import { openVideo } from '@/composables/videoModal'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
+import { isPlaceholderContact } from '@/utils/siteDisplay'
 import { vReveal } from '@/directives/reveal'
 import type {
   AboutCeoLetter,
@@ -79,7 +81,7 @@ const introTitle = computed(() => data.value?.introTitle || `关于${siteName.va
 
 const introParagraphs = computed(() => {
   const raw = (data.value?.intro || '').trim()
-  if (raw && !raw.includes('示例科技')) {
+  if (raw) {
     return raw.split(/\n+/).filter(Boolean)
   }
   return [
@@ -87,6 +89,18 @@ const introParagraphs = computed(() => {
     `公司的客户覆盖超80%行业头部客户以及数万家成长型企业，服务网络覆盖全国核心城市与产业园区。`,
   ]
 })
+
+const introVisualType = computed<'none' | 'image' | 'radar'>(() => {
+  if (data.value?.showIntroImage === false) return 'none'
+  const mode = data.value?.introImageMode
+  if (mode === 'none') return 'none'
+  if (mode === 'radar') return 'radar'
+  if (mode === 'image' && data.value?.introImage) return 'image'
+  if (data.value?.introImage) return 'image'
+  return 'none'
+})
+
+const hasIntroVisual = computed(() => introVisualType.value !== 'none')
 
 // 1. CEO的一封信（1:1 还原 about_06.png & about_08.png）
 const DEFAULT_CEO_LETTER: AboutCeoLetter = {
@@ -236,168 +250,23 @@ function nextMilestone() {
   milestoneIndex.value = (milestoneIndex.value + 1) % total
 }
 
-// 3. 联系我们：左侧 7 城内部滚动容器 + 右侧地图与大楼实景照片切换（1:1 还原 about_28.png & about_35.png）
-const DEFAULT_OFFICES: AboutOfficeItem[] = [
-  {
-    city: '北京（总部）',
-    phone: '010-62667878',
-    address: '北京市 海淀区 建材城中路 27 号金隅智造工场 N7 号楼 2 层',
-    mapX: 68,
-    mapY: 41,
-  },
-  {
-    city: '深圳',
-    phone: '0755-26944168',
-    address: '深圳市南山区滨海大道 3369 号有线信息传输大厦 9 层',
-    mapX: 68,
-    mapY: 77,
-  },
-  {
-    city: '成都',
-    phone: '028-83358692',
-    address: '成都市 天府新区 兴隆湖畔路西段 99 号天府新经济产业园 D 区 B6 栋 28 楼',
-    mapX: 53,
-    mapY: 63,
-  },
-  {
-    city: '广州',
-    phone: '',
-    address: '广州市黄埔区科学大道237号A1栋1106室',
-    mapX: 66,
-    mapY: 74,
-  },
-  {
-    city: '上海',
-    phone: '021-51083899',
-    address: '上海市闵行区申长路988弄虹桥万科中心T2号楼6层',
-    mapX: 76,
-    mapY: 57,
-  },
-  {
-    city: '西安',
-    phone: '',
-    address: '西安市雁塔区丈八一路1号汇鑫IBC-D座8楼802、803室',
-    mapX: 59,
-    mapY: 52,
-  },
-  {
-    city: '天津',
-    phone: '',
-    address: '天津市东丽区东二道空港商务园东区E6-102、202',
-    mapX: 71,
-    mapY: 45,
-  },
-]
-
+// 3. 联系我们：从后台 ABOUT.offices 读取，未配置或隐藏时不展示静态参考公司网点
 const officesList = computed<AboutOfficeItem[]>(() => {
-  if (data.value?.offices && data.value.offices.length > 0) {
-    return data.value.offices
-  }
-  return DEFAULT_OFFICES
+  if (data.value?.showOffices === false) return []
+  return Array.isArray(data.value?.offices) ? data.value.offices : []
 })
 
 const currentOffice = computed(
   () => officesList.value[activeOfficeIndex.value] ?? officesList.value[0],
 )
 
-// 4. 管理团队 4 位高管 + 点击居中左右分栏弹窗（1:1 还原 about_48.png & about_62.png）
-const DEFAULT_TEAM: AboutTeamMember[] = [
-  {
-    name: '翟学魂',
-    role: '首席执行官',
-    avatar: '/team/zhai-xuehun.svg',
-    bio: [
-      '翟学魂先生，现任公司首席执行官。',
-      '作为中国产业物联网和物流数字化的开拓者，打造了商用车物联网平台。翟学魂先生是中国物流行业的著名思想领袖之一，推动了中国物流企业的信息化和数字化进程。联合发起成立了自动驾驶重卡领域的独角兽企业嬴彻科技，以及电动重卡运营平台绿港，致力于积极推进物流产业的智能化和绿色化。',
-      '曾获得“中国物流行业十大风云人物”、“中国物流行业年度人物”、“改革开放40年物流行业企业家代表性人物”等荣誉名称。',
-      '翟学魂先生毕业于清华大学物理系，并同期完成清华大学经管学院双学士学位学业。',
-    ],
-  },
-  {
-    name: '张景涛',
-    role: '总裁',
-    avatar: '/team/zhang-jingtao.svg',
-    bio: [
-      '张景涛先生，现任公司总裁，全面负责公司产品研发、冷链与大宗行业解决方案及客户成功体系建设。',
-      '深耕供应链与物流科技领域二十余年，推动了软硬一体物联网终端与全场景SaaS平台的深度融合，助力数万家货运经营者实现安全与效率跃升。',
-    ],
-  },
-  {
-    name: '郝淑霞',
-    role: '高级副总裁',
-    avatar: '/team/hao-shuxia.svg',
-    bio: [
-      '郝淑霞女士，现任公司高级副总裁，负责组织发展、人才体系与大客户战略生态协同。',
-      '长期致力于科技企业的组织创新与数字化领导力建设，打造了覆盖全国核心物流节点的高效服务团队。',
-    ],
-  },
-  {
-    name: '张杰龙',
-    role: '首席财务官',
-    avatar: '/team/zhang-jielong.svg',
-    bio: [
-      '张杰龙先生，现任公司首席财务官（CFO），负责集团财务战略、资本市场运作及战略投资并购。',
-      '主导完成了公司多轮国际顶级投资机构战略融资及战略重组合作，推动公司构建稳健可持续的商业增长模型。',
-    ],
-  },
-]
-
+// 4. 管理团队：从后台 ABOUT.teamMembers 读取，未配置时显示待整理提示
 const teamList = computed<AboutTeamMember[]>(() => {
-  if (data.value?.teamMembers && data.value.teamMembers.length > 0) {
-    return data.value.teamMembers.map((m, idx) => {
-      const match = DEFAULT_TEAM.find((d) => d.name === m.name) || DEFAULT_TEAM[idx]
-      return {
-        ...m,
-        avatar: m.avatar || match?.avatar || '',
-      }
-    })
-  }
-  return DEFAULT_TEAM
+  return Array.isArray(data.value?.teamMembers) ? data.value.teamMembers : []
 })
 
-// 5. 媒体中心 4 卡横向轮播
-const DEFAULT_NEWS: NewsSummary[] = [
-  {
-    id: '1',
-    title: '公司数字化服务与AI平台全新升级',
-    summary: '面向制造与物流供应链全场景，打造领先的物联网与智能软件服务平台。',
-    cover: null,
-    categoryId: null,
-    categoryName: '企业动态',
-    displayTime: '2022/06/07',
-  },
-  {
-    id: '2',
-    title: '让你的物流AI开工！2026数字物流大会精彩日程抢先看',
-    summary: '聚焦物流全场景 AI 智能体与 IoT 深度融合实践。',
-    cover: null,
-    categoryId: null,
-    categoryName: '行业峰会',
-    displayTime: '2026/10/16',
-  },
-  {
-    id: '3',
-    title: '走创新之路 马上出发！——新能源车队一线探访',
-    summary: '深入干线与大宗运输现场，探访新能源重卡车队真实运营效益。',
-    cover: null,
-    categoryId: null,
-    categoryName: '前沿洞察',
-    displayTime: '2026/10/13',
-  },
-  {
-    id: '4',
-    title: '2026物流小巨人启动——「新能源&AI」双榜单全新招募！',
-    summary: '寻找物流产业最具技术领导力与增长韧性的标杆企业。',
-    cover: null,
-    categoryId: null,
-    categoryName: '品牌活动',
-    displayTime: '2026/09/23',
-  },
-]
-
-const resolvedNews = computed<NewsSummary[]>(() => {
-  return newsList.value.length > 0 ? newsList.value : DEFAULT_NEWS
-})
+// 5. 媒体中心：仅展示真实已发布新闻内容
+const resolvedNews = computed<NewsSummary[]>(() => newsList.value)
 
 const visibleNewsCards = computed(() => {
   const list = resolvedNews.value
@@ -430,14 +299,14 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
   { category: '企业资料', title: '安全管家', logoText: '安全管家 · 主动安全托管', logoColor: '#2563eb' },
   { category: '企业资料', title: '财运通', logoText: '财运通 · 数字化运力结算', logoColor: '#0284c7' },
   { category: '企业资料', title: '冷链管家', logoText: '冷链管家 · 全程温控可视', logoColor: '#0d9488' },
-  // 客户视频（1:1 还原 about_74.png：滨拓物流 / 中国华电 / 双汇物流 / 天佑物流）
+  // 客户视频
   {
     category: '客户视频',
     title: '滨拓物流',
     logoText: '滨拓物流',
     logoColor: '#16a34a',
     isVideo: true,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: '',
   },
   {
     category: '客户视频',
@@ -445,7 +314,7 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
     logoText: '中国华电 CHD',
     logoColor: '#0284c7',
     isVideo: true,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: '',
   },
   {
     category: '客户视频',
@@ -453,7 +322,7 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
     logoText: '双汇物流',
     logoColor: '#dc2626',
     isVideo: true,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: '',
   },
   {
     category: '客户视频',
@@ -461,7 +330,7 @@ const DEFAULT_RESOURCES: AboutResourceItem[] = [
     logoText: 'tianyou天佑',
     logoColor: '#d97706',
     isVideo: true,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: '',
   },
   // 行业报告
   { category: '行业报告', title: '2026新能源车队管理白皮书', logoText: '新能源车队管理白皮书', logoColor: '#0284c7' },
@@ -493,12 +362,10 @@ const visibleResources = computed(() => {
 })
 
 function handleResourceClick(item: AboutResourceItem) {
-  if (item.isVideo || item.category === '客户视频') {
+  if ((item.isVideo || item.category === '客户视频') && item.url) {
     openVideo({
       title: `${item.title} · 客户证言视频`,
-      url:
-        item.url ||
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      url: item.url,
     })
     return
   }
@@ -613,47 +480,59 @@ async function reloadAll() {
   }
 }
 
-function handleRealtimeSync(e?: StorageEvent | Event) {
-  if (e instanceof StorageEvent) {
-    if (e.key === 'g7_last_published' || e.key === 'admin_data_updated') {
-      reloadAll()
-    }
-  } else {
-    reloadAll()
-  }
-}
-
-function onVisibilityChange() {
-  if (document.visibilityState === 'visible') {
-    reloadAll()
-  }
-}
+useRealtimeSync(['aboutVersion', 'siteConfigVersion', 'contentVersion'], () => {
+  void reloadAll()
+})
 
 onMounted(async () => {
   syncTabFromQuery()
   document.addEventListener('keydown', onKeydown)
-  window.addEventListener('storage', handleRealtimeSync)
-  window.addEventListener('focus', reloadAll)
-  document.addEventListener('visibilitychange', onVisibilityChange)
   await reloadAll()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
-  window.removeEventListener('storage', handleRealtimeSync)
-  window.removeEventListener('focus', reloadAll)
-  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
 <template>
   <div class="about-g7">
-    <!-- 1. 顶部深空流光透视首屏 Banner（1:1 还原 关于我们.mp4） -->
-    <section class="about-hero">
-      <div class="about-hero__trails" aria-hidden="true"></div>
+    <!-- 1. 顶部首屏 Banner（支持可替换图片/视频背景、自定义标题/副标题/眉题） -->
+    <section
+      class="about-hero"
+      :class="{
+        'has-media-bg':
+          (data?.heroBgType === 'image' && !!data?.heroBgImage) ||
+          (data?.heroBgType === 'video' && !!data?.heroBgVideo),
+      }"
+    >
+      <video
+        v-if="data?.heroBgType === 'video' && data?.heroBgVideo"
+        class="about-hero__media-video"
+        :src="data.heroBgVideo"
+        autoplay
+        muted
+        loop
+        playsinline
+      ></video>
+      <div
+        v-else-if="data?.heroBgType === 'image' && data?.heroBgImage"
+        class="about-hero__media-image"
+        :style="{ backgroundImage: `url(${data.heroBgImage})` }"
+      ></div>
+      <div v-else class="about-hero__trails" aria-hidden="true"></div>
+
+      <div
+        v-if="(data?.heroBgType === 'image' && !!data?.heroBgImage) || (data?.heroBgType === 'video' && !!data?.heroBgVideo)"
+        class="about-hero__overlay"
+        aria-hidden="true"
+      ></div>
+
       <div class="container about-hero__inner">
-        <div v-reveal class="about-hero__logo-mark" aria-hidden="true">G</div>
+        <div v-if="data?.showHeroLogoMark" v-reveal class="about-hero__logo-mark" aria-hidden="true">G</div>
+        <p v-if="data?.heroEyebrow" v-reveal class="about-hero__eyebrow">{{ data.heroEyebrow }}</p>
         <h1 v-reveal="100" class="about-hero__title">{{ heroTitle }}</h1>
+        <p v-if="data?.heroSubtitle" v-reveal="140" class="about-hero__subtitle">{{ data.heroSubtitle }}</p>
       </div>
     </section>
 
@@ -675,9 +554,9 @@ onBeforeUnmount(() => {
 
     <!-- ==================== 子页面 1：企业简介 (intro) ==================== -->
     <div v-if="activeTab === 'intro'" key="subpage-intro" class="about-subpage">
-      <!-- 企业简介：左文右图 -->
-      <section class="about-intro-sec">
-        <div class="container about-intro-grid">
+      <!-- (1) 企业简介：左文右图或纯文排版，支持放图片或不放图片，整个模块可开启或关闭 -->
+      <section v-if="data?.showIntro !== false" class="about-intro-sec">
+        <div class="container about-intro-grid" :class="{ 'no-visual': !hasIntroVisual }">
           <div v-reveal class="about-intro__text">
             <h2 class="about-sec-title">{{ introTitle }}</h2>
             <p v-for="(para, pIdx) in introParagraphs" :key="pIdx" class="about-intro__para">
@@ -685,10 +564,10 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <div v-reveal="120" class="about-intro__visual">
+          <div v-if="hasIntroVisual" v-reveal="120" class="about-intro__visual">
             <div class="about-intro__photo">
-              <img v-if="data?.introImage" :src="data.introImage" :alt="introTitle" class="about-intro__img" />
-              <template v-else>
+              <img v-if="introVisualType === 'image' && data?.introImage" :src="data.introImage" :alt="introTitle" class="about-intro__img" />
+              <template v-else-if="introVisualType === 'radar'">
                 <div class="about-intro__radar" aria-hidden="true"></div>
                 <div class="about-intro__truck-scene" aria-hidden="true">
                   <span class="scene-tag">AI + IoT 全链路实时感知</span>
@@ -699,8 +578,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (2) CEO的一封信（1:1 还原 about_06.png 左暗色公路金句卡 + 右浅灰蓝背景信件摘录 + 展开全部弹窗） -->
-      <section class="about-ceo-sec">
+      <!-- (2) CEO的一封信（支持开关控制显隐，彻底删除 G 水印） -->
+      <section v-if="data?.showCeoLetter !== false && ceoLetter" class="about-ceo-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">CEO的一封信</h2>
 
@@ -710,7 +589,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="ceo-card__right">
-              <div class="ceo-card__watermark" aria-hidden="true">G</div>
               <h3 class="ceo-card__title">{{ ceoLetter.title }}</h3>
               <div class="ceo-card__paras">
                 <p v-for="(p, idx) in ceoLetter.excerpt" :key="idx">{{ p }}</p>
@@ -730,8 +608,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (3) 发展历程横向时间轴轮播（1:1 还原 about_18.png） -->
-      <section class="about-history-sec">
+      <!-- (3) 发展历程横向时间轴轮播（支持开关控制显隐） -->
+      <section v-if="data?.showMilestones !== false && milestonesList.length" class="about-history-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">发展历程</h2>
 
@@ -773,8 +651,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (3.5) 荣誉资质与权威认证（开发文档 6.11 qualifications[]，有配置时展示，无内容自动隐藏） -->
-      <section v-if="data?.qualifications?.length" class="about-quals-sec">
+      <!-- (3.5) 荣誉资质与权威认证（支持开关控制显隐，无配置或关闭自动隐藏） -->
+      <section v-if="data?.showQualifications !== false && data?.qualifications?.length" class="about-quals-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">荣誉与资质认证</h2>
           <div class="quals-grid">
@@ -792,8 +670,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <!-- (4) 联系我们：左侧 7 城内部滚动容器 + 右侧点阵地图与大楼实景照片气泡（1:1 还原 about_28.png & about_35.png） -->
-      <section class="about-offices-sec">
+      <!-- (4) 联系我们：左侧 7 城内部滚动容器 + 右侧点阵地图与大楼实景照片气泡（支持开关控制显隐） -->
+      <section v-if="data?.showOffices !== false && officesList.length" class="about-offices-sec">
         <div class="container">
           <h2 v-reveal class="about-center-title">联系我们</h2>
 
@@ -809,10 +687,10 @@ onBeforeUnmount(() => {
                 @click="activeOfficeIndex = oIdx"
               >
                 <h3 class="office-item__city">{{ off.city }}</h3>
-                <p class="office-item__line">
-                  <span>电话：</span>{{ off.phone || '' }}
+                <p v-if="!isPlaceholderContact(off.phone)" class="office-item__line">
+                  <span>电话：</span>{{ off.phone }}
                 </p>
-                <p class="office-item__line">
+                <p v-if="off.address" class="office-item__line">
                   <span>地址：</span>{{ off.address }}
                 </p>
               </div>
@@ -872,7 +750,7 @@ onBeforeUnmount(() => {
             {{ data?.teamTitle || `${siteName}管理团队` }}
           </h2>
 
-          <div class="team-grid">
+          <div v-if="teamList.length > 0" class="team-grid">
             <article
               v-for="(member, mIdx) in teamList"
               :key="member.name"
@@ -893,6 +771,9 @@ onBeforeUnmount(() => {
               </div>
             </article>
           </div>
+          <p v-else style="text-align: center; color: #64748b; padding: 48px 0">
+            团队信息整理中，敬请期待。
+          </p>
         </div>
       </section>
     </div>
@@ -906,7 +787,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/news" class="about-outline-btn">查看更多</RouterLink>
           </div>
 
-          <div v-reveal="100" class="about-news-slider">
+          <div v-if="visibleNewsCards.length > 0" v-reveal="100" class="about-news-slider">
             <button type="button" class="slider-arrow" aria-label="上一组新闻" @click="prevNews">‹</button>
 
             <div class="about-news-grid">
@@ -932,7 +813,7 @@ onBeforeUnmount(() => {
                   <h3 class="about-news-card__title">{{ item.title }}</h3>
                   <div class="about-news-card__time">
                     <span aria-hidden="true">🕒</span>
-                    <span>{{ item.displayTime || '2026/10/16' }}</span>
+                    <span>{{ item.displayTime || '' }}</span>
                   </div>
                 </div>
               </RouterLink>
@@ -940,6 +821,9 @@ onBeforeUnmount(() => {
 
             <button type="button" class="slider-arrow" aria-label="下一组新闻" @click="nextNews">›</button>
           </div>
+          <p v-else style="text-align: center; color: #64748b; padding: 48px 0">
+            暂无已发布新闻资讯。
+          </p>
         </div>
       </section>
     </div>
@@ -1208,6 +1092,55 @@ onBeforeUnmount(() => {
   padding-bottom: 28px;
 }
 
+.about-hero__media-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.about-hero__media-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+
+.about-hero__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 10, 20, 0.6) 0%, rgba(8, 10, 20, 0.82) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.about-hero__eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a5b4fc;
+  margin-bottom: 12px;
+}
+
+.about-hero__subtitle {
+  font-size: clamp(15px, 1.8vw, 18px);
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 760px;
+  margin: 14px auto 0;
+  line-height: 1.6;
+}
+
 .about-hero__logo-mark {
   font-size: 54px;
   font-weight: 900;
@@ -1285,6 +1218,11 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   gap: 64px;
   align-items: center;
+}
+
+.about-intro-grid.no-visual {
+  grid-template-columns: 1fr;
+  max-width: 860px;
 }
 
 .about-sec-title {

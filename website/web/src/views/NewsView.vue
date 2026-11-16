@@ -43,118 +43,27 @@ interface EnrichedNews {
   themeIdx: number
 }
 
-const DEFAULT_NEWS_POOL: EnrichedNews[] = [
-  {
-    id: '1',
-    title: '让你的物流AI开工！2026数字物流大会精彩日程抢先看',
-    summary:
-      '数字物流大会，是一年一度属于行业数字化创新者的思想聚会。每年，我们都把行业里最敢想、最敢干的一群人聚在一起，聊聊技术、算算细账，看看产业的未来到底长什么样。',
-    displayTime: '2026/10/16',
-    category: '品牌活动',
-    themeIdx: 0,
-  },
-  {
-    id: '2',
-    title: '不加人、不靠老司机，冷链“最后几分钟”的解法都在这',
-    summary:
-      '聚焦商超与餐饮冷链城配交付痛点，通过 AI 温控预警与自动签收留痕，让新司机也能跑出准点零货损标杆。',
-    displayTime: '2026/09/20',
-    category: '最佳实践',
-    themeIdx: 1,
-  },
-  {
-    id: '3',
-    title: '上了好几百台车，利润却越来越薄？新能源重卡竞争已从“选车”转向“经营车队”',
-    summary:
-      '深入剖析新能源重卡规模化运营后的电耗管理、充换电排班与资产利用率瓶颈，解锁数据驱动的精细化运营方法论。',
-    displayTime: '2026/09/09',
-    category: '行业洞察',
-    themeIdx: 2,
-  },
-  {
-    id: '4',
-    title: '2026上半年冷链物流行业报告发布，释放哪些关键信号？',
-    summary:
-      '基于平台海量冷链运单与温控感知数据，全面解读 2026 上半年生鲜医药冷链运力流向、运价走势与安全合规新趋势。',
-    displayTime: '2026/08/26',
-    category: '行业洞察',
-    themeIdx: 3,
-  },
-  {
-    id: '5',
-    title: '新能源车队经营管理共创会｜TOP级新能源车队的「运营经」都在这',
-    summary:
-      '汇聚全国大宗与港口干线头部电动重卡车队管理者，现场拆解百公里电耗下降 12% 的实战经验。',
-    displayTime: '2026/08/19',
-    category: '品牌活动',
-    themeIdx: 4,
-  },
-  {
-    id: '6',
-    title: '2026第六届猪产业发展大会｜养殖效率卷到极致，下一轮利润可能藏在运输途中',
-    summary:
-      '针对农牧饲料与活体运输全产业链，通过 AI 防偷盗治理与洗消中心数字化监管筑牢生物安全防线。',
-    displayTime: '2026/08/19',
-    category: '企业新闻',
-    themeIdx: 5,
-  },
-  {
-    id: '7',
-    title: '现场有真相 03｜「不怎么开车」的城配司机，会被AI替代么？',
-    summary:
-      '一线跟车实录：当装卸、核单、找月台占据城配司机一半时间，AI 工具如何帮他们省下每一分钟。',
-    displayTime: '2026/08/19',
-    category: '最佳实践',
-    themeIdx: 6,
-  },
-  {
-    id: '8',
-    title: '冷链运输温度达标后，交付真正的战场在哪里？',
-    summary:
-      '从“不断链”走向“精益交付”，拆解头部连锁餐饮供应链如何借助 IoT 数据打通门店无人化夜配。',
-    displayTime: '2026/08/26',
-    category: '大数据',
-    themeIdx: 7,
-  },
-  {
-    id: '9',
-    title: '后厨之外，校园团餐在途食品安全如何保障？',
-    summary:
-      '依托电子铅封、AI 货舱摄像头与多温区实时监测，实现食材从中央厨房到校园食堂的全程阳光可视。',
-    displayTime: '2026/08/19',
-    category: '社会责任',
-    themeIdx: 8,
-  },
-]
 
 const allNews = computed<EnrichedNews[]>(() => {
-  const mapped: EnrichedNews[] = remoteNews.value.map((n, idx) => ({
+  return remoteNews.value.map((n, idx) => ({
     id: String(n.id),
     title: n.title,
     summary: n.summary || '点击阅读完整行业分析与最新动态报道。',
-    displayTime: (n.displayTime || '2026/09/20').replace(/-/g, '/').slice(0, 10),
+    displayTime: (n.displayTime || '').replace(/-/g, '/').slice(0, 10),
     category: n.categoryName || MAIN_CATEGORIES[(idx % 6) + 1],
     coverUrl: n.cover?.url,
     themeIdx: idx % 9,
   }))
-  const merged = [...mapped]
-  for (const defItem of DEFAULT_NEWS_POOL) {
-    if (!merged.some((m) => m.title === defItem.title)) {
-      merged.push(defItem)
-    }
-  }
-  return merged
 })
 
 const filteredNews = computed(() => {
   let list = allNews.value
   if (activeCategory.value !== '全部新闻') {
-    const matched = list.filter(
+    list = list.filter(
       (n) =>
         n.category.includes(activeCategory.value) ||
         n.title.includes(activeCategory.value),
     )
-    list = matched.length > 0 ? matched : list
   }
   const kw = keyword.value.trim().toLowerCase()
   if (kw) {
@@ -167,7 +76,7 @@ const filteredNews = computed(() => {
   return list
 })
 
-const featuredItem = computed(() => filteredNews.value[0] ?? DEFAULT_NEWS_POOL[0])
+const featuredItem = computed(() => filteredNews.value[0] ?? null)
 
 const gridNews = computed(() => {
   const rest = filteredNews.value.slice(1)

@@ -15,7 +15,7 @@
  *    - 🛡️ 隐私说明 (PRIVACY)：标题、更新日期与隐私正文所见即所得直改
  * 2. 跨页面全局脏数据追踪、30 步 Undo/Redo 历史栈、桌面/平板/手机三视口切换、一键全局保存草稿与按依赖顺序一键全局发布上线。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { LinkValue } from '@/components/LinkEditor.vue'
@@ -98,6 +98,16 @@ interface ContactEmailConfig {
   email: string
   desc: string
 }
+export interface PageHeroItem {
+  title?: string
+  subtitle?: string
+  eyebrow?: string
+  bgType?: 'default' | 'image' | 'video'
+  bgImage?: string
+  bgVideo?: string
+  overlayOpacity?: number
+}
+
 interface SiteDraft {
   siteName: string
   slogan: string
@@ -113,6 +123,7 @@ interface SiteDraft {
   footerGroups: FooterGroup[]
   qrCodes: QrCodeConfig[]
   contactEmails: ContactEmailConfig[]
+  pageHeroes?: Record<string, PageHeroItem>
 }
 
 interface MegaSubItem {
@@ -206,6 +217,19 @@ interface HomeDraft {
 
 interface AboutDraft {
   heroTitle: string
+  heroSubtitle?: string
+  heroEyebrow?: string
+  heroBgType?: 'default' | 'image' | 'video'
+  heroBgImage?: string
+  heroBgVideo?: string
+  showHeroLogoMark?: boolean
+  showIntro?: boolean
+  showIntroImage?: boolean
+  introImageMode?: 'none' | 'image' | 'radar' | 'auto'
+  showCeoLetter?: boolean
+  showQualifications?: boolean
+  showMilestones?: boolean
+  showOffices?: boolean
   introTitle: string
   intro: string
   introImage: string
@@ -406,26 +430,57 @@ const drafts = ref<{
   PRIVACY: PrivacyDraft
 }>({
   SITE: {
-    siteName: '公司官网',
+    siteName: '鑫链科技',
     slogan: '领先的物联网与数字化软件服务商',
-    copyrightText: '© 2026 示例科技有限公司',
-    icpText: '京ICP备08004136号',
+    copyrightText: '© 2026 鑫链科技有限公司',
+    icpText: '',
     icpUrl: 'https://beian.miit.gov.cn/',
     policeText: '',
     policeUrl: '',
     logoMediaId: undefined,
     logoAlt: '',
     faviconMediaId: undefined,
-    defaultSeo: { title: '企业官网', description: '面向企业的物联网与数字化平台' },
+    defaultSeo: { title: '鑫链科技 - 领先的物联网与数字化软件服务公司', description: '面向企业的物联网与数字化平台' },
     footerGroups: [],
     qrCodes: [
       { label: '公众号', imageUrl: '' },
       { label: '视频号', imageUrl: '' },
     ],
-    contactEmails: [
-      { email: 'connect@g7.com.cn', desc: '媒体联系&数据合作' },
-      { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
-    ],
+    contactEmails: [],
+    pageHeroes: {
+      news: {
+        title: '企业新闻与行业洞察',
+        subtitle: '关注前沿技术、业务动态与标杆企业数字化实践。',
+        eyebrow: 'NEWSROOM',
+        bgType: 'default',
+        bgImage: '',
+        bgVideo: '',
+      },
+      cases: {
+        title: '客户成功故事',
+        subtitle: '每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。',
+        eyebrow: 'CUSTOMER STORIES',
+        bgType: 'default',
+        bgImage: '',
+        bgVideo: '',
+      },
+      products: {
+        title: '产品中心',
+        subtitle: '从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。',
+        eyebrow: 'PRODUCTS',
+        bgType: 'default',
+        bgImage: '',
+        bgVideo: '',
+      },
+      solutions: {
+        title: '行业解决方案',
+        subtitle: '结合不同业务场景痛点，提供软硬件一体、场景闭环的数字化落地路径。',
+        eyebrow: 'SOLUTIONS',
+        bgType: 'default',
+        bgImage: '',
+        bgVideo: '',
+      },
+    },
   },
   NAVIGATION: {
     items: [],
@@ -443,7 +498,20 @@ const drafts = ref<{
     consultation: { title: '了解适合您的服务', subtitle: '', buttonText: '立即咨询', link: { type: 'CONSULT' } },
   },
   ABOUT: {
-    heroTitle: '以物联网技术和软件服务改变公路货运',
+    heroTitle: '以物联网技术和软件服务赋能实体产业数字化转型',
+    heroSubtitle: '',
+    heroEyebrow: '',
+    heroBgType: 'default',
+    heroBgImage: '',
+    heroBgVideo: '',
+    showHeroLogoMark: false,
+    showIntro: true,
+    showIntroImage: false,
+    introImageMode: 'none',
+    showCeoLetter: true,
+    showQualifications: true,
+    showMilestones: true,
+    showOffices: true,
     introTitle: '关于我们',
     intro: '我们是一家领先的产业物联网科技和软件服务公司，连接业务全流程并以数据和AI驱动运营，助力企业降本增效。',
     introImage: '',
@@ -567,8 +635,8 @@ const drafts = ref<{
     formEnabled: true,
     smsVerifyEnabled: true,
     phone: '400-888-6688',
-    email: 'connect@g7.com.cn',
-    address: '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
+    email: 'service@company.com',
+    address: '北京市海淀区中关村前沿科技产业园8号楼',
     hours: '周一至周日 09:00 - 18:00',
     mapUrl: '',
   },
@@ -745,12 +813,12 @@ function normalizeSectionOrder(raw?: unknown): HomeSectionKey[] {
 function normalizeSite(d?: Partial<SiteDraft> | null): SiteDraft {
   const c = clone(d || {})
   return {
-    siteName: c.siteName ?? '示例科技',
+    siteName: c.siteName ?? '鑫链科技',
     slogan: c.slogan ?? '领先的物联网与数字化软件服务商',
-    copyrightText: c.copyrightText ?? '© 2026 示例科技有限公司',
-    icpText: c.icpText ?? '京ICP备08004136号',
+    copyrightText: c.copyrightText ?? '© 2026 鑫链科技有限公司',
+    icpText: c.icpText ?? '',
     icpUrl: c.icpUrl ?? 'https://beian.miit.gov.cn/',
-    policeText: c.policeText ?? '京公网安备11010802020592号',
+    policeText: c.policeText ?? '',
     policeUrl: c.policeUrl ?? '',
     logoMediaId: c.logoMediaId ? Number(c.logoMediaId) : undefined,
     logoAlt: c.logoAlt ?? '',
@@ -776,13 +844,15 @@ function normalizeSite(d?: Partial<SiteDraft> | null): SiteDraft {
             { label: '公众号', imageUrl: '' },
             { label: '视频号', imageUrl: '' },
           ],
-    contactEmails:
-      Array.isArray(c.contactEmails) && c.contactEmails.length
-        ? c.contactEmails
-        : [
-            { email: 'connect@g7.com.cn', desc: '媒体联系&数据合作' },
-            { email: 'jiancha@g7.com.cn', desc: '集团投诉与举报' },
-          ],
+    contactEmails: Array.isArray(c.contactEmails)
+      ? c.contactEmails
+          .filter((e: any) => e?.email && !/@g7\.com\.cn$/i.test(e.email))
+          .map((e: any) => ({
+            email: e.email || '',
+            desc: e.desc || '',
+          }))
+      : [],
+    pageHeroes: c.pageHeroes && typeof c.pageHeroes === 'object' ? clone(c.pageHeroes) : clone(drafts.value.SITE.pageHeroes),
   }
 }
 
@@ -938,8 +1008,22 @@ function normalizeHome(d?: Partial<HomeDraft> | null): HomeDraft {
 
 function normalizeAbout(d?: Partial<AboutDraft> | null): AboutDraft {
   const c = clone(d || {})
+  const hasImg = !c.introImage ? false : true
   return {
     heroTitle: c.heroTitle || '以物联网技术和软件服务改变公路货运',
+    heroSubtitle: c.heroSubtitle ?? '',
+    heroEyebrow: c.heroEyebrow ?? '',
+    heroBgType: c.heroBgType ?? 'default',
+    heroBgImage: c.heroBgImage ?? '',
+    heroBgVideo: c.heroBgVideo ?? '',
+    showHeroLogoMark: c.showHeroLogoMark === true,
+    showIntro: c.showIntro !== false,
+    showIntroImage: c.showIntroImage === true || (c.showIntroImage === undefined ? hasImg : false),
+    introImageMode: (c.introImageMode ?? (hasImg ? 'image' : 'radar')) as any,
+    showCeoLetter: c.showCeoLetter !== false,
+    showQualifications: c.showQualifications !== false,
+    showMilestones: c.showMilestones !== false,
+    showOffices: c.showOffices !== false,
     introTitle: c.introTitle || '关于我们',
     intro:
       c.intro ||
@@ -996,15 +1080,15 @@ function normalizeContact(d?: Partial<ContactDraft> | null): ContactDraft {
   const c = clone(d || {})
   return {
     title: c.title || '联系我们',
-    companyName: c.companyName || '北京汇通天下物联科技有限公司',
+    companyName: c.companyName || '产业数智科技有限公司',
     description: c.description || '感谢您的关注，我们的专家顾问随时为您提供产品演示与方案咨询。',
     formTitle: c.formTitle || '预约产品展示',
     successText: c.successText || '已收到您的咨询，我们会尽快与您联系。',
     formEnabled: c.formEnabled ?? true,
     smsVerifyEnabled: c.smsVerifyEnabled ?? true,
     phone: c.phone || '400-888-6688',
-    email: c.email || 'connect@g7.com.cn',
-    address: c.address || '北京市海淀区建材城中路27号金隅智造工场N7号楼2层',
+    email: (c.email || '').includes('g7') ? 'service@company.com' : (c.email || 'service@company.com'),
+    address: c.address || '北京市海淀区中关村前沿科技产业园8号楼',
     hours: c.hours || '周一至周日 09:00 - 18:00',
     mapUrl: c.mapUrl || '',
   }
@@ -1157,6 +1241,10 @@ function switchStudioPage(page: StudioPageKey, keepDetail = false) {
     activeContentBaseline.value = ''
   }
   openMegaPreview.value = false
+  nextTick(() => {
+    const wrap = document.querySelector('.studio-canvas-wrap')
+    if (wrap) wrap.scrollTop = 0
+  })
 }
 
 // ==================== 内容详情内嵌实景编辑（产品/方案/案例/新闻） ====================
@@ -1554,6 +1642,71 @@ const activeAbout = computed<AboutDraft>(() => {
   return drafts.value.ABOUT
 })
 
+const currentSubpageHeroKey = computed<'news' | 'cases' | 'products' | 'solutions' | null>(() => {
+  if (activePage.value === 'NEWS') return 'news'
+  if (activePage.value === 'CASES') return 'cases'
+  if (activePage.value === 'PRODUCTS') return 'products'
+  if (activePage.value === 'SOLUTIONS') return 'solutions'
+  return null
+})
+
+const currentSubpageHero = computed<PageHeroItem | null>(() => {
+  const k = currentSubpageHeroKey.value
+  if (!k) return null
+  return drafts.value.SITE.pageHeroes?.[k] ?? null
+})
+
+function ensurePageHero(key: 'news' | 'cases' | 'products' | 'solutions') {
+  if (!drafts.value.SITE.pageHeroes) {
+    drafts.value.SITE.pageHeroes = {}
+  }
+  if (!drafts.value.SITE.pageHeroes[key]) {
+    drafts.value.SITE.pageHeroes[key] = {
+      title: '',
+      subtitle: '',
+      eyebrow: '',
+      bgType: 'default',
+      bgImage: '',
+      bgVideo: '',
+    }
+  }
+  return drafts.value.SITE.pageHeroes[key]
+}
+
+function updateSubpageHero(field: 'eyebrow' | 'title' | 'subtitle', ev: Event) {
+  const k = currentSubpageHeroKey.value
+  if (!k) return
+  const text = ((ev.target as HTMLElement)?.innerText || '').trim()
+  ensurePageHero(k)[field] = text
+}
+
+const aboutIntroParagraphs = computed(() => {
+  const raw = (activeAbout.value.intro || '').trim()
+  if (raw) {
+    return raw.split(/\n+/).filter(Boolean)
+  }
+  return [
+    `${activeSite.value.siteName || '公司'}是一家领先的物联网科技和数字化软件服务公司。为客户提供从设备接入、数据智能、业务协同到运营决策的一体化数字平台，以数据和AI驱动企业运营，助力客户降本增效。`,
+    `公司的客户覆盖超80%行业头部客户以及数万家成长型企业，服务网络覆盖全国核心城市与产业园区。`,
+  ]
+})
+
+const introVisualType = computed<'none' | 'image' | 'radar'>(() => {
+  const a = activeAbout.value
+  if (a.showIntroImage === false) return 'none'
+  const mode = a.introImageMode
+  if (mode === 'none') return 'none'
+  if (mode === 'radar') return 'radar'
+  if (mode === 'image' && a.introImage) return 'image'
+  if (a.introImage) return 'image'
+  if (studioMode.value === 'edit' && mode === 'image') return 'image'
+  return 'none'
+})
+
+const hasIntroVisual = computed(() => {
+  return introVisualType.value !== 'none'
+})
+
 const activeContact = computed<ContactDraft>(() => {
   if (studioMode.value === 'published' && configViews.CONTACT?.published) {
     return normalizeContact(configViews.CONTACT.published)
@@ -1840,8 +1993,8 @@ async function saveAndPublishAll() {
 
     try {
       localStorage.setItem('admin_data_updated', String(Date.now()))
-      localStorage.setItem('g7_last_published', String(Date.now()))
-      window.dispatchEvent(new CustomEvent('g7_published', { detail: { time: Date.now() } }))
+      localStorage.setItem('site_last_published', String(Date.now()))
+      window.dispatchEvent(new CustomEvent('site_published', { detail: { time: Date.now() } }))
     } catch (_) {}
     ElMessage.success('🎉 全站配置与内容已同步发布上线！')
     await loadAll()
@@ -1853,7 +2006,7 @@ async function saveAndPublishAll() {
 }
 
 function onExternalDataUpdated(e?: StorageEvent) {
-  if (e && e.key !== 'admin_data_updated' && e.key !== 'g7_last_published') return
+  if (e && e.key !== 'admin_data_updated' && e.key !== 'site_last_published' && e.key !== 'g7_last_published') return
   if (totalDirtyCount.value === 0) {
     loadAll()
   } else {
@@ -2106,7 +2259,7 @@ onBeforeUnmount(() => {
               @click="selectedSection = 'hero'"
             >
               <span class="outline-item__icon">🎞️</span>
-              <span class="outline-item__label">Hero 焦点轮播 ({{ drafts.HOME.hero.items.length }}屏)</span>
+              <span class="outline-item__label">Hero 焦点轮播</span>
             </div>
 
             <div class="outline-divider">可拖拽/上下调整模块顺序</div>
@@ -2203,7 +2356,7 @@ onBeforeUnmount(() => {
               "
             >
               <span class="outline-item__icon">📂</span>
-              <span class="outline-item__label">全部 ({{ currentContents.length }})</span>
+              <span class="outline-item__label">全部</span>
             </div>
             <div
               v-for="cat in currentCategories"
@@ -2248,10 +2401,10 @@ onBeforeUnmount(() => {
           </div>
         </template>
 
-        <!-- 3. 关于我们 5 大子页签与弹窗大纲 -->
+        <!-- 3. 关于我们 5 大子页签与模块控制大纲 -->
         <template v-else-if="activePage === 'ABOUT'">
           <div class="outline-header">
-            <span>🏢 关于我们 · 5大子页签</span>
+            <span>🏢 关于我们 · 子页签与模块控制</span>
           </div>
           <div class="outline-list">
             <div
@@ -2260,7 +2413,7 @@ onBeforeUnmount(() => {
               @click="aboutSubTab = 'intro'"
             >
               <span class="outline-item__icon">📖</span>
-              <span class="outline-item__label">1. 企业简介 & CEO信 & 地图</span>
+              <span class="outline-item__label">1. 企业简介 & CEO信 & 历程资质</span>
             </div>
             <div
               class="outline-item"
@@ -2268,7 +2421,7 @@ onBeforeUnmount(() => {
               @click="aboutSubTab = 'team'"
             >
               <span class="outline-item__icon">👔</span>
-              <span class="outline-item__label">2. 管理团队 ({{ drafts.ABOUT.teamMembers.length }}人)</span>
+              <span class="outline-item__label">2. 管理团队</span>
             </div>
             <div
               class="outline-item"
@@ -2284,7 +2437,7 @@ onBeforeUnmount(() => {
               @click="aboutSubTab = 'resources'"
             >
               <span class="outline-item__icon">📚</span>
-              <span class="outline-item__label">4. 资料共享 ({{ drafts.ABOUT.resources.length }}份)</span>
+              <span class="outline-item__label">4. 资料共享</span>
             </div>
             <div
               class="outline-item"
@@ -2295,7 +2448,116 @@ onBeforeUnmount(() => {
               <span class="outline-item__label">5. 加入我们 & 使命价值观</span>
             </div>
 
-            <div class="outline-divider">快捷弹窗与子项操作</div>
+            <div class="outline-divider">首屏横幅背景与水印</div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🎨</span>
+              <span class="outline-item__label">背景类型</span>
+              <el-select v-model="drafts.ABOUT.heroBgType" size="small" style="width: 110px">
+                <el-option label="默认流光" value="default" />
+                <el-option label="自定义图片" value="image" />
+                <el-option label="自定义视频" value="video" />
+              </el-select>
+            </div>
+            <div v-if="drafts.ABOUT.heroBgType === 'image'" class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🖼️</span>
+              <span class="outline-item__label">首屏图片</span>
+              <el-button size="small" type="primary" link @click="openMediaPicker('IMAGE', m => drafts.ABOUT.heroBgImage = m.url)">
+                {{ drafts.ABOUT.heroBgImage ? '更换' : '选择' }}
+              </el-button>
+              <el-button v-if="drafts.ABOUT.heroBgImage" size="small" type="danger" link @click="drafts.ABOUT.heroBgImage = ''">
+                清除
+              </el-button>
+            </div>
+            <div v-if="drafts.ABOUT.heroBgType === 'video'" class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">📹</span>
+              <span class="outline-item__label">首屏视频</span>
+              <el-button size="small" type="primary" link @click="openMediaPicker('VIDEO', m => drafts.ABOUT.heroBgVideo = m.url)">
+                {{ drafts.ABOUT.heroBgVideo ? '更换' : '选择' }}
+              </el-button>
+              <el-button v-if="drafts.ABOUT.heroBgVideo" size="small" type="danger" link @click="drafts.ABOUT.heroBgVideo = ''">
+                清除
+              </el-button>
+            </div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🔤</span>
+              <span class="outline-item__label">字母Logo水印</span>
+              <el-switch v-model="drafts.ABOUT.showHeroLogoMark" size="small" />
+            </div>
+
+            <div class="outline-divider">模块显隐开关</div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🏢</span>
+              <span class="outline-item__label">企业简介模块</span>
+              <el-switch v-model="drafts.ABOUT.showIntro" size="small" />
+            </div>
+            <div v-if="drafts.ABOUT.showIntro !== false" class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🖼️</span>
+              <span class="outline-item__label">右侧配图/动效</span>
+              <el-switch v-model="drafts.ABOUT.showIntroImage" size="small" />
+            </div>
+            <!-- 当开启右侧配图时，提供形式选择与换图操作 -->
+            <div v-if="drafts.ABOUT.showIntro !== false && drafts.ABOUT.showIntroImage" class="outline-subcontrol">
+              <div class="outline-subrow">
+                <span class="outline-subrow__label">配图形式：</span>
+                <el-radio-group
+                  v-model="drafts.ABOUT.introImageMode"
+                  size="small"
+                  @change="(val: any) => {
+                    if (val === 'image' && !drafts.ABOUT.introImage) {
+                      openMediaPicker('IMAGE', m => drafts.ABOUT.introImage = m.url)
+                    }
+                  }"
+                >
+                  <el-radio-button value="image">自定义图片</el-radio-button>
+                  <el-radio-button value="radar">科技雷达动效</el-radio-button>
+                </el-radio-group>
+              </div>
+              <div v-if="drafts.ABOUT.introImageMode === 'image'" class="outline-subrow">
+                <span class="outline-subrow__label">图片：</span>
+                <el-button
+                  size="small"
+                  type="primary"
+                  link
+                  @click="openMediaPicker('IMAGE', m => drafts.ABOUT.introImage = m.url)"
+                >
+                  {{ drafts.ABOUT.introImage ? '更换图片' : '选择图片' }}
+                </el-button>
+                <el-button
+                  v-if="drafts.ABOUT.introImage"
+                  size="small"
+                  type="danger"
+                  link
+                  @click="drafts.ABOUT.introImage = ''"
+                >
+                  清除
+                </el-button>
+              </div>
+              <div v-if="drafts.ABOUT.introImageMode === 'image' && drafts.ABOUT.introImage" class="outline-subrow">
+                <img :src="drafts.ABOUT.introImage" class="outline-thumb" alt="配图预览" />
+              </div>
+            </div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">✉️</span>
+              <span class="outline-item__label">CEO的一封信</span>
+              <el-switch v-model="drafts.ABOUT.showCeoLetter" size="small" />
+            </div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">⏳</span>
+              <span class="outline-item__label">发展历程模块</span>
+              <el-switch v-model="drafts.ABOUT.showMilestones" size="small" />
+            </div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">🏅</span>
+              <span class="outline-item__label">荣誉与资质认证</span>
+              <el-switch v-model="drafts.ABOUT.showQualifications" size="small" />
+            </div>
+            <div class="outline-item" style="cursor: default">
+              <span class="outline-item__icon">📍</span>
+              <span class="outline-item__label">全国办公网点</span>
+              <el-switch v-model="drafts.ABOUT.showOffices" size="small" />
+            </div>
+
+            <div class="outline-divider">快捷操作</div>
             <div class="outline-item" @click="ceoModalOpen = true">
               <span class="outline-item__icon">✉️</span>
               <span class="outline-item__label">打开 CEO 致信全文弹窗编辑</span>
@@ -2329,6 +2591,19 @@ onBeforeUnmount(() => {
             >
               <span class="outline-item__icon">➕</span>
               <span class="outline-item__label">新增发展历程年份节点</span>
+            </div>
+            <div
+              class="outline-item"
+              @click="
+                aboutSubTab = 'intro';
+                drafts.ABOUT.qualifications.push({
+                  name: '新荣誉资质证书',
+                  description: '认定年份与机构说明',
+                })
+              "
+            >
+              <span class="outline-item__icon">🏅</span>
+              <span class="outline-item__label">新增荣誉与资质证书</span>
             </div>
             <div
               class="outline-item"
@@ -2382,94 +2657,6 @@ onBeforeUnmount(() => {
             :class="{ 'is-selected': selectedSection === 'header' && studioMode === 'edit' }"
             @click="selectedSection = 'header'"
           >
-            <div v-if="studioMode === 'edit'" class="zone-toolbar">
-              <span class="zone-toolbar__tag">全局顶栏 & 导航 (SITE / NAVIGATION)</span>
-              <el-popover placement="bottom-start" :width="520" trigger="click">
-                <template #reference>
-                  <button type="button" class="zone-btn" @click.stop>⚙️ 配置顶栏与下拉菜单</button>
-                </template>
-                <div class="popover-form">
-                  <h4>站点标识与顶栏导航配置</h4>
-                  <el-form label-position="top" size="small">
-                    <el-row :gutter="10">
-                      <el-col :span="12">
-                        <el-form-item label="站点名称">
-                          <el-input v-model="drafts.SITE.siteName" />
-                        </el-form-item>
-                      </el-col>
-                      <el-col :span="12">
-                        <el-form-item label="品牌口号">
-                          <el-input v-model="drafts.SITE.slogan" />
-                        </el-form-item>
-                      </el-col>
-                    </el-row>
-                    <el-form-item label="Logo 媒体资源">
-                      <el-select
-                        v-model="drafts.SITE.logoMediaId"
-                        clearable
-                        placeholder="留空则显示品牌文字"
-                        style="width: 100%"
-                      >
-                        <el-option
-                          v-for="m in Object.values(mediaCache)"
-                          :key="m.id"
-                          :label="m.originalName || `#${m.id}`"
-                          :value="Number(m.id)"
-                        />
-                      </el-select>
-                    </el-form-item>
-                    <div class="popover-subtitle">
-                      <span>主导航菜单项</span>
-                      <el-button
-                        size="small"
-                        type="primary"
-                        link
-                        @click="drafts.NAVIGATION.items.push({ label: '新菜单', enabled: true, sortOrder: (drafts.NAVIGATION.items.length + 1) * 10, link: { type: 'PAGE', pageCode: 'HOME' } })"
-                      >
-                        + 添加菜单
-                      </el-button>
-                    </div>
-                    <div
-                      v-for="(navIt, nIdx) in drafts.NAVIGATION.items"
-                      :key="nIdx"
-                      class="mini-row"
-                    >
-                      <el-input v-model="navIt.label" placeholder="菜单名" style="width: 120px" />
-                      <el-select
-                        v-if="navIt.link"
-                        v-model="navIt.link.pageCode"
-                        placeholder="目标页面"
-                        style="width: 140px"
-                      >
-                        <el-option label="首页 (HOME)" value="HOME" />
-                        <el-option label="产品与方案 (PRODUCTS)" value="PRODUCTS" />
-                        <el-option label="解决方案 (SOLUTIONS)" value="SOLUTIONS" />
-                        <el-option label="客户案例 (CASES)" value="CASES" />
-                        <el-option label="新闻中心 (NEWS)" value="NEWS" />
-                        <el-option label="关于我们 (ABOUT)" value="ABOUT" />
-                        <el-option label="联系我们 (CONTACT)" value="CONTACT" />
-                      </el-select>
-                      <el-switch v-model="navIt.enabled" />
-                      <el-button
-                        type="danger"
-                        link
-                        @click="drafts.NAVIGATION.items.splice(nIdx, 1)"
-                      >
-                        删除
-                      </el-button>
-                    </div>
-                  </el-form>
-                </div>
-              </el-popover>
-              <button
-                type="button"
-                class="zone-btn"
-                @click.stop="openMegaPreview = !openMegaPreview"
-              >
-                {{ openMegaPreview ? '🔼 收起下拉大菜单' : '🔽 展开编辑「产品与解决方案」下拉菜单' }}
-              </button>
-            </div>
-
             <div class="canvas-header__inner">
               <div class="canvas-logo" @click.stop="switchStudioPage('HOME')">
                 <img
@@ -2689,7 +2876,7 @@ onBeforeUnmount(() => {
               <!-- 编辑工具条 -->
               <div v-if="studioMode === 'edit'" class="zone-toolbar">
                 <span class="zone-toolbar__tag">
-                  首页 Hero 焦点图 ({{ heroIndex + 1 }} / {{ drafts.HOME.hero.items.length }})
+                  首页 Hero 焦点图
                 </span>
                 <button type="button" class="zone-btn" @click.stop="addHeroSlide">
                   + 新增轮播屏
@@ -2909,7 +3096,7 @@ onBeforeUnmount(() => {
                 @click="selectedSection = 'services'"
               >
                 <div v-if="studioMode === 'edit'" class="zone-toolbar">
-                  <span class="zone-toolbar__tag">产品与解决方案分组 (HOME.services)</span>
+                  <span class="zone-toolbar__tag">产品与解决方案分组</span>
                   <button type="button" class="zone-btn" @click.stop="addServiceGroup">
                     + 新增业务分组
                   </button>
@@ -3109,7 +3296,7 @@ onBeforeUnmount(() => {
                 @click="selectedSection = 'cases'"
               >
                 <div v-if="studioMode === 'edit'" class="zone-toolbar">
-                  <span class="zone-toolbar__tag">首页标杆客户案例 (HOME.cases)</span>
+                  <span class="zone-toolbar__tag">首页标杆客户案例</span>
                   <el-select
                     v-model="drafts.HOME.cases.contentIds"
                     multiple
@@ -3189,7 +3376,7 @@ onBeforeUnmount(() => {
                 @click="selectedSection = 'customers'"
               >
                 <div v-if="studioMode === 'edit'" class="zone-toolbar">
-                  <span class="zone-toolbar__tag">合作客户标识墙 (HOME.customers)</span>
+                  <span class="zone-toolbar__tag">合作客户标识墙</span>
                   <el-select
                     v-model="drafts.HOME.customers.contentIds"
                     multiple
@@ -3254,7 +3441,7 @@ onBeforeUnmount(() => {
                 @click="selectedSection = 'news'"
               >
                 <div v-if="studioMode === 'edit'" class="zone-toolbar">
-                  <span class="zone-toolbar__tag">首页新闻动态 (HOME.news)</span>
+                  <span class="zone-toolbar__tag">首页新闻动态</span>
                   <el-radio-group v-model="drafts.HOME.news.mode" size="small">
                     <el-radio-button value="LATEST">自动最新</el-radio-button>
                     <el-radio-button value="MANUAL">手动精选</el-radio-button>
@@ -3314,16 +3501,108 @@ onBeforeUnmount(() => {
           >
             <!-- A. 列表画布视图（当未打开具体某篇详情时） -->
             <template v-if="!activeContentId">
-              <section class="subpage-hero">
+              <section
+                class="subpage-hero"
+                :class="{
+                  'has-media-bg':
+                    (currentSubpageHero?.bgType === 'image' && !!currentSubpageHero?.bgImage) ||
+                    (currentSubpageHero?.bgType === 'video' && !!currentSubpageHero?.bgVideo),
+                }"
+              >
+                <video
+                  v-if="currentSubpageHero?.bgType === 'video' && currentSubpageHero?.bgVideo"
+                  class="subpage-hero__video"
+                  :src="currentSubpageHero.bgVideo"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                ></video>
+                <div
+                  v-else-if="currentSubpageHero?.bgType === 'image' && currentSubpageHero?.bgImage"
+                  class="subpage-hero__image-bg"
+                  :style="{ backgroundImage: `url(${currentSubpageHero.bgImage})` }"
+                ></div>
+                <div v-else class="subpage-hero__trails" aria-hidden="true"></div>
+
+                <div
+                  v-if="
+                    (currentSubpageHero?.bgType === 'image' && !!currentSubpageHero?.bgImage) ||
+                    (currentSubpageHero?.bgType === 'video' && !!currentSubpageHero?.bgVideo)
+                  "
+                  class="subpage-hero__overlay"
+                  aria-hidden="true"
+                ></div>
+
                 <div class="subpage-hero__inner">
-                  <span class="subpage-hero__kicker">
-                    {{ activePageInfo?.icon }}
-                    {{ activePageInfo?.label }} · 实景画布
+                  <span
+                    class="subpage-hero__kicker"
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="updateSubpageHero('eyebrow', $event)"
+                  >
+                    {{ currentSubpageHero?.eyebrow || activePageInfo?.label }}
                   </span>
-                  <h1>{{ activePageInfo?.label }}</h1>
-                  <p>
-                    点击下方分类标签可切换或直接重命名分类；点击任意内容卡片即可在画布内进入完整详情页实景编辑。
+                  <h1
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="updateSubpageHero('title', $event)"
+                  >
+                    {{ currentSubpageHero?.title || activePageInfo?.label }}
+                  </h1>
+                  <p
+                    :contenteditable="studioMode === 'edit'"
+                    @blur="updateSubpageHero('subtitle', $event)"
+                  >
+                    {{ currentSubpageHero?.subtitle || '点击下方分类标签可切换分类，点击任意卡片即可在画布内进入完整详情页实景编辑。' }}
                   </p>
+
+                  <div v-if="studioMode === 'edit' && currentSubpageHeroKey" class="hero-quick-tools">
+                    <span class="hero-tool-tag">横幅背景：</span>
+                    <el-radio-group
+                      :model-value="currentSubpageHero?.bgType || 'default'"
+                      size="small"
+                      @change="(v: any) => ensurePageHero(currentSubpageHeroKey!).bgType = v"
+                    >
+                      <el-radio-button value="default">默认流光</el-radio-button>
+                      <el-radio-button value="image">自定义图片</el-radio-button>
+                      <el-radio-button value="video">自定义视频</el-radio-button>
+                    </el-radio-group>
+                    <template v-if="currentSubpageHero?.bgType === 'image'">
+                      <el-button
+                        size="small"
+                        type="primary"
+                        @click="openMediaPicker('IMAGE', m => ensurePageHero(currentSubpageHeroKey!).bgImage = m.url)"
+                      >
+                        {{ currentSubpageHero?.bgImage ? '换图片' : '选择图片' }}
+                      </el-button>
+                      <el-button
+                        v-if="currentSubpageHero?.bgImage"
+                        size="small"
+                        type="danger"
+                        link
+                        @click="ensurePageHero(currentSubpageHeroKey!).bgImage = ''"
+                      >
+                        清除
+                      </el-button>
+                    </template>
+                    <template v-if="currentSubpageHero?.bgType === 'video'">
+                      <el-button
+                        size="small"
+                        type="primary"
+                        @click="openMediaPicker('VIDEO', m => ensurePageHero(currentSubpageHeroKey!).bgVideo = m.url)"
+                      >
+                        {{ currentSubpageHero?.bgVideo ? '换视频' : '选择视频' }}
+                      </el-button>
+                      <el-button
+                        v-if="currentSubpageHero?.bgVideo"
+                        size="small"
+                        type="danger"
+                        link
+                        @click="ensurePageHero(currentSubpageHeroKey!).bgVideo = ''"
+                      >
+                        清除
+                      </el-button>
+                    </template>
+                  </div>
                 </div>
               </section>
 
@@ -3495,7 +3774,7 @@ onBeforeUnmount(() => {
               >
                 <div v-if="studioMode === 'edit'" class="zone-toolbar">
                   <span class="zone-toolbar__tag">
-                    客户案例页 · 客户成功故事证言 (ABOUT.customerStories)
+                    客户案例页 · 客户成功故事证言
                   </span>
                   <button
                     type="button"
@@ -4143,8 +4422,49 @@ onBeforeUnmount(() => {
                页面 6：关于我们 (activePage === 'ABOUT') —— 完整 5 大子页签 + 双弹窗 + 7城地图
                ========================================================================= -->
           <template v-else-if="activePage === 'ABOUT'">
-            <section class="about-hero editable-zone">
+            <section
+              class="about-hero editable-zone"
+              :class="{
+                'has-media-bg':
+                  (activeAbout.heroBgType === 'image' && !!activeAbout.heroBgImage) ||
+                  (activeAbout.heroBgType === 'video' && !!activeAbout.heroBgVideo),
+              }"
+            >
+              <video
+                v-if="activeAbout.heroBgType === 'video' && activeAbout.heroBgVideo"
+                class="about-hero__media-video"
+                :src="activeAbout.heroBgVideo"
+                autoplay
+                muted
+                loop
+                playsinline
+              ></video>
+              <div
+                v-else-if="activeAbout.heroBgType === 'image' && activeAbout.heroBgImage"
+                class="about-hero__media-image"
+                :style="{ backgroundImage: `url(${activeAbout.heroBgImage})` }"
+              ></div>
+              <div v-else class="about-hero__trails" aria-hidden="true"></div>
+
+              <div
+                v-if="
+                  (activeAbout.heroBgType === 'image' && !!activeAbout.heroBgImage) ||
+                  (activeAbout.heroBgType === 'video' && !!activeAbout.heroBgVideo)
+                "
+                class="about-hero__overlay"
+                aria-hidden="true"
+              ></div>
+
               <div class="about-hero__inner">
+                <div v-if="activeAbout.showHeroLogoMark" class="about-hero__logo-mark" aria-hidden="true">G</div>
+                <p
+                  v-if="activeAbout.heroEyebrow || studioMode === 'edit'"
+                  class="about-hero__eyebrow"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="drafts.ABOUT.heroEyebrow = ($event.target as HTMLElement).innerText.trim()"
+                >
+                  {{ activeAbout.heroEyebrow || (studioMode === 'edit' ? '点击输入首屏眉标' : '') }}
+                </p>
                 <h1
                   :contenteditable="studioMode === 'edit'"
                   @blur="
@@ -4155,6 +4475,14 @@ onBeforeUnmount(() => {
                 >
                   {{ activeAbout.heroTitle }}
                 </h1>
+                <p
+                  v-if="activeAbout.heroSubtitle || studioMode === 'edit'"
+                  class="about-hero__subtitle"
+                  :contenteditable="studioMode === 'edit'"
+                  @blur="drafts.ABOUT.heroSubtitle = ($event.target as HTMLElement).innerText.trim()"
+                >
+                  {{ activeAbout.heroSubtitle || (studioMode === 'edit' ? '点击输入首屏副标题' : '') }}
+                </p>
               </div>
 
               <!-- 悬浮白卡 5 大子页签导航 -->
@@ -4202,50 +4530,122 @@ onBeforeUnmount(() => {
               </div>
             </section>
 
-            <!-- 子页签 1：企业简介 + CEO 的信 + 发展历程时间轴 + 7 城地图 + 荣誉资质 -->
+            <!-- 子页签 1：企业简介 + CEO 的信 + 发展历程时间轴 + 荣誉资质 + 7 城地图 -->
             <template v-if="aboutSubTab === 'intro'">
-              <!-- 企业简介左文右图 -->
-              <section class="canvas-section">
-                <div class="about-intro-grid">
-                  <div class="about-intro-grid__text">
+              <!-- 企业简介（1:1 严格对齐官网设计与比例，防止图片无限放大） -->
+              <section v-if="activeAbout.showIntro !== false" class="canvas-section about-intro-sec">
+                <div
+                  class="about-intro-grid"
+                  :class="{
+                    'no-visual': !hasIntroVisual
+                  }"
+                >
+                  <div class="about-intro__text">
                     <h2
+                      class="about-sec-title"
                       :contenteditable="studioMode === 'edit'"
                       @blur="
                         drafts.ABOUT.introTitle =
                           ($event.target as HTMLElement).innerText.trim()
                       "
                     >
-                      {{ activeAbout.introTitle }}
+                      {{ activeAbout.introTitle || '关于我们' }}
                     </h2>
-                    <p
+                    <div
+                      class="about-intro__body"
                       :contenteditable="studioMode === 'edit'"
                       @blur="
                         drafts.ABOUT.intro = ($event.target as HTMLElement).innerText.trim()
                       "
                     >
-                      {{ activeAbout.intro }}
-                    </p>
+                      <p
+                        v-for="(para, pIdx) in aboutIntroParagraphs"
+                        :key="pIdx"
+                        class="about-intro__para"
+                      >
+                        {{ para }}
+                      </p>
+                    </div>
                   </div>
-                  <div class="about-intro-grid__media">
-                    <img
-                      v-if="activeAbout.introImage"
-                      :src="activeAbout.introImage"
-                      alt="企业简介配图"
-                    />
-                    <div v-else class="cover-placeholder">🏢 企业形象展示大图</div>
-                    <el-input
-                      v-if="studioMode === 'edit'"
-                      v-model="drafts.ABOUT.introImage"
-                      size="small"
-                      placeholder="输入企业简介配图 URL..."
-                      style="margin-top: 8px"
-                    />
+
+                  <div
+                    v-if="hasIntroVisual"
+                    class="about-intro__visual"
+                  >
+                    <div class="about-intro__photo">
+                      <!-- 1. 自定义配图 -->
+                      <img
+                        v-if="introVisualType === 'image' && activeAbout.introImage"
+                        :src="activeAbout.introImage"
+                        alt="企业简介配图"
+                        class="about-intro__img"
+                      />
+                      <!-- 2. 科技雷达动效 -->
+                      <template v-else-if="introVisualType === 'radar'">
+                        <div class="about-intro__radar" aria-hidden="true"></div>
+                        <div class="about-intro__truck-scene" aria-hidden="true">
+                          <span class="scene-tag">AI + IoT 全链路实时感知</span>
+                        </div>
+                      </template>
+                      <!-- 3. 图片为空时的提示占位 -->
+                      <div
+                        v-else-if="studioMode === 'edit'"
+                        class="cover-placeholder"
+                        style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; cursor: pointer"
+                        @click="openMediaPicker('IMAGE', m => drafts.ABOUT.introImage = m.url)"
+                      >
+                        <span style="font-size: 28px; margin-bottom: 8px">🖼️</span>
+                        <span>点击上传企业形象展示图片</span>
+                      </div>
+
+                      <!-- 实景编辑模式下的快速操作悬浮胶囊 -->
+                      <div v-if="studioMode === 'edit'" class="intro-photo-tools">
+                        <template v-if="introVisualType === 'image'">
+                          <button
+                            type="button"
+                            class="ipt-btn"
+                            @click.stop="openMediaPicker('IMAGE', m => drafts.ABOUT.introImage = m.url)"
+                          >
+                            {{ activeAbout.introImage ? '换图片' : '上传图片' }}
+                          </button>
+                          <button
+                            type="button"
+                            class="ipt-btn"
+                            @click.stop="drafts.ABOUT.introImageMode = 'radar'"
+                          >
+                            切换为雷达
+                          </button>
+                          <button
+                            v-if="activeAbout.introImage"
+                            type="button"
+                            class="ipt-btn ipt-btn--danger"
+                            @click.stop="drafts.ABOUT.introImage = ''"
+                          >
+                            清除
+                          </button>
+                        </template>
+                        <template v-else-if="introVisualType === 'radar'">
+                          <button
+                            type="button"
+                            class="ipt-btn"
+                            @click.stop="
+                              drafts.ABOUT.introImageMode = 'image';
+                              if (!drafts.ABOUT.introImage) {
+                                openMediaPicker('IMAGE', m => drafts.ABOUT.introImage = m.url)
+                              }
+                            "
+                          >
+                            切换为自定义图片
+                          </button>
+                        </template>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              <!-- CEO 的信紫底双栏卡片 + 展开全文弹窗 -->
-              <section class="canvas-section" style="padding-top: 0">
+              <!-- CEO 的信紫底双栏卡片 + 展开全文弹窗（支持开关显隐，彻底去除 G 水印） -->
+              <section v-if="activeAbout.showCeoLetter !== false" class="canvas-section" style="padding-top: 0">
                 <div class="ceo-letter-card">
                   <div class="ceo-letter-card__left">
                     <blockquote
@@ -4307,7 +4707,7 @@ onBeforeUnmount(() => {
               </section>
 
               <!-- 发展历程交互时间轴 -->
-              <section class="canvas-section canvas-section--gray">
+              <section v-if="activeAbout.showMilestones !== false && activeAbout.milestones.length" class="canvas-section canvas-section--gray">
                 <div class="canvas-section__head-inline">
                   <h2>发展历程</h2>
                   <el-button
@@ -4391,8 +4791,69 @@ onBeforeUnmount(() => {
                 </div>
               </section>
 
+              <!-- 荣誉与资质认证 -->
+              <section v-if="activeAbout.showQualifications !== false && activeAbout.qualifications.length" class="canvas-section">
+                <div class="canvas-section__head-inline">
+                  <h2>荣誉与资质认证</h2>
+                  <el-button
+                    v-if="studioMode === 'edit'"
+                    size="small"
+                    type="primary"
+                    plain
+                    @click="
+                      drafts.ABOUT.qualifications.push({
+                        name: '新荣誉资质',
+                        description: '认定年份与颁发机构说明',
+                      })
+                    "
+                  >
+                    + 新增资质证书
+                  </el-button>
+                </div>
+
+                <div class="quals-stage-grid">
+                  <div
+                    v-for="(q, qIdx) in activeAbout.qualifications"
+                    :key="qIdx"
+                    class="qual-stage-card"
+                  >
+                    <img v-if="q.imageUrl" :src="q.imageUrl" :alt="q.name" class="qual-stage-card__img" />
+                    <h3
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="drafts.ABOUT.qualifications[qIdx].name = ($event.target as HTMLElement).innerText.trim()"
+                    >
+                      {{ q.name }}
+                    </h3>
+                    <p
+                      :contenteditable="studioMode === 'edit'"
+                      @blur="drafts.ABOUT.qualifications[qIdx].description = ($event.target as HTMLElement).innerText.trim()"
+                    >
+                      {{ q.description }}
+                    </p>
+                    <div v-if="studioMode === 'edit'" class="qual-stage-card__actions" style="margin-top: 10px; display: flex; gap: 6px; justify-content: center">
+                      <el-button
+                        size="small"
+                        type="primary"
+                        link
+                        @click="openMediaPicker('IMAGE', m => drafts.ABOUT.qualifications[qIdx].imageUrl = m.url)"
+                      >
+                        {{ q.imageUrl ? '换证书图片' : '传证书图片' }}
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        link
+                        @click="drafts.ABOUT.qualifications.splice(qIdx, 1)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <!-- 7 大城市办公网点与地图坐标联动编辑 -->
-              <section class="canvas-section">
+              <section v-if="activeAbout.showOffices !== false && activeAbout.offices.length" class="canvas-section">
                 <div class="canvas-section__head-inline">
                   <h2>全国分支机构与联系网点</h2>
                   <el-button
@@ -5127,7 +5588,7 @@ onBeforeUnmount(() => {
             @click="selectedSection = 'footer'"
           >
             <div v-if="studioMode === 'edit'" class="zone-toolbar">
-              <span class="zone-toolbar__tag">全局页脚与版权备案 (SITE)</span>
+              <span class="zone-toolbar__tag">全局页脚与版权备案</span>
               <button
                 type="button"
                 class="zone-btn"
@@ -6170,9 +6631,48 @@ onBeforeUnmount(() => {
 
 /* 子页面公共头部与分类胶囊栏 */
 .subpage-hero {
+  position: relative;
   background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
   color: #ffffff;
   padding: 48px 44px;
+  overflow: hidden;
+}
+.subpage-hero.has-media-bg {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+}
+.subpage-hero__video,
+.subpage-hero__image-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+.subpage-hero__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  z-index: 1;
+}
+.subpage-hero__inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+.hero-quick-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
 }
 .subpage-hero__kicker {
   font-size: 12px;
@@ -6434,6 +6934,58 @@ onBeforeUnmount(() => {
   color: #ffffff;
   padding: 56px 44px 68px;
   text-align: center;
+  overflow: hidden;
+}
+.about-hero.has-media-bg {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.about-hero__media-video,
+.about-hero__media-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+.about-hero__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.65);
+  z-index: 1;
+}
+.about-hero__inner {
+  position: relative;
+  z-index: 2;
+}
+.about-hero__logo-mark {
+  font-size: 56px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.15);
+  margin-bottom: -10px;
+}
+.about-hero__eyebrow {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a5b4fc;
+  margin-bottom: 8px;
+}
+.about-hero__subtitle {
+  font-size: 16px;
+  color: #cbd5e1;
+  max-width: 680px;
+  margin: 12px auto 0;
+  line-height: 1.6;
 }
 .about-subtabs {
   position: relative;
@@ -6460,12 +7012,203 @@ onBeforeUnmount(() => {
   font-weight: 700;
   border-bottom-color: #4c2ce6;
 }
+/* 3. 企业简介：左文右图（完全 1:1 还原官网 AboutView.vue 结构与样式，严格限制图片防溢出） */
+.about-intro-sec {
+  padding: 56px 44px;
+  background: #ffffff;
+}
+
 .about-intro-grid {
+  max-width: 1040px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 32px;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
   align-items: center;
+}
+
+.about-intro-grid.no-visual {
+  grid-template-columns: 1fr;
+  max-width: 780px;
+}
+
+.about-intro__text {
+  min-width: 0;
+}
+
+.about-sec-title {
+  font-size: 30px;
+  font-weight: 700;
+  color: #1f2329;
+  margin: 0 0 24px;
+  line-height: 1.3;
+}
+
+.about-intro__para {
+  font-size: 14px;
+  line-height: 2;
+  color: #6e7380;
+  margin: 0 0 16px;
+  white-space: pre-line;
+}
+
+.about-intro__visual {
+  width: 100%;
+  min-width: 0;
+}
+
+.about-intro__photo {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+  background: linear-gradient(140deg, #1b2432 0%, #0f1722 60%, #1e1b4b 100%);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.about-intro__img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.about-intro__radar {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 210deg,
+    rgba(124, 58, 237, 0.55) 0deg,
+    rgba(56, 189, 248, 0.35) 75deg,
+    transparent 120deg
+  );
+  animation: radarRotate 4s linear infinite;
+}
+
+.about-intro__truck-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene-tag {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 12.5px;
+  border-radius: 6px;
+}
+
+.intro-photo-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.ipt-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.ipt-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #a5b4fc;
+}
+
+.ipt-btn--danger:hover {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.outline-subcontrol {
+  padding: 8px 12px 10px 32px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.outline-subrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.outline-thumb {
+  width: 100%;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #475569;
+}
+
+.quals-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
   margin-top: 16px;
+}
+.qual-stage-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  transition: box-shadow 0.2s;
+}
+.qual-stage-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+.qual-stage-card__img {
+  width: 100%;
+  height: 120px;
+  object-fit: contain;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+.qual-stage-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+.qual-stage-card p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
 }
 .ceo-letter-card {
   display: grid;

@@ -377,7 +377,7 @@ onBeforeUnmount(() => {
                       <span></span>
                       <span></span>
                     </div>
-                    <i class="xq-avatar__g">G</i>
+                    <i class="xq-avatar__g">AI</i>
                   </div>
                   <div class="xq-avatar__glow"></div>
                 </div>

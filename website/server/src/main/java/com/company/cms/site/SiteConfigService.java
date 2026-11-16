@@ -31,15 +31,17 @@ public class SiteConfigService {
     private final AuditLogService audit;
     /** 配置里的图片也要登记引用，否则公开图片接口无法判断它是否可见 */
     private final MediaRefRepository mediaRefs;
+    private final PublicVersionService versionService;
 
     public SiteConfigService(SiteConfigRepository repository, SiteConfigValidator validator,
                              LinkResolver links, AuditLogService audit,
-                             MediaRefRepository mediaRefs) {
+                             MediaRefRepository mediaRefs, PublicVersionService versionService) {
         this.repository = repository;
         this.validator = validator;
         this.links = links;
         this.audit = audit;
         this.mediaRefs = mediaRefs;
+        this.versionService = versionService;
     }
 
     public Map<String, Object> adminView(SiteConfigKey key) {
@@ -95,6 +97,7 @@ public class SiteConfigService {
         }
         mediaRefs.copyStage("CONFIG", row.id(), "DRAFT", "PUBLISHED");
         audit.success(actor.id(), "CONFIG_PUBLISH", "CONFIG", null, "发布配置 " + key.name());
+        versionService.evictAfterCommitOrNow();
     }
 
     /**
@@ -202,7 +205,14 @@ public class SiteConfigService {
             data.put("xiaoqiConfig", safe);
         }
 
+        // 栏目首屏与横幅配置
+        JsonNode pageHeroes = siteJson.get("pageHeroes");
+        if (pageHeroes != null && pageHeroes.isObject()) {
+            data.put("pageHeroes", pageHeroes);
+        }
+
         SiteConfigRow privacy = repository.find(SiteConfigKey.PRIVACY).orElse(null);
+        data.put("siteConfigVersion", versionService.currentVersion().siteConfigVersion());
         data.put("privacyVersion", privacy != null && privacy.publishedVersion() != null
                 ? privacy.publishedVersion() : null);
         return data;

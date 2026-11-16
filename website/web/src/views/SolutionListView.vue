@@ -4,7 +4,11 @@ import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getSolutions } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { usePageHero } from '@/composables/usePageHero'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { SolutionSummary } from '@/data/types'
+
+const { hero: heroConfig, refreshHero } = usePageHero('solutions')
 
 const items = ref<SolutionSummary[]>([])
 const loading = ref(true)
@@ -15,24 +19,41 @@ usePageMeta(() => ({
   description: '面向汽车零部件、城市水务、园区能源等场景的数字化方案，包含问题、做法与可验证的结果。',
 }))
 
-onMounted(async () => {
+async function loadSolutions() {
   try {
     const result = await getSolutions({ page: 1, pageSize: 12 })
     items.value = result.items
+    failed.value = false
   } catch {
     failed.value = true
   } finally {
     loading.value = false
   }
+}
+
+useRealtimeSync(['siteConfigVersion', 'contentVersion'], async (changed, force) => {
+  if (force || changed.includes('siteConfigVersion')) {
+    await refreshHero()
+  }
+  if (force || changed.includes('contentVersion')) {
+    await loadSolutions()
+  }
 })
+
+onMounted(loadSolutions)
 </script>
 
 <template>
   <div>
     <PageHeader
-      title="解决方案"
-      description="按行业组织的落地方案。先看问题是否相似，再看做法能否复用。"
-      eyebrow="SOLUTIONS"
+      :title="heroConfig?.title || '解决方案'"
+      :description="heroConfig?.subtitle ?? '按行业组织的落地方案。先看问题是否相似，再看做法能否复用。'"
+      :eyebrow="heroConfig?.eyebrow ?? 'SOLUTIONS'"
+      :bg-type="heroConfig?.bgType || 'default'"
+      :bg-image="heroConfig?.bgImage"
+      :bg-video="heroConfig?.bgVideo"
+      :overlay-opacity="heroConfig?.overlayOpacity"
+      :tone="heroConfig?.bgType === 'image' || heroConfig?.bgType === 'video' ? 'dark' : 'light'"
       :crumbs="[{ label: '首页', path: '/' }, { label: '解决方案' }]"
     />
 

@@ -4,6 +4,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { getPrivacy } from '@/api/public'
 import { usePageMeta } from '@/composables/usePageMeta'
+import { useRealtimeSync } from '@/composables/useRealtimeSync'
 import type { PrivacyPage } from '@/data/types'
 
 const data = ref<PrivacyPage | null>(null)
@@ -14,13 +15,20 @@ usePageMeta(() => ({
   description: '说明本网站收集的信息范围、用途、保存期限与您的权利。',
 }))
 
-onMounted(async () => {
+async function loadPrivacy() {
   try {
     data.value = await getPrivacy()
+    failed.value = false
   } catch {
     failed.value = true
   }
+}
+
+useRealtimeSync(['siteConfigVersion'], () => {
+  void loadPrivacy()
 })
+
+onMounted(loadPrivacy)
 </script>
 
 <template>

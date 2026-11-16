@@ -144,6 +144,10 @@ public class SiteConfigValidator {
         if (draft.get("xiaoqiConfig") != null && draft.get("xiaoqiConfig").isObject()) {
             node.set("xiaoqiConfig", draft.get("xiaoqiConfig"));
         }
+        // 栏目首屏与横幅配置（新闻、案例、产品、方案等全站栏目首屏背景与文字）
+        if (draft.get("pageHeroes") != null && draft.get("pageHeroes").isObject()) {
+            node.set("pageHeroes", draft.get("pageHeroes"));
+        }
 
         return node;
     }
@@ -309,6 +313,24 @@ public class SiteConfigValidator {
     private ObjectNode about(JsonNode draft, List<FieldErrorItem> errors) {
         ObjectNode node = objectMapper.createObjectNode();
         node.put("heroTitle", limit(text(draft, "heroTitle"), 100, "heroTitle", "首屏标题", errors));
+        node.put("heroSubtitle", limit(text(draft, "heroSubtitle"), 500, "heroSubtitle", "首屏副标题", errors));
+        node.put("heroEyebrow", limit(text(draft, "heroEyebrow"), 60, "heroEyebrow", "首屏眉标", errors));
+        node.put("heroBgType", text(draft, "heroBgType").isEmpty() ? "default" : text(draft, "heroBgType"));
+        node.put("heroBgImage", text(draft, "heroBgImage"));
+        node.put("heroBgVideo", text(draft, "heroBgVideo"));
+        node.put("showHeroLogoMark", bool(draft, "showHeroLogoMark", false));
+
+        // 模块显隐与配图控制：支持放图片/不放图片、支持模块自由开启/关闭
+        node.put("showIntro", bool(draft, "showIntro", true));
+        boolean hasIntroImg = !text(draft, "introImage").isEmpty();
+        node.put("showIntroImage", bool(draft, "showIntroImage", hasIntroImg));
+        String defaultMode = hasIntroImg ? "image" : "none";
+        node.put("introImageMode", text(draft, "introImageMode").isEmpty() ? defaultMode : text(draft, "introImageMode"));
+        node.put("showCeoLetter", bool(draft, "showCeoLetter", true));
+        node.put("showQualifications", bool(draft, "showQualifications", true));
+        node.put("showMilestones", bool(draft, "showMilestones", true));
+        node.put("showOffices", bool(draft, "showOffices", true));
+
         node.put("introTitle", limit(text(draft, "introTitle"), 60, "introTitle", "简介标题", errors));
         node.put("intro", limit(text(draft, "intro"), 2000, "intro", "公司简介", errors));
         node.put("introImage", limit(text(draft, "introImage"), 500, "introImage", "简介图片", errors));

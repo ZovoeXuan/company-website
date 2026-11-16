@@ -57,33 +57,41 @@ interface XiaoQiConfigForm {
   systemPrompt: string
 }
 
+interface PageHeroItemForm {
+  title: string
+  subtitle: string
+  eyebrow: string
+  bgType: 'default' | 'image' | 'video'
+  bgImage: string
+  bgVideo: string
+  overlayOpacity: number
+}
+
 const activeTab = ref('basic')
+const activeHeroNames = ref(['news', 'cases', 'products', 'solutions'])
 
 const { view, loading, saving, publishing, loadError, load, save, publish } =
   useConfig<Record<string, any>>('SITE')
 
 const values = ref({
-  siteName: '示例科技',
-  slogan: '以物联网技术和软件服务改变公路货运',
-  copyrightText: '© 2026 示例科技有限公司',
-  icpText: '京ICP备08004136号',
+  siteName: '鑫链科技',
+  slogan: '以物联网技术和软件服务赋能实体产业数字化转型',
+  copyrightText: '© 2026 鑫链科技有限公司',
+  icpText: '',
   icpUrl: 'https://beian.miit.gov.cn/',
   policeText: '',
   policeUrl: '',
   logoMediaId: '',
   logoAlt: '',
   faviconMediaId: '',
-  seoTitle: '示例科技 - 领先的物联网与数字化软件服务公司',
-  seoDescription: '连接货运全流程并以数据和AI驱动运营，助力企业降本增效。',
+  seoTitle: '鑫链科技 - 领先的物联网与数字化软件服务公司',
+  seoDescription: '连接产业全流程并以数据和AI驱动运营，助力企业降本增效。',
   footerGroups: [] as FooterGroup[],
   qrCodes: [
     { label: '公众号', mediaId: '', imageUrl: '' },
     { label: '视频号', mediaId: '', imageUrl: '' },
   ] as QrCodeConfig[],
-  contactEmails: [
-    { email: 'connect@example.com', desc: '媒体联系&数据合作' },
-    { email: 'jubao@example.com', desc: '集团投诉与举报' },
-  ] as ContactEmailConfig[],
+  contactEmails: [] as ContactEmailConfig[],
   xiaoqi: {
     enabled: true,
     name: '小鑫',
@@ -115,10 +123,49 @@ const values = ref({
     modelName: 'deepseek-reasoner',
     systemPrompt: '你是公司官网的智能专家助手小鑫，请专业、清晰、热情地解答客户关于产品、解决方案与合作试用的问题。',
   } as XiaoQiConfigForm,
+  pageHeroes: {
+    news: {
+      title: '企业新闻与行业洞察',
+      subtitle: '关注物流与供应链前沿技术、业务动态与标杆企业数字化实践。',
+      eyebrow: 'NEWSROOM',
+      bgType: 'default',
+      bgImage: '',
+      bgVideo: '',
+      overlayOpacity: 0.55,
+    },
+    cases: {
+      title: '客户成功故事',
+      subtitle: '每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。',
+      eyebrow: 'CUSTOMER STORIES',
+      bgType: 'default',
+      bgImage: '',
+      bgVideo: '',
+      overlayOpacity: 0.55,
+    },
+    products: {
+      title: '产品中心',
+      subtitle: '从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。',
+      eyebrow: 'PRODUCTS',
+      bgType: 'default',
+      bgImage: '',
+      bgVideo: '',
+      overlayOpacity: 0.55,
+    },
+    solutions: {
+      title: '解决方案',
+      subtitle: '按行业组织的落地方案。先看问题是否相似，再看做法能否复用。',
+      eyebrow: 'SOLUTIONS',
+      bgType: 'default',
+      bgImage: '',
+      bgVideo: '',
+      overlayOpacity: 0.55,
+    },
+  } as Record<string, PageHeroItemForm>,
 })
 
 const pickerOpen = ref(false)
-const pickerTarget = ref<'logo' | 'favicon' | 'qr0' | 'qr1'>('logo')
+const pickerTarget = ref<string>('logo')
+const pickerKind = ref<'IMAGE' | 'VIDEO' | 'ALL'>('IMAGE')
 
 function emptyLink(): FooterLink {
   return { label: '', enabled: true, sortOrder: 100, link: { type: 'PAGE', pageCode: 'PRODUCTS' } }
@@ -127,9 +174,9 @@ function emptyLink(): FooterLink {
 function fill() {
   const draft = view.value?.draft
   if (!draft) return
-  values.value.siteName = (draft.siteName && !draft.siteName.includes('G7') && !draft.siteName.includes('易流')) ? draft.siteName : '示例科技'
+  values.value.siteName = (draft.siteName && !draft.siteName.includes('G7') && !draft.siteName.includes('易流')) ? draft.siteName : '鑫链科技'
   values.value.slogan = draft.slogan ?? ''
-  values.value.copyrightText = (draft.copyrightText && !draft.copyrightText.includes('G7') && !draft.copyrightText.includes('E6')) ? draft.copyrightText : '© 2026 示例科技有限公司'
+  values.value.copyrightText = (draft.copyrightText && !draft.copyrightText.includes('G7') && !draft.copyrightText.includes('E6')) ? draft.copyrightText : '© 2026 鑫链科技有限公司'
   values.value.icpText = draft.icpText ?? ''
   values.value.icpUrl = draft.icpUrl ?? ''
   values.value.policeText = draft.policeText ?? ''
@@ -137,7 +184,7 @@ function fill() {
   values.value.logoMediaId = draft.logoMediaId != null ? String(draft.logoMediaId) : ''
   values.value.logoAlt = draft.logoAlt ?? ''
   values.value.faviconMediaId = draft.faviconMediaId != null ? String(draft.faviconMediaId) : ''
-  values.value.seoTitle = (draft.defaultSeo?.title && !draft.defaultSeo.title.includes('G7')) ? draft.defaultSeo.title : '示例科技 - 领先的物联网与数字化软件服务公司'
+  values.value.seoTitle = (draft.defaultSeo?.title && !draft.defaultSeo.title.includes('G7')) ? draft.defaultSeo.title : '鑫链科技 - 领先的物联网与数字化软件服务公司'
   values.value.seoDescription = draft.defaultSeo?.description ?? ''
 
   values.value.footerGroups = (draft.footerGroups ?? []).map((g: any) => ({
@@ -159,11 +206,13 @@ function fill() {
     }))
   }
 
-  if (Array.isArray(draft.contactEmails) && draft.contactEmails.length > 0) {
-    values.value.contactEmails = draft.contactEmails.map((e: any) => ({
-      email: (e.email ?? '').replace(/@g7\.com\.cn/g, '@example.com'),
-      desc: e.desc ?? '',
-    }))
+  if (Array.isArray(draft.contactEmails)) {
+    values.value.contactEmails = draft.contactEmails
+      .filter((e: any) => e?.email && !/@g7\.com\.cn$/i.test(e.email))
+      .map((e: any) => ({
+        email: e.email ?? '',
+        desc: e.desc ?? '',
+      }))
   }
 
   if (draft.xiaoqiConfig && typeof draft.xiaoqiConfig === 'object') {
@@ -192,6 +241,22 @@ function fill() {
     values.value.xiaoqi.modelName = xq.modelName ?? 'deepseek-reasoner'
     values.value.xiaoqi.systemPrompt = xq.systemPrompt ?? ''
   }
+
+  if (draft.pageHeroes && typeof draft.pageHeroes === 'object') {
+    for (const key of ['news', 'cases', 'products', 'solutions']) {
+      if (draft.pageHeroes[key]) {
+        values.value.pageHeroes[key] = {
+          title: draft.pageHeroes[key].title ?? values.value.pageHeroes[key].title,
+          subtitle: draft.pageHeroes[key].subtitle ?? values.value.pageHeroes[key].subtitle,
+          eyebrow: draft.pageHeroes[key].eyebrow ?? values.value.pageHeroes[key].eyebrow,
+          bgType: draft.pageHeroes[key].bgType ?? 'default',
+          bgImage: draft.pageHeroes[key].bgImage ?? '',
+          bgVideo: draft.pageHeroes[key].bgVideo ?? '',
+          overlayOpacity: draft.pageHeroes[key].overlayOpacity ?? 0.55,
+        }
+      }
+    }
+  }
 }
 
 function buildPayload() {
@@ -217,6 +282,7 @@ function buildPayload() {
       imageUrl: q.mediaId ? `/api/public/media/${q.mediaId}` : q.imageUrl || undefined,
     })),
     contactEmails: values.value.contactEmails.filter((e) => e.email.trim()),
+    pageHeroes: values.value.pageHeroes,
     xiaoqiConfig: {
       enabled: values.value.xiaoqi.enabled,
       name: values.value.xiaoqi.name,
@@ -253,8 +319,9 @@ function addGroup() {
   values.value.footerGroups.push({ title: '新分组', links: [emptyLink()] })
 }
 
-function openPicker(target: 'logo' | 'favicon' | 'qr0' | 'qr1') {
+function openPicker(target: string, kind: 'IMAGE' | 'VIDEO' | 'ALL' = 'IMAGE') {
   pickerTarget.value = target
+  pickerKind.value = kind
   pickerOpen.value = true
 }
 
@@ -269,6 +336,16 @@ function onPicked(media: MediaItem) {
   } else if (pickerTarget.value === 'qr1') {
     values.value.qrCodes[1].mediaId = String(media.id)
     values.value.qrCodes[1].imageUrl = `/api/public/media/${media.id}`
+  } else if (pickerTarget.value.startsWith('hero-img-')) {
+    const col = pickerTarget.value.replace('hero-img-', '')
+    if (values.value.pageHeroes[col]) {
+      values.value.pageHeroes[col].bgImage = media.url || `/api/public/media/${media.id}`
+    }
+  } else if (pickerTarget.value.startsWith('hero-vid-')) {
+    const col = pickerTarget.value.replace('hero-vid-', '')
+    if (values.value.pageHeroes[col]) {
+      values.value.pageHeroes[col].bgVideo = media.url || `/api/public/media/${media.id}`
+    }
   }
   pickerOpen.value = false
 }
@@ -400,9 +477,189 @@ onMounted(async () => {
         <el-button @click="addGroup">+ 添加页脚分组（最多 4 组）</el-button>
       </el-tab-pane>
 
+      <!-- Tab 3: 栏目首屏与横幅配置 -->
+      <el-tab-pane label="3. 栏目首屏与横幅 (新闻 / 案例 / 产品 / 方案)" name="pageHeroes">
+        <el-alert
+          type="info"
+          :closable="false"
+          title="在此统一配置新闻中心、客户案例、产品中心、解决方案 4 大核心栏目的首屏大标题、副标题、标签及背景媒体（支持默认渐变流光、自定义图片、自定义视频循环播放），实时发布官网同步生效。"
+          style="margin-bottom: 20px"
+        />
+
+        <el-collapse v-model="activeHeroNames">
+          <!-- 1. 新闻中心首屏 -->
+          <el-collapse-item title="📰 新闻中心首屏横幅 (/news)" name="news">
+            <el-form label-width="140px" class="form">
+              <el-form-item label="首屏大标题">
+                <el-input v-model="values.pageHeroes.news.title" maxlength="60" show-word-limit placeholder="例如：企业新闻与行业洞察" />
+              </el-form-item>
+              <el-form-item label="首屏描述/副标题">
+                <el-input v-model="values.pageHeroes.news.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="例如：关注物流与供应链前沿技术、业务动态与标杆企业数字化实践。" />
+              </el-form-item>
+              <el-form-item label="首屏眉题/英文标签">
+                <el-input v-model="values.pageHeroes.news.eyebrow" maxlength="40" placeholder="例如：NEWSROOM" style="width: 280px" />
+              </el-form-item>
+              <el-form-item label="首屏背景类型">
+                <el-radio-group v-model="values.pageHeroes.news.bgType">
+                  <el-radio-button value="default">默认光效背景</el-radio-button>
+                  <el-radio-button value="image">自定义背景图片</el-radio-button>
+                  <el-radio-button value="video">自定义背景视频</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.news.bgType === 'image'" label="背景图片">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.news.bgImage" placeholder="输入图片 URL 或从素材库选择" />
+                  <el-button @click="openPicker('hero-img-news', 'IMAGE')">选择素材</el-button>
+                  <el-button v-if="values.pageHeroes.news.bgImage" link type="danger" @click="values.pageHeroes.news.bgImage = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.news.bgImage" style="margin-top: 8px">
+                  <img :src="values.pageHeroes.news.bgImage" style="max-height: 80px; border-radius: 4px; border: 1px solid #ddd" />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.news.bgType === 'video'" label="背景视频">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.news.bgVideo" placeholder="输入视频 URL (mp4/webm) 或从素材库选择" />
+                  <el-button @click="openPicker('hero-vid-news', 'VIDEO')">选择视频</el-button>
+                  <el-button v-if="values.pageHeroes.news.bgVideo" link type="danger" @click="values.pageHeroes.news.bgVideo = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.news.bgVideo" style="margin-top: 8px">
+                  <video :src="values.pageHeroes.news.bgVideo" style="max-height: 90px; border-radius: 4px" muted autoplay loop></video>
+                </div>
+              </el-form-item>
+            </el-form>
+          </el-collapse-item>
+
+          <!-- 2. 客户案例首屏 -->
+          <el-collapse-item title="💼 客户案例首屏横幅 (/cases)" name="cases">
+            <el-form label-width="140px" class="form">
+              <el-form-item label="首屏大标题">
+                <el-input v-model="values.pageHeroes.cases.title" maxlength="60" show-word-limit placeholder="例如：客户成功故事" />
+              </el-form-item>
+              <el-form-item label="首屏描述/副标题">
+                <el-input v-model="values.pageHeroes.cases.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="例如：每个案例都写清了三件事：原来什么问题、做了什么、结果怎么衡量。" />
+              </el-form-item>
+              <el-form-item label="首屏眉题/英文标签">
+                <el-input v-model="values.pageHeroes.cases.eyebrow" maxlength="40" placeholder="例如：CUSTOMER STORIES" style="width: 280px" />
+              </el-form-item>
+              <el-form-item label="首屏背景类型">
+                <el-radio-group v-model="values.pageHeroes.cases.bgType">
+                  <el-radio-button value="default">默认光效背景</el-radio-button>
+                  <el-radio-button value="image">自定义背景图片</el-radio-button>
+                  <el-radio-button value="video">自定义背景视频</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.cases.bgType === 'image'" label="背景图片">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.cases.bgImage" placeholder="输入图片 URL 或从素材库选择" />
+                  <el-button @click="openPicker('hero-img-cases', 'IMAGE')">选择素材</el-button>
+                  <el-button v-if="values.pageHeroes.cases.bgImage" link type="danger" @click="values.pageHeroes.cases.bgImage = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.cases.bgImage" style="margin-top: 8px">
+                  <img :src="values.pageHeroes.cases.bgImage" style="max-height: 80px; border-radius: 4px; border: 1px solid #ddd" />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.cases.bgType === 'video'" label="背景视频">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.cases.bgVideo" placeholder="输入视频 URL (mp4/webm) 或从素材库选择" />
+                  <el-button @click="openPicker('hero-vid-cases', 'VIDEO')">选择视频</el-button>
+                  <el-button v-if="values.pageHeroes.cases.bgVideo" link type="danger" @click="values.pageHeroes.cases.bgVideo = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.cases.bgVideo" style="margin-top: 8px">
+                  <video :src="values.pageHeroes.cases.bgVideo" style="max-height: 90px; border-radius: 4px" muted autoplay loop></video>
+                </div>
+              </el-form-item>
+            </el-form>
+          </el-collapse-item>
+
+          <!-- 3. 产品中心首屏 -->
+          <el-collapse-item title="📦 产品中心首屏横幅 (/products)" name="products">
+            <el-form label-width="140px" class="form">
+              <el-form-item label="首屏大标题">
+                <el-input v-model="values.pageHeroes.products.title" maxlength="60" show-word-limit placeholder="例如：产品中心" />
+              </el-form-item>
+              <el-form-item label="首屏描述/副标题">
+                <el-input v-model="values.pageHeroes.products.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="例如：从设备接入到运维决策，按产线实际情况选择模块，也可以整套落地。" />
+              </el-form-item>
+              <el-form-item label="首屏眉题/英文标签">
+                <el-input v-model="values.pageHeroes.products.eyebrow" maxlength="40" placeholder="例如：PRODUCTS" style="width: 280px" />
+              </el-form-item>
+              <el-form-item label="首屏背景类型">
+                <el-radio-group v-model="values.pageHeroes.products.bgType">
+                  <el-radio-button value="default">默认光效背景</el-radio-button>
+                  <el-radio-button value="image">自定义背景图片</el-radio-button>
+                  <el-radio-button value="video">自定义背景视频</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.products.bgType === 'image'" label="背景图片">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.products.bgImage" placeholder="输入图片 URL 或从素材库选择" />
+                  <el-button @click="openPicker('hero-img-products', 'IMAGE')">选择素材</el-button>
+                  <el-button v-if="values.pageHeroes.products.bgImage" link type="danger" @click="values.pageHeroes.products.bgImage = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.products.bgImage" style="margin-top: 8px">
+                  <img :src="values.pageHeroes.products.bgImage" style="max-height: 80px; border-radius: 4px; border: 1px solid #ddd" />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.products.bgType === 'video'" label="背景视频">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.products.bgVideo" placeholder="输入视频 URL (mp4/webm) 或从素材库选择" />
+                  <el-button @click="openPicker('hero-vid-products', 'VIDEO')">选择视频</el-button>
+                  <el-button v-if="values.pageHeroes.products.bgVideo" link type="danger" @click="values.pageHeroes.products.bgVideo = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.products.bgVideo" style="margin-top: 8px">
+                  <video :src="values.pageHeroes.products.bgVideo" style="max-height: 90px; border-radius: 4px" muted autoplay loop></video>
+                </div>
+              </el-form-item>
+            </el-form>
+          </el-collapse-item>
+
+          <!-- 4. 解决方案首屏 -->
+          <el-collapse-item title="💡 解决方案首屏横幅 (/solutions)" name="solutions">
+            <el-form label-width="140px" class="form">
+              <el-form-item label="首屏大标题">
+                <el-input v-model="values.pageHeroes.solutions.title" maxlength="60" show-word-limit placeholder="例如：解决方案" />
+              </el-form-item>
+              <el-form-item label="首屏描述/副标题">
+                <el-input v-model="values.pageHeroes.solutions.subtitle" type="textarea" :rows="2" maxlength="200" show-word-limit placeholder="例如：按行业组织的落地方案。先看问题是否相似，再看做法能否复用。" />
+              </el-form-item>
+              <el-form-item label="首屏眉题/英文标签">
+                <el-input v-model="values.pageHeroes.solutions.eyebrow" maxlength="40" placeholder="例如：SOLUTIONS" style="width: 280px" />
+              </el-form-item>
+              <el-form-item label="首屏背景类型">
+                <el-radio-group v-model="values.pageHeroes.solutions.bgType">
+                  <el-radio-button value="default">默认光效背景</el-radio-button>
+                  <el-radio-button value="image">自定义背景图片</el-radio-button>
+                  <el-radio-button value="video">自定义背景视频</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.solutions.bgType === 'image'" label="背景图片">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.solutions.bgImage" placeholder="输入图片 URL 或从素材库选择" />
+                  <el-button @click="openPicker('hero-img-solutions', 'IMAGE')">选择素材</el-button>
+                  <el-button v-if="values.pageHeroes.solutions.bgImage" link type="danger" @click="values.pageHeroes.solutions.bgImage = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.solutions.bgImage" style="margin-top: 8px">
+                  <img :src="values.pageHeroes.solutions.bgImage" style="max-height: 80px; border-radius: 4px; border: 1px solid #ddd" />
+                </div>
+              </el-form-item>
+              <el-form-item v-if="values.pageHeroes.solutions.bgType === 'video'" label="背景视频">
+                <div class="pick-row">
+                  <el-input v-model="values.pageHeroes.solutions.bgVideo" placeholder="输入视频 URL (mp4/webm) 或从素材库选择" />
+                  <el-button @click="openPicker('hero-vid-solutions', 'VIDEO')">选择视频</el-button>
+                  <el-button v-if="values.pageHeroes.solutions.bgVideo" link type="danger" @click="values.pageHeroes.solutions.bgVideo = ''">清除</el-button>
+                </div>
+                <div v-if="values.pageHeroes.solutions.bgVideo" style="margin-top: 8px">
+                  <video :src="values.pageHeroes.solutions.bgVideo" style="max-height: 90px; border-radius: 4px" muted autoplay loop></video>
+                </div>
+              </el-form-item>
+            </el-form>
+          </el-collapse-item>
+        </el-collapse>
+      </el-tab-pane>
+
     </el-tabs>
 
-    <MediaPicker v-model="pickerOpen" kind="IMAGE" @select="onPicked" />
+    <MediaPicker v-model="pickerOpen" :kind="pickerKind" @select="onPicked" />
   </ConfigPanel>
 </template>
 

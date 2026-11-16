@@ -12,15 +12,52 @@ withDefaults(
     tone?: 'dark' | 'light'
     centered?: boolean
     eyebrow?: string
+    bgType?: 'default' | 'image' | 'video'
+    bgImage?: string
+    bgVideo?: string
+    overlayOpacity?: number
   }>(),
-  { tone: 'dark', centered: false, eyebrow: '' },
+  { tone: 'dark', centered: false, eyebrow: '', bgType: 'default', overlayOpacity: 0.5 },
 )
 </script>
 
 <template>
-  <header class="page-head" :class="[`page-head--${tone}`, { 'is-centered': centered }]" :aria-labelledby="'page-title'">
-    <div class="page-head__glow" aria-hidden="true"></div>
-    <div class="page-head__grid" aria-hidden="true"></div>
+  <header
+    class="page-head"
+    :class="[
+      `page-head--${tone}`,
+      {
+        'is-centered': centered,
+        'has-media-bg': (bgType === 'image' && !!bgImage) || (bgType === 'video' && !!bgVideo),
+      },
+    ]"
+    :aria-labelledby="'page-title'"
+  >
+    <video
+      v-if="bgType === 'video' && bgVideo"
+      class="page-head__media-video"
+      :src="bgVideo"
+      autoplay
+      muted
+      loop
+      playsinline
+    ></video>
+    <div
+      v-else-if="bgType === 'image' && bgImage"
+      class="page-head__media-image"
+      :style="{ backgroundImage: `url(${bgImage})` }"
+    ></div>
+    <template v-else>
+      <div class="page-head__glow" aria-hidden="true"></div>
+      <div class="page-head__grid" aria-hidden="true"></div>
+    </template>
+    <div
+      v-if="(bgType === 'image' && !!bgImage) || (bgType === 'video' && !!bgVideo)"
+      class="page-head__overlay"
+      :style="{ opacity: overlayOpacity ?? 0.55 }"
+      aria-hidden="true"
+    ></div>
+
     <div class="container page-head__inner">
       <nav v-if="crumbs?.length" class="crumbs" aria-label="面包屑">
         <ol class="crumbs__list">
@@ -174,6 +211,59 @@ withDefaults(
 
 .is-centered .kicker {
   justify-content: center;
+}
+
+.page-head__media-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.page-head__media-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+.page-head__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 10, 18, 0.72) 0%, rgba(8, 10, 18, 0.85) 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.has-media-bg {
+  color: #ffffff !important;
+}
+
+.has-media-bg .page-head__title {
+  color: #ffffff !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.has-media-bg .page-head__desc {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.has-media-bg .crumbs__list {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.has-media-bg .crumbs__link:hover {
+  color: #ffffff !important;
 }
 
 @media (max-width: 860px) {

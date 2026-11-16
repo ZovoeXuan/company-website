@@ -84,7 +84,7 @@ cd website/web && npm install && npm run dev      # http://localhost:5173
 cd website/admin && npm install && npm run dev    # http://localhost:5174/admin/
 ```
 
-Vite 已把 `/api` 代理到 `127.0.0.1:8080`，开发期不需要处理跨域。
+Vite 已把 `/api` 代理到 `127.0.0.1:8088`（与 `application-local.yml` 一致；若需以默认 `8080` 启动，请同步调整 `vite.config.ts`），开发期不需要处理跨域。
 
 ### 3.4 构建产物
 

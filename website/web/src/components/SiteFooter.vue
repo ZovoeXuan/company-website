@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ContactEmailItem, NavItem, QrCodeItem, SiteConfig } from '@/data/types'
+import { isPlaceholderIcp, resolvePublicContactEmails } from '@/utils/siteDisplay'
 
 const props = defineProps<{ config: SiteConfig }>()
 
@@ -64,18 +65,11 @@ const groups = computed(() => {
 })
 
 const contactEmails = computed<ContactEmailItem[]>(() => {
-  if (props.config.contactEmails && props.config.contactEmails.length > 0) {
-    return props.config.contactEmails
-  }
-  const primary = props.config.contact?.email || 'connect@example.com'
-  return [
-    { email: primary, desc: '媒体联系&数据合作' },
-    { email: 'jubao@example.com', desc: '集团投诉与举报' },
-  ]
+  return resolvePublicContactEmails(props.config.contactEmails, props.config.contact?.email)
 })
 
 const contactAddress = computed(
-  () => props.config.contact?.address || '北京市海淀区中关村科技园区',
+  () => props.config.contact?.address || '',
 )
 
 const qrCodes = computed<QrCodeItem[]>(() => {
@@ -90,9 +84,14 @@ const qrCodes = computed<QrCodeItem[]>(() => {
   ]
 })
 
-const icpText = computed(() => props.config.footer?.icp || '京ICP备08004136号')
+const icpText = computed(() => {
+  const raw = props.config.footer?.icp
+  return isPlaceholderIcp(raw) ? '' : raw!.trim()
+})
 const icpUrl = computed(() => props.config.footer?.icpUrl || 'https://beian.miit.gov.cn/')
-const copyrightText = computed(() => props.config.footer?.copyright || '© 2026 示例科技有限公司')
+const copyrightText = computed(
+  () => props.config.footer?.copyright || `© ${new Date().getFullYear()} ${props.config.siteName || '鑫链科技'}`,
+)
 
 function switchLang(lang: 'zh' | 'en') {
   document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN'
@@ -130,14 +129,17 @@ function switchLang(lang: 'zh' | 'en') {
         </ul>
       </div>
 
-      <!-- 第 5 列：联系我们（双邮箱 + 灰色职能说明 + 底部地址） -->
+      <!-- 第 5 列：联系我们 -->
       <div class="g7-footer__col g7-footer__col--contact">
         <h3 class="g7-footer__title">联系我们</h3>
-        <div v-for="item in contactEmails" :key="item.email" class="g7-footer__email-block">
-          <a :href="`mailto:${item.email}`" class="g7-footer__email">{{ item.email }}</a>
-          <span class="g7-footer__email-desc">{{ item.desc }}</span>
-        </div>
-        <p class="g7-footer__addr">{{ contactAddress }}</p>
+        <template v-if="contactEmails.length > 0">
+          <div v-for="item in contactEmails" :key="item.email" class="g7-footer__email-block">
+            <a :href="`mailto:${item.email}`" class="g7-footer__email">{{ item.email }}</a>
+            <span class="g7-footer__email-desc">{{ item.desc }}</span>
+          </div>
+        </template>
+        <p v-else class="g7-footer__email-desc">官方邮箱待公开</p>
+        <p v-if="contactAddress" class="g7-footer__addr">{{ contactAddress }}</p>
       </div>
 
       <!-- 第 6 列：关注我们（双二维码上下垂直排列：公众号在上、视频号在下） -->
@@ -162,8 +164,8 @@ function switchLang(lang: 'zh' | 'en') {
                 <rect x="16" y="74" width="10" height="10" fill="#111" />
                 <rect x="42" y="12" width="6" height="6" fill="#111" />
                 <rect x="52" y="20" width="6" height="12" fill="#111" />
-                <rect x="40" y="40" width="20" height="20" rx="3" fill="#4f46e5" />
-                <text x="50" y="55" text-anchor="middle" fill="#fff" font-size="13" font-weight="900" font-style="italic">G</text>
+                <rect x="42" y="42" width="16" height="16" rx="3" fill="#4f46e5" />
+                <rect x="46" y="46" width="8" height="8" rx="1" fill="#ffffff" />
                 <rect x="14" y="44" width="18" height="6" fill="#111" />
                 <rect x="68" y="44" width="18" height="6" fill="#111" />
                 <rect x="44" y="68" width="12" height="6" fill="#111" />
@@ -188,8 +190,8 @@ function switchLang(lang: 'zh' | 'en') {
         </div>
 
         <div class="g7-footer__legal">
-          <RouterLink to="/privacy" class="g7-footer__legal-link">网络货运信息公示</RouterLink>
           <a
+            v-if="icpText"
             :href="icpUrl"
             target="_blank"
             rel="noopener noreferrer"
@@ -197,6 +199,7 @@ function switchLang(lang: 'zh' | 'en') {
           >
             {{ icpText }}
           </a>
+          <span v-else class="g7-footer__legal-link">备案号待补充</span>
           <RouterLink to="/privacy" class="g7-footer__legal-link">隐私说明</RouterLink>
           <p class="g7-footer__copy">{{ copyrightText }}</p>
         </div>
